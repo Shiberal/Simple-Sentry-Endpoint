@@ -327,7 +327,7 @@ except Exception as e:
                   className={styles.input}
                 />
                 <p className={styles.helpText}>
-                  Enter your repository in the format "owner/repo" or paste the full GitHub URL
+                  Enter your repository in the format &quot;owner/repo&quot; or paste the full GitHub URL
                 </p>
               </div>
               
@@ -341,7 +341,7 @@ except Exception as e:
                   className={styles.input}
                 />
                 <p className={styles.helpText}>
-                  Personal access token with "repo" scope. Required for private repositories.
+                  Personal access token with &quot;repo&quot; scope. Required for private repositories.
                   <br />
                   <a 
                     href="https://github.com/settings/tokens/new?scopes=repo&description=Sentry%20Clone%20Integration" 
@@ -378,7 +378,7 @@ except Exception as e:
             {showDeleteConfirm ? (
               <div className={styles.deleteConfirm}>
                 <p className={styles.deleteWarning}>
-                  Are you sure? This will permanently delete "{project.name}" and all {project._count.events} events.
+                  Are you sure? This will permanently delete &quot;{project.name}&quot; and all {project._count.events} events.
                 </p>
                 <div className={styles.deleteButtons}>
                   <button 

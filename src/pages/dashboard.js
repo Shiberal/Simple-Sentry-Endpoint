@@ -1389,7 +1389,7 @@ export default function Dashboard() {
                 <ol className={styles.githubSteps}>
                   <li>Copy the title and body above</li>
                   <li>Go to your GitHub repository</li>
-                  <li>Click "Issues" → "New Issue"</li>
+                  <li>Click &quot;Issues&quot; → &quot;New Issue&quot;</li>
                   <li>Paste the content and submit</li>
                 </ol>
               </div>

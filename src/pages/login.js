@@ -92,7 +92,7 @@ export default function Login() {
 
           <div className={styles.footer}>
             <p className={styles.footerText}>
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <Link href="/register" className={styles.link}>
                 Sign up
               </Link>
