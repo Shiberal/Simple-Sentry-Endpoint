@@ -1,4 +1,4 @@
-# Production Dockerfile for Next.js Sentry Listener
+# Dockerfile using AWS ECR Public registry (bypasses Docker Hub completely)
 FROM public.ecr.aws/docker/library/node:20-alpine AS base
 
 # Install dependencies only when needed
@@ -68,4 +68,3 @@ ENV HOSTNAME="0.0.0.0"
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output
 CMD ["node", "server.js"]
-
