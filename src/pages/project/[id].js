@@ -112,9 +112,28 @@ export default function ProjectSettings() {
     );
   }
 
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  // Get base URL - works in both SSR and client-side
+  const getBaseUrl = () => {
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+    // Fallback to environment variable for SSR
+    return process.env.NEXT_PUBLIC_BASE_URL || 'https://error.cool.errline5.org';
+  };
+  
+  const getHost = () => {
+    if (typeof window !== 'undefined') {
+      return window.location.host;
+    }
+    // Fallback for SSR - extract host from base URL or use env
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://error.cool.errline5.org';
+    return baseUrl.replace(/^https?:\/\//, '');
+  };
+
+  const baseUrl = getBaseUrl();
+  const host = getHost();
   const envelopeUrl = `${baseUrl}/api/${project.key}/envelope`;
-  const dsn = `https://dummy@${typeof window !== 'undefined' ? window.location.host : ''}/${project.key}`;
+  const dsn = `https://dummy@${host}/${project.key}`;
 
   const curlExample = `curl -X POST ${envelopeUrl} \\
   -H "Content-Type: application/json" \\
