@@ -243,9 +243,26 @@ def send_error(message, level='error'):
         <div className={styles.main}>
           {/* DSN Section */}
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Project Key (DSN)</h2>
+            <h2 className={styles.sectionTitle}>DSN (Data Source Name)</h2>
             <p className={styles.sectionDescription}>
-              Use this unique key to send events to your project.
+              Use this DSN with the official Sentry SDK. This is the recommended method.
+            </p>
+            <div className={styles.codeContainer}>
+              <code className={styles.code}>{dsn}</code>
+              <button 
+                onClick={() => handleCopy(dsn)}
+                className={styles.copyButton}
+              >
+                {copied ? '✓ Copied!' : '📋 Copy'}
+              </button>
+            </div>
+          </section>
+
+          {/* Project Key */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>Project Key</h2>
+            <p className={styles.sectionDescription}>
+              Your unique project identifier.
             </p>
             <div className={styles.codeContainer}>
               <code className={styles.code}>{project.key}</code>
@@ -260,9 +277,9 @@ def send_error(message, level='error'):
 
           {/* Endpoint URL */}
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Envelope Endpoint</h2>
+            <h2 className={styles.sectionTitle}>Envelope Endpoint (Advanced)</h2>
             <p className={styles.sectionDescription}>
-              Send events to this endpoint using HTTP POST.
+              Direct HTTP endpoint for manual integrations. Most users should use the DSN above instead.
             </p>
             <div className={styles.codeContainer}>
               <code className={styles.code}>{envelopeUrl}</code>
