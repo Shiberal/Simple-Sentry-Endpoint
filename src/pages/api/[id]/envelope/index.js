@@ -27,8 +27,18 @@ export default async function handler(req, res) {
   const { id } = req.query;
   const { method } = req;
 
+  console.log('\n🎯 ENVELOPE HANDLER REACHED');
+  console.log(`   Project ID: ${id}`);
+  console.log(`   Method: ${method}`);
+  console.log(`   Headers:`, {
+    'content-type': req.headers['content-type'],
+    'content-encoding': req.headers['content-encoding'],
+    'content-length': req.headers['content-length']
+  });
+
   switch (method) {
     case 'GET':
+      console.log('ℹ️  GET request to envelope endpoint (test/health check)');
       res.status(200).json({ 
         success: true, 
         message: `Get envelope for project ID: ${id}`,
@@ -37,6 +47,7 @@ export default async function handler(req, res) {
       break;
 
     case 'POST':
+      console.log('📦 Processing POST request with error data...');
       try {
         // Get raw body buffer
         const rawBody = await getRawBody(req);
@@ -54,10 +65,12 @@ export default async function handler(req, res) {
           decompressedData = rawBody.toString('utf-8');
         }
         
-        console.log('Decompressed data:', decompressedData);
+        console.log('📄 Decompressed data length:', decompressedData.length, 'bytes');
+        console.log('📄 First 200 chars:', decompressedData.substring(0, 200));
         
         // Parse the envelope data (Sentry envelopes are newline-delimited JSON)
         const lines = decompressedData.split('\n').filter(line => line.trim());
+        console.log('📋 Envelope has', lines.length, 'lines');
         
         // Parse and save the event to database
         let eventData = {};
@@ -96,12 +109,15 @@ export default async function handler(req, res) {
         });
 
         if (!project) {
+          console.error('❌ Project not found with ID:', projectId);
           return res.status(404).json({ 
             success: false, 
             error: 'Project not found',
             message: 'Invalid project ID'
           });
         }
+
+        console.log('✅ Project found:', project.name, '(ID:', project.id, ')');
 
         // Generate fingerprint for grouping
         const fingerprint = generateFingerprint(eventData);
@@ -123,6 +139,7 @@ export default async function handler(req, res) {
 
         if (issue) {
           // Update existing issue
+          console.log('🔄 Updating existing issue:', issue.title);
           issue = await prisma.issue.update({
             where: { id: issue.id },
             data: {
@@ -132,6 +149,7 @@ export default async function handler(req, res) {
           });
         } else {
           // Create new issue
+          console.log('🆕 Creating NEW issue:', title);
           isNewIssue = true;
           issue = await prisma.issue.create({
             data: {
@@ -155,6 +173,8 @@ export default async function handler(req, res) {
             data: eventData
           }
         });
+        
+        console.log('💾 Event saved to database (ID:', event.id, ')');
 
         // Check alert rules and send notifications
         const alertRules = await prisma.alertRule.findMany({
@@ -199,6 +219,7 @@ export default async function handler(req, res) {
             // Send alert
             const recipients = rule.emailRecipients.split(',').map(e => e.trim()).filter(Boolean);
             if (recipients.length > 0) {
+              console.log('📧 Sending alert to:', recipients.join(', '));
               await sendNewIssueAlert({
                 recipients,
                 issue,
@@ -214,6 +235,11 @@ export default async function handler(req, res) {
             }
           }
         }
+        
+        console.log('✅ SUCCESS: Envelope processed successfully!');
+        console.log(`   Event ID: ${event.id}`);
+        console.log(`   Issue ID: ${issue.id}`);
+        console.log(`   New Issue: ${isNewIssue}`);
         
         res.status(200).json({ 
           success: true, 
