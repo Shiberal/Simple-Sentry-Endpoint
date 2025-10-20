@@ -24,6 +24,31 @@ The `pages/api` directory is mapped to `/api/*`. Files in this directory are tre
 
 This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Prisma Database
+
+This project uses [Prisma](https://www.prisma.io/) with SQLite as the database.
+
+### Database Commands
+
+```bash
+# Generate Prisma Client after schema changes
+npm run prisma:generate
+
+# Create and apply migrations
+npm run prisma:migrate
+
+# Open Prisma Studio (database GUI)
+npm run prisma:studio
+```
+
+### Example API Endpoint
+
+Check out the `/api/users` endpoint for an example of how to use Prisma:
+- GET `/api/users` - Fetch all users
+- POST `/api/users` - Create a new user (send JSON with `email` and optional `name`)
+
+The Prisma schema is located at `prisma/schema.prisma` and the Prisma client is initialized in `src/lib/prisma.js`.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

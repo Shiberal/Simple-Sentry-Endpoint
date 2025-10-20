@@ -1,0 +1,63 @@
+/* Badge Component Styles */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+}
+
+/* Default badge */
+.default {
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+/* Error badge */
+.error {
+  background-color: var(--error-bg);
+  color: var(--error-text);
+  border: 1px solid var(--error);
+}
+
+/* Warning badge */
+.warning {
+  background-color: var(--warning-bg);
+  color: var(--warning-text);
+  border: 1px solid var(--warning);
+}
+
+/* Info badge */
+.info {
+  background-color: var(--info-bg);
+  color: var(--info-text);
+  border: 1px solid var(--info);
+}
+
+/* Success badge */
+.success {
+  background-color: var(--success-bg);
+  color: var(--success-text);
+  border: 1px solid var(--success);
+}
+
+/* Accent badge */
+.accent {
+  background-color: var(--accent-primary);
+  color: white;
+}
+
+/* Subtle variant (no border) */
+.subtle {
+  border: none;
+}
+
+/* Count badge */
+.count {
+  min-width: 20px;
+  text-align: center;
+}
+

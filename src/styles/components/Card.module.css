@@ -1,0 +1,66 @@
+/* Card Component Styles */
+
+.card {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  transition: all var(--transition-base);
+}
+
+.card:hover {
+  border-color: var(--border-primary);
+}
+
+/* Interactive card */
+.interactive {
+  cursor: pointer;
+}
+
+.interactive:hover {
+  background-color: var(--bg-secondary);
+}
+
+.interactive:active {
+  transform: translateY(1px);
+}
+
+/* Selected state */
+.selected {
+  border-color: var(--accent-primary);
+  background-color: var(--bg-secondary);
+}
+
+/* Card with subtle shadow */
+.elevated {
+  box-shadow: var(--shadow-sm);
+}
+
+/* Compact card */
+.compact {
+  padding: var(--space-3);
+}
+
+/* Card header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+/* Card title */
+.title {
+  font-size: var(--font-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* Card content */
+.content {
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  line-height: var(--leading-normal);
+}
+
