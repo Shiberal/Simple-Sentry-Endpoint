@@ -251,18 +251,29 @@ export default async function handler(req, res) {
           body: lines
         });
       } catch (error) {
-        console.error('Error processing envelope:', error);
+        console.error('\n❌ ERROR PROCESSING ENVELOPE:');
+        console.error('   Error Type:', error.constructor.name);
+        console.error('   Error Message:', error.message);
+        console.error('   Stack Trace:', error.stack);
+        
         res.status(400).json({ 
           success: false, 
           error: 'Failed to process envelope data',
-          message: error.message
+          message: error.message,
+          details: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
       }
       break;
 
     default:
+      console.log(`❌ Method ${method} not allowed on envelope endpoint`);
       res.setHeader('Allow', ['GET', 'POST']);
-      res.status(405).end(`Method ${method} Not Allowed`);
+      res.status(405).json({
+        success: false,
+        error: 'Method Not Allowed',
+        message: `Method ${method} is not allowed. Use POST to send events or GET to test the endpoint.`,
+        allowed: ['GET', 'POST']
+      });
   }
 }
 
