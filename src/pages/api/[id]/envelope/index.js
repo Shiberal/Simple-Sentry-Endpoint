@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     case 'GET':
       res.status(200).json({ 
         success: true, 
-        message: `Get envelope for project key: ${id}`,
+        message: `Get envelope for project ID: ${id}`,
         id 
       });
       break;
@@ -81,23 +81,25 @@ export default async function handler(req, res) {
           });
         }
 
-        // Find project by key (id is the project key)
-        let project = await prisma.project.findFirst({
-          where: { key: id }
-        });
-
-        // For backward compatibility, also try to find by ID if key lookup fails
-        if (!project && !isNaN(parseInt(id))) {
-          project = await prisma.project.findFirst({
-            where: { id: parseInt(id) }
+        // Find project by numeric ID
+        const projectId = parseInt(id);
+        if (isNaN(projectId)) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Invalid project ID',
+            message: 'Project ID must be a number'
           });
         }
+
+        const project = await prisma.project.findFirst({
+          where: { id: projectId }
+        });
 
         if (!project) {
           return res.status(404).json({ 
             success: false, 
             error: 'Project not found',
-            message: 'Invalid project key or ID'
+            message: 'Invalid project ID'
           });
         }
 

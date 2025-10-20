@@ -132,8 +132,8 @@ export default function ProjectSettings() {
 
   const baseUrl = getBaseUrl();
   const host = getHost();
-  const envelopeUrl = `${baseUrl}/api/${project.key}/envelope`;
-  const dsn = `https://dummy@${host}/${project.key}`;
+  const envelopeUrl = `${baseUrl}/api/${project.id}/envelope`;
+  const dsn = `https://${project.key}@${host}/${project.id}`;
 
   const curlExample = `curl -X POST ${envelopeUrl} \\
   -H "Content-Type: application/json" \\
