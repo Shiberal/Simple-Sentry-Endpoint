@@ -114,14 +114,31 @@ export default function ProjectSettings() {
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const envelopeUrl = `${baseUrl}/api/${project.key}/envelope`;
-  const dsn = `${baseUrl}@${project.key}`;
+  const dsn = `https://dummy@${typeof window !== 'undefined' ? window.location.host : ''}/${project.key}`;
 
   const curlExample = `curl -X POST ${envelopeUrl} \\
   -H "Content-Type: application/json" \\
   -d '{"event_id":"'$(date +%s)'"}
 {"level":"error","message":"Test error from curl","environment":"production","platform":"node"}'`;
 
-  const nodeExample = `// Using fetch in Node.js or Browser
+  const nodeExample = `// Using Official Sentry SDK (Recommended)
+import * as Sentry from "@sentry/browser"; // or @sentry/node
+
+Sentry.init({
+  dsn: "${dsn}",
+  tracesSampleRate: 1.0,
+  environment: "production",
+});
+
+// Errors are automatically captured
+try {
+  // Your code
+  undefinedFunction();
+} catch (error) {
+  Sentry.captureException(error);
+}
+
+// Or use manual envelope API
 const sendError = async (error) => {
   const envelope = \`{\"event_id\":\"\${Date.now()}\"}\\n\${JSON.stringify({
     level: 'error',
@@ -149,16 +166,26 @@ const sendError = async (error) => {
     headers: { 'Content-Type': 'application/json' },
     body: envelope
   });
-};
+};`;
 
-// Usage
-try {
-  // Your code
-} catch (error) {
-  await sendError(error);
-}`;
+  const pythonExample = `# Using Official Sentry SDK (Recommended)
+import sentry_sdk
 
-  const pythonExample = `import requests
+sentry_sdk.init(
+    dsn="${dsn}",
+    traces_sample_rate=1.0,
+    environment="production",
+)
+
+# Errors are automatically captured
+try:
+    # Your code
+    1 / 0
+except Exception as e:
+    sentry_sdk.capture_exception(e)
+
+# Or use manual envelope API
+import requests
 import json
 import time
 
@@ -176,14 +203,7 @@ def send_error(message, level='error'):
         '${envelopeUrl}',
         data=envelope,
         headers={'Content-Type': 'application/json'}
-    )
-
-# Usage
-try:
-    # Your code
-    raise Exception("Something went wrong")
-except Exception as e:
-    send_error(str(e))`;
+    )`;
 
   return (
     <>
