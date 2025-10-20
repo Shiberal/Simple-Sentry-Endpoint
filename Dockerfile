@@ -1,17 +1,11 @@
 # Production Dockerfile for Next.js Sentry Listener
-FROM ubuntu:22.04 AS base
-
-# Install Node.js 20 and required packages
-RUN apt-get update && apt-get install -y \
-    curl \
-    ca-certificates \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
+# Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
+RUN apk add --no-cache libc6-compat openssl
+
 WORKDIR /app
 
 # Install dependencies based on the preferred package manager
@@ -44,8 +38,8 @@ ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN groupadd --system --gid 1001 nodejs
-RUN useradd --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
 # Copy public assets
 COPY --from=builder /app/public ./public
