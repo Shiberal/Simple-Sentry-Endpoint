@@ -224,6 +224,83 @@ def send_error(message, level='error'):
         headers={'Content-Type': 'application/json'}
     )`;
 
+  const phpExample = `<?php
+// Install: composer require sentry/sdk guzzlehttp/guzzle
+require_once __DIR__ . '/vendor/autoload.php';
+
+// Custom HTTP client to follow redirects (required for this server)
+class RedirectHttpClient implements \\Sentry\\HttpClient\\HttpClientInterface {
+    private $client;
+    
+    public function __construct() {
+        $this->client = new \\GuzzleHttp\\Client([
+            'allow_redirects' => true,
+            'timeout' => 5,
+        ]);
+    }
+    
+    public function sendRequest(
+        \\Sentry\\HttpClient\\Request $request,
+        \\Sentry\\Options $options
+    ): \\Sentry\\HttpClient\\Response {
+        $dsn = $options->getDsn();
+        $url = $dsn->getEnvelopeApiEndpointUrl();
+        
+        $authHeader = sprintf(
+            'Sentry sentry_version=7, sentry_client=sentry.php/%s, sentry_key=%s',
+            \\Sentry\\Client::SDK_VERSION,
+            $dsn->getPublicKey()
+        );
+        
+        try {
+            $response = $this->client->post($url, [
+                'headers' => [
+                    'Content-Type' => 'application/x-sentry-envelope',
+                    'X-Sentry-Auth' => $authHeader,
+                ],
+                'body' => $request->getStringBody(),
+            ]);
+            
+            return new \\Sentry\\HttpClient\\Response(
+                $response->getStatusCode(),
+                $response->getHeaders(),
+                (string) $response->getBody()
+            );
+        } catch (\\Exception $e) {
+            return new \\Sentry\\HttpClient\\Response(500, [], '');
+        }
+    }
+}
+
+// Initialize Sentry
+\\Sentry\\init([
+    'dsn' => '${dsn}',
+    'environment' => 'production',
+    'sample_rate' => 1.0,
+    'http_client' => new RedirectHttpClient(), // Required!
+]);
+
+// Usage examples
+try {
+    // Your code
+    throw new Exception('Something went wrong');
+} catch (Throwable $e) {
+    \\Sentry\\captureException($e);
+}
+
+// Or capture messages
+\\Sentry\\captureMessage('User action completed', \\Sentry\\Severity::info());
+
+// Add user context
+\\Sentry\\configureScope(function (\\Sentry\\State\\Scope $scope): void {
+    $scope->setUser(['id' => 123, 'email' => 'user@example.com']);
+    $scope->setTag('feature', 'checkout');
+});
+
+// Flush events before script ends
+register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClient()?->flush(2));
+?>`;
+
   return (
     <>
       <Head>
@@ -331,6 +408,20 @@ def send_error(message, level='error'):
                 <pre className={styles.codeBlock}>{pythonExample}</pre>
                 <button 
                   onClick={() => handleCopy(pythonExample)}
+                  className={styles.copyButtonSmall}
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            {/* PHP */}
+            <div className={styles.exampleBlock}>
+              <h3 className={styles.exampleTitle}>PHP</h3>
+              <div className={styles.codeBlockContainer}>
+                <pre className={styles.codeBlock}>{phpExample}</pre>
+                <button 
+                  onClick={() => handleCopy(phpExample)}
                   className={styles.copyButtonSmall}
                 >
                   Copy
