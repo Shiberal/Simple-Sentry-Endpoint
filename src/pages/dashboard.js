@@ -35,6 +35,8 @@ export default function Dashboard() {
   const [newComment, setNewComment] = useState('');
   const [analyticsData, setAnalyticsData] = useState(null);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
+  const [issueEvents, setIssueEvents] = useState([]);
+  const [loadingIssueEvents, setLoadingIssueEvents] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -739,6 +741,22 @@ export default function Dashboard() {
     }
   };
 
+  const loadIssueEvents = async (issueId) => {
+    setLoadingIssueEvents(true);
+    try {
+      const response = await fetch(`/api/events?issueId=${issueId}&sortBy=createdAt&sortOrder=desc`);
+      const data = await response.json();
+      
+      if (data.success) {
+        setIssueEvents(data.events || []);
+      }
+    } catch (error) {
+      console.error('Error loading issue events:', error);
+    } finally {
+      setLoadingIssueEvents(false);
+    }
+  };
+
   const getEventType = (event) => {
     // Support both event and issue data structures
     const data = event.data || event;
@@ -996,6 +1014,19 @@ export default function Dashboard() {
           >
             Overview
           </button>
+          {selectedEvent.issue && (
+            <button
+              onClick={() => {
+                setActiveTab('events');
+                if (issueEvents.length === 0) {
+                  loadIssueEvents(selectedEvent.issue.id);
+                }
+              }}
+              className={`${styles.tab} ${activeTab === 'events' ? styles.tabActive : ''}`}
+            >
+              All Events ({selectedEvent.issue.count})
+            </button>
+          )}
           {data.exception?.values?.[0]?.stacktrace?.frames && (
             <button
               onClick={() => setActiveTab('stacktrace')}
@@ -1402,6 +1433,88 @@ export default function Dashboard() {
             </>
           )}
 
+          {activeTab === 'events' && selectedEvent.issue && (
+            <div className={styles.detailSection}>
+              <h4 className={styles.detailSectionTitle}>
+                All Occurrences ({selectedEvent.issue.count})
+              </h4>
+              <p className={styles.eventListDescription}>
+                View all individual occurrences of this issue. Click on any event to see its specific details.
+              </p>
+              {loadingIssueEvents ? (
+                <div className={styles.loading}>Loading events...</div>
+              ) : issueEvents.length === 0 ? (
+                <div className={styles.emptyEvents}>No events found</div>
+              ) : (
+                <div className={styles.eventsList}>
+                  {issueEvents.map((event, idx) => {
+                    const eventData = event.data || {};
+                    const isCurrentEvent = event.id === selectedEvent.id;
+                    return (
+                      <div
+                        key={event.id}
+                        className={`${styles.eventOccurrence} ${isCurrentEvent ? styles.eventOccurrenceCurrent : ''}`}
+                        onClick={() => {
+                          setSelectedEvent({
+                            ...event,
+                            issue: selectedEvent.issue
+                          });
+                          setActiveTab('overview');
+                        }}
+                      >
+                        <div className={styles.eventOccurrenceHeader}>
+                          <span className={styles.eventOccurrenceNumber}>
+                            #{issueEvents.length - idx}
+                          </span>
+                          <span className={styles.eventOccurrenceTime}>
+                            {new Date(event.createdAt).toLocaleString()}
+                          </span>
+                          {isCurrentEvent && (
+                            <span className={styles.currentEventBadge}>Current</span>
+                          )}
+                        </div>
+                        <div className={styles.eventOccurrenceDetails}>
+                          {eventData.exception?.values?.[0]?.value && (
+                            <div className={styles.eventOccurrenceMessage}>
+                              {eventData.exception.values[0].value}
+                            </div>
+                          )}
+                          {eventData.message && !eventData.exception && (
+                            <div className={styles.eventOccurrenceMessage}>
+                              💬 {eventData.message}
+                            </div>
+                          )}
+                          <div className={styles.eventOccurrenceMeta}>
+                            {eventData.platform && (
+                              <span className={styles.eventOccurrenceMetaItem}>
+                                📱 {eventData.platform}
+                              </span>
+                            )}
+                            {eventData.environment && (
+                              <span className={styles.eventOccurrenceMetaItem}>
+                                🌍 {eventData.environment}
+                              </span>
+                            )}
+                            {eventData.user?.id && (
+                              <span className={styles.eventOccurrenceMetaItem}>
+                                👤 {eventData.user.username || eventData.user.id}
+                              </span>
+                            )}
+                            {eventData.server_name && (
+                              <span className={styles.eventOccurrenceMetaItem}>
+                                🖥️ {eventData.server_name}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {activeTab === 'stacktrace' && data.exception && (
             <div className={styles.detailSection}>
               <h4 className={styles.detailSectionTitle}>Stack Trace</h4>
@@ -1758,6 +1871,9 @@ export default function Dashboard() {
                                   ...data.issue.events[0],
                                   issue: issue
                                 });
+                                // Reset events list when switching issues
+                                setIssueEvents([]);
+                                setActiveTab('overview');
                               }
                             } catch (error) {
                               console.error('Error fetching issue details:', error);
