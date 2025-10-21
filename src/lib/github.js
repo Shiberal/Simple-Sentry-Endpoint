@@ -1,0 +1,173 @@
+/**
+ * GitHub Integration Helper Functions
+ */
+
+/**
+ * Create a GitHub issue from an error event
+ * @param {Object} params
+ * @param {Object} params.issue - The issue object from database
+ * @param {Object} params.eventData - The event data
+ * @param {Object} params.project - The project object with githubRepo and githubToken
+ * @param {string} params.baseUrl - Base URL for linking back to the dashboard
+ * @returns {Promise<Object|null>} - Created GitHub issue or null if failed
+ */
+export async function createGitHubIssue({ issue, eventData, project, baseUrl }) {
+  // Validate GitHub configuration
+  if (!project.githubRepo) {
+    console.log('⚠️  GitHub repo not configured for project:', project.name);
+    return null;
+  }
+
+  try {
+    // Parse repository from various formats
+    let owner, repo;
+    const repoStr = project.githubRepo;
+    
+    if (repoStr.includes('github.com/')) {
+      // Handle full URL: https://github.com/owner/repo
+      const match = repoStr.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (match) {
+        owner = match[1];
+        repo = match[2].replace(/\.git$/, ''); // Remove .git suffix if present
+      }
+    } else if (repoStr.includes('/')) {
+      // Handle owner/repo format
+      [owner, repo] = repoStr.split('/');
+    }
+
+    if (!owner || !repo) {
+      console.error('❌ Invalid GitHub repository format:', repoStr);
+      return null;
+    }
+
+    // Build the issue title
+    const title = `🐛 ${issue.title}`;
+    
+    // Generate enhanced issue body
+    let body = `## 🚨 Error Report\n\n`;
+    body += `This issue was automatically created from [${project.name}](${baseUrl}/dashboard).\n\n`;
+    
+    // Error summary
+    if (eventData.exception?.values?.[0]) {
+      const exc = eventData.exception.values[0];
+      body += `### Exception Details\n\n`;
+      body += `**Type:** \`${exc.type}\`\n`;
+      body += `**Message:** ${exc.value}\n`;
+      if (eventData.culprit) body += `**Culprit:** \`${eventData.culprit}\`\n`;
+      body += `\n`;
+      
+      // Stack trace with better formatting
+      if (exc.stacktrace?.frames) {
+        body += `### 📍 Stack Trace\n\n`;
+        body += `\`\`\`${eventData.platform || 'text'}\n`;
+        exc.stacktrace.frames.slice().reverse().forEach((frame, idx) => {
+          const fn = frame.function || frame.module || 'anonymous';
+          const file = frame.filename || frame.abs_path || 'unknown';
+          const line = frame.lineno || '?';
+          const col = frame.colno ? `:${frame.colno}` : '';
+          body += `${idx + 1}. ${fn}\n   at ${file}:${line}${col}\n`;
+          
+          // Add context lines if available
+          if (frame.context_line) {
+            body += `   > ${frame.context_line.trim()}\n`;
+          }
+        });
+        body += `\`\`\`\n\n`;
+      }
+    } else if (eventData.message) {
+      body += `**Message:** ${eventData.message}\n\n`;
+    }
+    
+    // Occurrence information
+    body += `### 📊 Occurrence Information\n\n`;
+    body += `- **First Seen:** ${new Date(issue.firstSeen).toLocaleString()}\n`;
+    body += `- **Last Seen:** ${new Date(issue.lastSeen).toLocaleString()}\n`;
+    body += `- **Count:** ${issue.count} occurrence(s)\n`;
+    body += `- **Level:** ${issue.level}\n`;
+    body += `\n`;
+    
+    // Environment info
+    if (eventData.environment || eventData.release || eventData.platform) {
+      body += `### 🔧 Environment\n\n`;
+      if (eventData.environment) body += `- **Environment:** ${eventData.environment}\n`;
+      if (eventData.release) body += `- **Release:** ${eventData.release}\n`;
+      if (eventData.platform) body += `- **Platform:** ${eventData.platform}\n`;
+      
+      // SDK info
+      if (eventData.sdk) {
+        body += `- **SDK:** ${eventData.sdk.name} ${eventData.sdk.version || ''}\n`;
+      }
+      
+      // User info
+      if (eventData.user) {
+        body += `\n**User Context:**\n`;
+        if (eventData.user.id) body += `- ID: ${eventData.user.id}\n`;
+        if (eventData.user.email) body += `- Email: ${eventData.user.email}\n`;
+        if (eventData.user.username) body += `- Username: ${eventData.user.username}\n`;
+        if (eventData.user.ip_address) body += `- IP: ${eventData.user.ip_address}\n`;
+      }
+      body += `\n`;
+    }
+    
+    // Add tags if available
+    if (eventData.tags && Object.keys(eventData.tags).length > 0) {
+      body += `### 🏷️ Tags\n\n`;
+      Object.entries(eventData.tags).forEach(([key, value]) => {
+        body += `- **${key}:** ${value}\n`;
+      });
+      body += `\n`;
+    }
+    
+    // Link back to dashboard
+    body += `---\n\n`;
+    body += `[View in Error Dashboard](${baseUrl}/dashboard) · Issue ID: ${issue.id}\n`;
+
+    // Create the GitHub issue via API
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues`;
+    
+    const headers = {
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'Sentry-Clone-Error-Reporter'
+    };
+
+    // Add authentication if token is provided
+    if (project.githubToken) {
+      headers['Authorization'] = `token ${project.githubToken}`;
+    }
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        title,
+        body,
+        labels: ['bug', 'auto-reported', `level:${issue.level}`]
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('❌ GitHub API error:', response.status, errorData);
+      
+      if (response.status === 401) {
+        console.error('   Authentication failed. Check GitHub token.');
+      } else if (response.status === 404) {
+        console.error('   Repository not found:', `${owner}/${repo}`);
+      } else if (response.status === 403) {
+        console.error('   Permission denied. Token may need "repo" scope.');
+      }
+      
+      return null;
+    }
+
+    const githubIssue = await response.json();
+    console.log('✅ GitHub issue created:', githubIssue.html_url);
+    
+    return githubIssue;
+  } catch (error) {
+    console.error('❌ Error creating GitHub issue:', error.message);
+    return null;
+  }
+}
+

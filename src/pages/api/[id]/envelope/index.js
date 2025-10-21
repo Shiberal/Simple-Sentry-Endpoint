@@ -3,6 +3,7 @@ import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import { generateFingerprint, extractTitle, extractCulprit, extractLevel } from '@/lib/fingerprint';
 import { sendNewIssueAlert } from '@/lib/email';
+import { createGitHubIssue } from '@/lib/github';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -186,6 +187,24 @@ export default async function handler(req, res) {
         });
         
         console.log('💾 Event saved to database (ID:', event.id, ')');
+
+        // Auto-create GitHub issue if enabled and this is a new issue
+        if (isNewIssue && project.autoGithubReport) {
+          console.log('🐙 Auto-creating GitHub issue...');
+          const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+          const githubIssue = await createGitHubIssue({
+            issue,
+            eventData,
+            project,
+            baseUrl
+          });
+          
+          if (githubIssue) {
+            console.log('✅ GitHub issue auto-created:', githubIssue.html_url);
+          } else {
+            console.log('⚠️  Failed to auto-create GitHub issue');
+          }
+        }
 
         // Check alert rules and send notifications
         const alertRules = await prisma.alertRule.findMany({
