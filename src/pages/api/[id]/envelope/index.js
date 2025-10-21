@@ -3,7 +3,7 @@ import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import { generateFingerprint, extractTitle, extractCulprit, extractLevel } from '@/lib/fingerprint';
 import { sendNewIssueAlert } from '@/lib/email';
-import { createGitHubIssue, shouldAutoReport, addGitHubComment } from '@/lib/github';
+import { createGitHubIssue, shouldAutoReport, updateGitHubIssue } from '@/lib/github';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -220,31 +220,40 @@ export default async function handler(req, res) {
             }
           }
         } else if (!isNewIssue && project.autoGithubReport && issue.githubIssueNumber) {
-          // For recurring errors, add a comment to the existing GitHub issue
+          // For recurring errors, update the GitHub issue
           const filters = project.autoGithubReportFilters;
           if (shouldAutoReport({ issue, eventData, filters })) {
-            // Only comment on significant count milestones
-            if (issue.count % 10 === 0 || issue.count === 5) {
-              const timeSinceFirst = new Date() - new Date(issue.firstSeen);
-              const days = Math.floor(timeSinceFirst / (1000 * 60 * 60 * 24));
-              const hours = Math.floor((timeSinceFirst % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-              
-              const comment = `## 🔄 Error Recurred - ${issue.count} Total Occurrences\n\n` +
-                `This error has now occurred **${issue.count} time${issue.count !== 1 ? 's' : ''}**.\n\n` +
-                `### 📊 Statistics\n\n` +
-                `- **First Seen:** ${new Date(issue.firstSeen).toLocaleString()}\n` +
-                `- **Last Seen:** ${new Date(issue.lastSeen).toLocaleString()}\n` +
-                `- **Time Span:** ${days > 0 ? `${days} day${days !== 1 ? 's' : ''} ` : ''}${hours} hour${hours !== 1 ? 's' : ''}\n` +
-                `- **Severity:** ${issue.level.toUpperCase()}\n` +
-                `- **Status:** ${issue.status}\n\n` +
-                `🔗 [View in Dashboard](${process.env.BASE_URL || 'http://localhost:3000'}/dashboard)`;
-              
-              await addGitHubComment({
-                issueNumber: issue.githubIssueNumber,
-                project,
-                comment
-              });
-            }
+            const timeSinceFirst = new Date() - new Date(issue.firstSeen);
+            const days = Math.floor(timeSinceFirst / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeSinceFirst % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            
+            // Add comment on significant milestones or status changes
+            const shouldComment = 
+              issue.count % 10 === 0 ||  // Every 10 occurrences
+              issue.count === 5 ||        // At 5 occurrences
+              issue.count === 2 ||        // At 2nd occurrence
+              issue.count % 25 === 0;     // Every 25 occurrences
+            
+            const comment = shouldComment ? 
+              `## 🔄 Error Recurred - ${issue.count} Total Occurrences\n\n` +
+              `This error has now occurred **${issue.count} time${issue.count !== 1 ? 's' : ''}**.\n\n` +
+              `### 📊 Statistics\n\n` +
+              `- **First Seen:** ${new Date(issue.firstSeen).toLocaleString()}\n` +
+              `- **Last Seen:** ${new Date(issue.lastSeen).toLocaleString()}\n` +
+              `- **Time Span:** ${days > 0 ? `${days} day${days !== 1 ? 's' : ''} ` : ''}${hours} hour${hours !== 1 ? 's' : ''}\n` +
+              `- **Severity:** ${issue.level.toUpperCase()}\n` +
+              `- **Status:** ${issue.status}\n\n` +
+              (eventData.environment ? `- **Environment:** ${eventData.environment}\n\n` : '') +
+              `🔗 [View in Dashboard](${process.env.BASE_URL || 'http://localhost:3000'}/dashboard)`
+              : null;
+            
+            console.log(`🔄 Updating GitHub issue #${issue.githubIssueNumber} with new count: ${issue.count}`);
+            await updateGitHubIssue({
+              issueNumber: issue.githubIssueNumber,
+              project,
+              issue,
+              comment
+            });
           }
         }
 

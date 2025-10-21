@@ -218,6 +218,77 @@ export async function createGitHubIssue({ issue, eventData, project, baseUrl }) 
 }
 
 /**
+ * Update a GitHub issue title and optionally add a comment
+ * @param {Object} params
+ * @param {number} params.issueNumber - GitHub issue number
+ * @param {Object} params.project - Project with githubRepo and githubToken
+ * @param {Object} params.issue - Issue object from database
+ * @param {string} params.comment - Optional comment to add
+ * @returns {Promise<boolean>} - True if successful
+ */
+export async function updateGitHubIssue({ issueNumber, project, issue, comment }) {
+  try {
+    // Parse repository
+    let owner, repo;
+    const repoStr = project.githubRepo;
+    
+    if (repoStr.includes('github.com/')) {
+      const match = repoStr.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (match) {
+        owner = match[1];
+        repo = match[2].replace(/\.git$/, '');
+      }
+    } else if (repoStr.includes('/')) {
+      [owner, repo] = repoStr.split('/');
+    }
+
+    if (!owner || !repo) {
+      console.error('❌ Invalid GitHub repository format:', repoStr);
+      return false;
+    }
+
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
+    
+    const headers = {
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'Sentry-Clone-Error-Reporter'
+    };
+
+    if (project.githubToken) {
+      headers['Authorization'] = `token ${project.githubToken}`;
+    }
+
+    // Update the issue title with new count
+    const countSuffix = issue.count > 1 ? ` (${issue.count}x)` : '';
+    const newTitle = `🐛 ${issue.title}${countSuffix}`;
+
+    const response = await fetch(apiUrl, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ title: newTitle })
+    });
+
+    if (!response.ok) {
+      console.error('❌ Failed to update GitHub issue:', response.status);
+      return false;
+    }
+
+    console.log('✅ GitHub issue title updated:', newTitle);
+
+    // Add comment if provided
+    if (comment) {
+      await addGitHubComment({ issueNumber, project, comment });
+    }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Error updating GitHub issue:', error.message);
+    return false;
+  }
+}
+
+/**
  * Add a comment to an existing GitHub issue
  * @param {Object} params
  * @param {number} params.issueNumber - GitHub issue number
