@@ -7,7 +7,7 @@ import styles from '@/styles/Dashboard.module.css';
 
 export default function Dashboard() {
   const router = useRouter();
-  const [events, setEvents] = useState([]);
+  const [issues, setIssues] = useState([]); // Changed from events to issues
   const [projects, setProjects] = useState([]);
   const [user, setUser] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -54,20 +54,21 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const eventsUrl = selectedProject 
-        ? `/api/events?projectId=${selectedProject}` 
-        : `/api/events`;
+      // Fetch issues instead of events to avoid duplicates
+      const issuesUrl = selectedProject 
+        ? `/api/issues?projectId=${selectedProject}&sortBy=lastSeen&sortOrder=desc` 
+        : `/api/issues?sortBy=lastSeen&sortOrder=desc`;
         
-      const [eventsRes, projectsRes] = await Promise.all([
-        fetch(eventsUrl),
+      const [issuesRes, projectsRes] = await Promise.all([
+        fetch(issuesUrl),
         fetch('/api/projects')
       ]);
       
-      const eventsData = await eventsRes.json();
+      const issuesData = await issuesRes.json();
       const projectsData = await projectsRes.json();
       
-      if (eventsData.success) {
-        setEvents(eventsData.events);
+      if (issuesData.success) {
+        setIssues(issuesData.issues);
       }
       if (projectsData.success) setProjects(projectsData.projects);
     } catch (error) {
@@ -224,19 +225,19 @@ export default function Dashboard() {
     }
   };
 
-  const toggleEventSelection = (eventId) => {
+  const toggleEventSelection = (issueId) => {
     setSelectedEvents(prev => 
-      prev.includes(eventId) 
-        ? prev.filter(id => id !== eventId)
-        : [...prev, eventId]
+      prev.includes(issueId) 
+        ? prev.filter(id => id !== issueId)
+        : [...prev, issueId]
     );
   };
 
   const toggleSelectAll = () => {
-    if (selectedEvents.length === filteredEvents.length) {
+    if (selectedEvents.length === filteredIssues.length) {
       setSelectedEvents([]);
     } else {
-      setSelectedEvents(filteredEvents.map(e => e.id));
+      setSelectedEvents(filteredIssues.map(e => e.id));
     }
   };
 
@@ -448,18 +449,15 @@ export default function Dashboard() {
               });
               
               // Update local state to reflect the change
-              setEvents(prevEvents => 
-                prevEvents.map(e => 
-                  e.issue?.id === issue.id 
+              setIssues(prevIssues => 
+                prevIssues.map(iss => 
+                  iss.id === issue.id 
                     ? {
-                        ...e,
-                        issue: {
-                          ...e.issue,
-                          githubIssueUrl: githubIssue.html_url,
-                          githubIssueNumber: githubIssue.number
-                        }
+                        ...iss,
+                        githubIssueUrl: githubIssue.html_url,
+                        githubIssueNumber: githubIssue.number
                       }
-                    : e
+                    : iss
                 )
               );
             } catch (err) {
@@ -638,13 +636,13 @@ export default function Dashboard() {
     navigator.clipboard.writeText(text);
   };
 
-  const filteredEvents = events.filter(event => {
+  const filteredIssues = issues.filter(issue => {
     const matchesSearch = !searchQuery || 
-      getEventTitle(event).toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.project.name.toLowerCase().includes(searchQuery.toLowerCase());
+      issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      issue.project.name.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesLevel = filterLevel === 'all' || 
-      getEventType(event) === filterLevel;
+      issue.level === filterLevel;
     
     return matchesSearch && matchesLevel;
   });
@@ -1243,7 +1241,7 @@ export default function Dashboard() {
                     <div className={styles.selectionToolbarLeft}>
                       <input
                         type="checkbox"
-                        checked={selectedEvents.length === filteredEvents.length && filteredEvents.length > 0}
+                        checked={selectedEvents.length === filteredIssues.length && filteredIssues.length > 0}
                         onChange={toggleSelectAll}
                         className={styles.checkbox}
                       />
@@ -1254,7 +1252,7 @@ export default function Dashboard() {
                     <div className={styles.selectionToolbarRight}>
                       <button
                         onClick={() => {
-                          setDeletingEvent({ bulk: true, count: selectedEvents.length });
+                          setDeletingIssue({ bulk: true, count: selectedEvents.length });
                           setShowDeleteConfirm(true);
                         }}
                         disabled={selectedEvents.length === 0}
@@ -1273,7 +1271,7 @@ export default function Dashboard() {
                 )}
                 <div className={styles.eventsHeaderTop}>
                   <h2 className={styles.eventsTitle}>
-                    Events ({filteredEvents.length})
+                    Issues ({filteredIssues.length})
                   </h2>
                   <div className={styles.filterButtons}>
                     {!isSelectionMode && (
@@ -1314,7 +1312,7 @@ export default function Dashboard() {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search events..."
+                  placeholder="Search issues..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={styles.searchInput}
@@ -1322,7 +1320,7 @@ export default function Dashboard() {
               </div>
 
               {loading ? (
-                <div className={styles.loading}>Loading events...</div>
+                <div className={styles.loading}>Loading issues...</div>
               ) : projects.length === 0 ? (
                 <div className={styles.empty}>
                   <div className={styles.emptyIcon}>🚀</div>
@@ -1337,14 +1335,14 @@ export default function Dashboard() {
                     Create Project
                   </button>
                 </div>
-              ) : filteredEvents.length === 0 ? (
+              ) : filteredIssues.length === 0 ? (
                 <div className={styles.empty}>
                   <div className={styles.emptyIcon}>📊</div>
                   <h3 className={styles.emptyTitle}>
-                    {events.length === 0 ? 'No events yet' : 'No matching events'}
+                    {issues.length === 0 ? 'No issues yet' : 'No matching issues'}
                   </h3>
                   <p className={styles.emptyText}>
-                    {events.length === 0 
+                    {issues.length === 0 
                       ? 'Send your first error to see it appear here.'
                       : 'Try adjusting your search or filter criteria.'
                     }
@@ -1352,17 +1350,30 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className={styles.eventsContainer}>
-                  {filteredEvents.map(event => {
-                    const type = getEventType(event);
-                    const isSelected = selectedEvents.includes(event.id);
+                  {filteredIssues.map(issue => {
+                    const type = issue.level;
+                    const isSelected = selectedEvents.includes(issue.id);
                     return (
                       <div
-                        key={event.id}
-                        onClick={() => {
+                        key={issue.id}
+                        onClick={async () => {
                           if (isSelectionMode) {
-                            toggleEventSelection(event.id);
+                            toggleEventSelection(issue.id);
                           } else {
-                            setSelectedEvent(event);
+                            // Fetch the latest event for this issue to show details
+                            try {
+                              const response = await fetch(`/api/issues/${issue.id}`);
+                              const data = await response.json();
+                              if (data.success && data.issue.events && data.issue.events.length > 0) {
+                                // Show the most recent event with the issue attached
+                                setSelectedEvent({
+                                  ...data.issue.events[0],
+                                  issue: issue
+                                });
+                              }
+                            } catch (error) {
+                              console.error('Error fetching issue details:', error);
+                            }
                           }
                         }}
                         className={`${styles.eventCard} ${isSelected ? styles.eventCardSelected : ''}`}
@@ -1375,7 +1386,7 @@ export default function Dashboard() {
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => toggleEventSelection(event.id)}
+                            onChange={() => toggleEventSelection(issue.id)}
                             className={styles.eventCheckbox}
                             onClick={(e) => e.stopPropagation()}
                           />
@@ -1392,17 +1403,24 @@ export default function Dashboard() {
                           >
                             {type.toUpperCase()}
                           </span>
-                          <span className={styles.eventTime}>{formatDate(event.createdAt)}</span>
+                          <span className={styles.eventTime}>{formatDate(issue.lastSeen)}</span>
                         </div>
-                        <h4 className={styles.eventTitle}>{getEventTitle(event)}</h4>
+                        <h4 className={styles.eventTitle}>
+                          {issue.title}
+                          {issue.count > 1 && (
+                            <span className={styles.occurrenceBadge}>
+                              {issue.count}x
+                            </span>
+                          )}
+                          {issue.githubIssueUrl && (
+                            <span className={styles.githubBadge} title="GitHub issue exists">
+                              🐙
+                            </span>
+                          )}
+                        </h4>
                         <div className={styles.eventMeta}>
-                          <span>{event.project.name}</span>
-                          {event.data.environment && (
-                            <span>• {event.data.environment}</span>
-                          )}
-                          {event.data.platform && (
-                            <span>• {event.data.platform}</span>
-                          )}
+                          <span>{issue.project.name}</span>
+                          <span>• {issue.status}</span>
                         </div>
                       </div>
                     );
