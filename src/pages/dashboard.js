@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [analyticsData, setAnalyticsData] = useState(null);
+  const [isDeduplicating, setIsDeduplicating] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -121,6 +122,32 @@ export default function Dashboard() {
     router.push('/login');
   };
 
+  const handleDeduplicate = async () => {
+    if (isDeduplicating) return;
+    
+    setIsDeduplicating(true);
+    try {
+      const response = await fetch('/api/admin/merge-duplicates', {
+        method: 'POST'
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✅ Successfully merged ${data.duplicatesMerged} duplicate issue${data.duplicatesMerged !== 1 ? 's' : ''}!`);
+        // Refresh the dashboard
+        fetchData();
+      } else {
+        alert(`❌ Failed to merge duplicates: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deduplicating:', error);
+      alert('❌ Error deduplicating issues');
+    } finally {
+      setIsDeduplicating(false);
+    }
+  };
+
   const handleCreateProject = async (e) => {
     e.preventDefault();
     try {
@@ -150,8 +177,8 @@ export default function Dashboard() {
 
       if (response.ok) {
         // Close the detail panel if the deleted issue is currently selected
-        if (selectedIssue?.id === deletingIssue.id) {
-          setSelectedIssue(null);
+        if (selectedEvent?.issue?.id === deletingIssue.id) {
+          setSelectedEvent(null);
         }
         // Refresh the issues list
         fetchData();
@@ -198,17 +225,17 @@ export default function Dashboard() {
     if (selectedEvents.length === 0) return;
     
     try {
-      // Delete all selected events
-      const deletePromises = selectedEvents.map(eventId =>
-        fetch(`/api/events/${eventId}`, { method: 'DELETE' })
+      // Delete all selected issues (since we're now working with issues)
+      const deletePromises = selectedEvents.map(issueId =>
+        fetch(`/api/issues/${issueId}`, { method: 'DELETE' })
       );
       
       const results = await Promise.all(deletePromises);
       const allSuccessful = results.every(res => res.ok);
       
       if (allSuccessful) {
-        // Close detail panel if selected event was deleted
-        if (selectedEvent && selectedEvents.includes(selectedEvent.id)) {
+        // Close detail panel if selected issue was deleted
+        if (selectedEvent?.issue && selectedEvents.includes(selectedEvent.issue.id)) {
           setSelectedEvent(null);
         }
         // Clear selection and refresh
@@ -216,12 +243,13 @@ export default function Dashboard() {
         setIsSelectionMode(false);
         fetchData();
         setShowDeleteConfirm(false);
+        setDeletingIssue(null);
       } else {
-        alert('Some events failed to delete');
+        alert('Some issues failed to delete');
       }
     } catch (error) {
-      console.error('Error deleting events:', error);
-      alert('Error deleting events');
+      console.error('Error deleting issues:', error);
+      alert('Error deleting issues');
     }
   };
 
@@ -382,7 +410,7 @@ export default function Dashboard() {
     body += `---\n\n`;
     body += `📅 **Event ID:** \`${event.id}\`\n`;
     body += `⏰ **Timestamp:** ${new Date(event.createdAt).toLocaleString()}\n`;
-    body += `📁 **Project:** ${event.project.name}\n`;
+    body += `📁 **Project:** ${event.project?.name || 'Unknown Project'}\n`;
     
     // Add link to dashboard if available
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
@@ -399,7 +427,7 @@ export default function Dashboard() {
     labels.push('automated');
     
     // Check if project has GitHub configuration
-    if (event.project.githubRepo) {
+    if (event.project?.githubRepo) {
       try {
         // Parse the GitHub repo (extract owner/repo from URL if needed)
         let repo = event.project.githubRepo;
@@ -419,7 +447,7 @@ export default function Dashboard() {
           'Content-Type': 'application/json',
         };
         
-        if (event.project.githubToken) {
+        if (event.project?.githubToken) {
           headers['Authorization'] = `Bearer ${event.project.githubToken}`;
         }
         
@@ -639,7 +667,7 @@ export default function Dashboard() {
   const filteredIssues = issues.filter(issue => {
     const matchesSearch = !searchQuery || 
       issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      issue.project.name.toLowerCase().includes(searchQuery.toLowerCase());
+      (issue.project?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesLevel = filterLevel === 'all' || 
       issue.level === filterLevel;
@@ -740,11 +768,15 @@ export default function Dashboard() {
             </button>
             <button 
               onClick={() => {
-                setDeletingEvent(selectedEvent);
+                if (selectedEvent.issue) {
+                  setDeletingIssue(selectedEvent.issue);
+                } else {
+                  setDeletingEvent(selectedEvent);
+                }
                 setShowDeleteConfirm(true);
               }}
               className={styles.deleteButton}
-              title="Delete this event"
+              title={selectedEvent.issue ? "Delete this issue" : "Delete this event"}
             >
               🗑️
             </button>
@@ -835,7 +867,7 @@ export default function Dashboard() {
 
                   <div className={styles.overviewItem}>
                     <span className={styles.overviewLabel}>Project</span>
-                    <span className={styles.overviewValue}>{selectedEvent.project.name}</span>
+                    <span className={styles.overviewValue}>{selectedEvent.project?.name || 'Unknown Project'}</span>
                   </div>
 
                   <div className={styles.overviewItem}>
@@ -1139,6 +1171,18 @@ export default function Dashboard() {
               >
                 {autoRefresh ? '● Live' : '○ Paused'}
               </button>
+              <button 
+                onClick={handleDeduplicate}
+                className={styles.headerButton}
+                disabled={isDeduplicating}
+                title="Merge duplicate issues"
+                style={{
+                  opacity: isDeduplicating ? 0.6 : 1,
+                  cursor: isDeduplicating ? 'wait' : 'pointer'
+                }}
+              >
+                {isDeduplicating ? '🔄 Merging...' : '🔀 Deduplicate'}
+              </button>
               <button onClick={fetchData} className={styles.headerButton}>
                 Refresh
               </button>
@@ -1419,7 +1463,7 @@ export default function Dashboard() {
                           )}
                         </h4>
                         <div className={styles.eventMeta}>
-                          <span>{issue.project.name}</span>
+                          <span>{issue.project?.name || 'Unknown Project'}</span>
                           <span>• {issue.status}</span>
                         </div>
                       </div>
@@ -1472,25 +1516,28 @@ export default function Dashboard() {
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
               <h3 className={styles.modalTitle}>
                 {deletingIssue 
-                  ? 'Delete Issue'
+                  ? (deletingIssue.bulk ? 'Delete Multiple Issues' : 'Delete Issue')
                   : (deletingEvent?.bulk ? 'Delete Multiple Events' : 'Delete Event')
                 }
               </h3>
               <p className={styles.modalText}>
                 {deletingIssue 
-                  ? `Are you sure you want to delete this issue? This will also delete ${deletingIssue.count} associated event${deletingIssue.count > 1 ? 's' : ''}. This action cannot be undone.`
+                  ? (deletingIssue.bulk 
+                      ? `Are you sure you want to delete ${deletingIssue.count} issue${deletingIssue.count > 1 ? 's' : ''}? This will also delete all associated events. This action cannot be undone.`
+                      : `Are you sure you want to delete this issue? This will also delete ${deletingIssue.count || 1} associated event${(deletingIssue.count || 1) > 1 ? 's' : ''}. This action cannot be undone.`
+                  )
                   : (deletingEvent?.bulk 
                       ? `Are you sure you want to delete ${deletingEvent.count} event${deletingEvent.count > 1 ? 's' : ''}? This action cannot be undone.`
                       : 'Are you sure you want to delete this event? This action cannot be undone.'
                   )
                 }
               </p>
-              {deletingIssue && (
+              {deletingIssue && !deletingIssue.bulk && (
                 <div className={styles.modalEventPreview}>
-                  <strong>{getEventTitle(deletingIssue)}</strong>
+                  <strong>{deletingIssue.title}</strong>
                   <br />
                   <span className={styles.modalEventMeta}>
-                    {deletingIssue.project?.name} • {deletingIssue.count} occurrence{deletingIssue.count > 1 ? 's' : ''}
+                    {deletingIssue.project?.name || 'Unknown Project'} • {deletingIssue.count || 1} occurrence{(deletingIssue.count || 1) > 1 ? 's' : ''}
                   </span>
                 </div>
               )}
@@ -1499,8 +1546,13 @@ export default function Dashboard() {
                   <strong>{getEventTitle(deletingEvent)}</strong>
                   <br />
                   <span className={styles.modalEventMeta}>
-                    {deletingEvent.project.name} • {new Date(deletingEvent.createdAt).toLocaleString()}
+                    {deletingEvent.project?.name || 'Unknown Project'} • {new Date(deletingEvent.createdAt).toLocaleString()}
                   </span>
+                </div>
+              )}
+              {deletingIssue?.bulk && (
+                <div className={styles.modalEventPreview}>
+                  <strong>⚠️ You are about to delete {deletingIssue.count} issue{deletingIssue.count > 1 ? 's' : ''}</strong>
                 </div>
               )}
               {!deletingIssue && deletingEvent?.bulk && (
@@ -1521,15 +1573,15 @@ export default function Dashboard() {
                   Cancel
                 </button>
                 <button 
-                  type="button"
+                  type="button" 
                   onClick={deletingIssue 
-                    ? handleDeleteIssue 
+                    ? (deletingIssue.bulk ? handleBulkDelete : handleDeleteIssue)
                     : (deletingEvent?.bulk ? handleBulkDelete : handleDeleteEvent)
                   }
                   className={styles.modalButtonDelete}
                 >
                   Delete {deletingIssue 
-                    ? 'Issue'
+                    ? (deletingIssue.bulk ? `${deletingIssue.count} Issue${deletingIssue.count > 1 ? 's' : ''}` : 'Issue')
                     : (deletingEvent?.bulk ? `${deletingEvent.count} Event${deletingEvent.count > 1 ? 's' : ''}` : 'Event')
                   }
                 </button>
