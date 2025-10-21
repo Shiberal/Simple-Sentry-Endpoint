@@ -8,6 +8,7 @@ import styles from '@/styles/Dashboard.module.css';
 export default function Dashboard() {
   const router = useRouter();
   const [issues, setIssues] = useState([]); // Changed from events to issues
+  const [standaloneEvents, setStandaloneEvents] = useState([]); // For transactions and other standalone events
   const [projects, setProjects] = useState([]);
   const [user, setUser] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -61,19 +62,31 @@ export default function Dashboard() {
       const issuesUrl = selectedProject 
         ? `/api/issues?projectId=${selectedProject}&sortBy=lastSeen&sortOrder=desc` 
         : `/api/issues?sortBy=lastSeen&sortOrder=desc`;
+      
+      // Fetch standalone events (transactions, etc.) that don't have issues
+      const eventsUrl = selectedProject
+        ? `/api/events?projectId=${selectedProject}&limit=100`
+        : `/api/events?limit=100`;
         
-      const [issuesRes, projectsRes] = await Promise.all([
+      const [issuesRes, projectsRes, eventsRes] = await Promise.all([
         fetch(issuesUrl),
-        fetch('/api/projects')
+        fetch('/api/projects'),
+        fetch(eventsUrl)
       ]);
       
       const issuesData = await issuesRes.json();
       const projectsData = await projectsRes.json();
+      const eventsData = await eventsRes.json();
       
       if (issuesData.success) {
         setIssues(issuesData.issues);
       }
       if (projectsData.success) setProjects(projectsData.projects);
+      if (eventsData.success) {
+        // Filter to only standalone events (those without issueId)
+        const standalone = eventsData.events.filter(event => !event.issueId);
+        setStandaloneEvents(standalone);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -823,7 +836,25 @@ export default function Dashboard() {
     navigator.clipboard.writeText(text);
   };
 
-  const filteredIssues = issues.filter(issue => {
+  // Combine issues and standalone events for filtering and display
+  const combinedItems = [
+    ...issues,
+    ...standaloneEvents.map(event => ({
+      id: `event-${event.id}`,
+      _isStandaloneEvent: true,
+      _event: event,
+      title: event.data?.transaction || event.data?.message || 'Unnamed Event',
+      level: event.data?.level || 'info',
+      status: 'ACTIVE', // Standalone events don't have status
+      lastSeen: event.createdAt,
+      createdAt: event.createdAt,
+      project: event.project,
+      events: [event],
+      eventType: event.eventType
+    }))
+  ].sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+
+  const filteredIssues = combinedItems.filter(issue => {
     const matchesSearch = !searchQuery || 
       issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (issue.project?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -832,6 +863,10 @@ export default function Dashboard() {
       issue.level === filterLevel;
     
     const matchesStatus = (() => {
+      // Standalone events should appear in "active" and "all" filters
+      if (issue._isStandaloneEvent) {
+        return filterStatus === 'all' || filterStatus === 'active';
+      }
       if (filterStatus === 'all') return true;
       if (filterStatus === 'active') return issue.status !== 'RESOLVED' && issue.status !== 'IGNORED';
       if (filterStatus === 'unresolved') return issue.status === 'UNRESOLVED';
@@ -843,6 +878,10 @@ export default function Dashboard() {
 
     const matchesEventType = (() => {
       if (filterEventType === 'all') return true;
+      // For standalone events, check the eventType directly
+      if (issue._isStandaloneEvent) {
+        return issue.eventType === filterEventType;
+      }
       // Check for CSP issues
       if (filterEventType === 'CSP' && (issue.violatedDirective || issue.blockedUri)) return true;
       // Check event type in events array
@@ -2082,7 +2121,7 @@ export default function Dashboard() {
                 )}
                 <div className={styles.eventsHeaderTop}>
                   <h2 className={styles.eventsTitle}>
-                    Issues ({filteredIssues.length})
+                    Issues & Events ({filteredIssues.length})
                   </h2>
                   {!isSelectionMode && (
                     <div className={styles.filterToolbar}>
@@ -2180,22 +2219,29 @@ export default function Dashboard() {
                           if (isSelectionMode) {
                             toggleEventSelection(issue.id);
                           } else {
-                            // Fetch the latest event for this issue to show details
-                            try {
-                              const response = await fetch(`/api/issues/${issue.id}`);
-                              const data = await response.json();
-                              if (data.success && data.issue.events && data.issue.events.length > 0) {
-                                // Show the most recent event with the issue attached
-                                setSelectedEvent({
-                                  ...data.issue.events[0],
-                                  issue: issue
-                                });
-                                // Reset events list when switching issues
-                                setIssueEvents([]);
-                                setActiveTab('overview');
+                            // Handle standalone events vs issues differently
+                            if (issue._isStandaloneEvent) {
+                              // For standalone events, just show the event directly
+                              setSelectedEvent(issue._event);
+                              setActiveTab('overview');
+                            } else {
+                              // Fetch the latest event for this issue to show details
+                              try {
+                                const response = await fetch(`/api/issues/${issue.id}`);
+                                const data = await response.json();
+                                if (data.success && data.issue.events && data.issue.events.length > 0) {
+                                  // Show the most recent event with the issue attached
+                                  setSelectedEvent({
+                                    ...data.issue.events[0],
+                                    issue: issue
+                                  });
+                                  // Reset events list when switching issues
+                                  setIssueEvents([]);
+                                  setActiveTab('overview');
+                                }
+                              } catch (error) {
+                                console.error('Error fetching issue details:', error);
                               }
-                            } catch (error) {
-                              console.error('Error fetching issue details:', error);
                             }
                           }
                         }}
@@ -2255,7 +2301,7 @@ export default function Dashboard() {
                               🐙
                             </span>
                           )}
-                          {issue.status === 'RESOLVED' && (
+                          {!issue._isStandaloneEvent && issue.status === 'RESOLVED' && (
                             <span 
                               className={styles.resolvedBadge} 
                               title="Issue resolved - click to reopen"
@@ -2267,7 +2313,7 @@ export default function Dashboard() {
                               ✅
                             </span>
                           )}
-                          {issue.status === 'IGNORED' && (
+                          {!issue._isStandaloneEvent && issue.status === 'IGNORED' && (
                             <span 
                               className={styles.ignoredBadge} 
                               title="Issue ignored - click to unignore"
@@ -2283,7 +2329,7 @@ export default function Dashboard() {
                         <div className={styles.eventMeta}>
                           <span>{issue.project?.name || 'Unknown Project'}</span>
                           <span>• {issue.status}</span>
-                          {issue.status !== 'RESOLVED' && issue.status !== 'IGNORED' && (
+                          {!issue._isStandaloneEvent && issue.status !== 'RESOLVED' && issue.status !== 'IGNORED' && (
                             <>
                               <button
                                 className={styles.quickResolveButton}

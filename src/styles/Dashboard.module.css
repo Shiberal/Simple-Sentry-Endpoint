@@ -531,6 +531,7 @@
 .eventsContainer {
   padding: var(--space-1);
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -1434,7 +1435,8 @@
   line-height: 1.5;
 }
 
-.eventsList {
+/* Removed duplicate .eventsList - using the one defined earlier in the file */
+.issueEventsList {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
