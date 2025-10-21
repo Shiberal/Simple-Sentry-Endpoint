@@ -266,13 +266,16 @@
   grid-template-columns: minmax(280px, 360px) 1fr;
   overflow: hidden;
   height: calc(100vh - 36px);
+  min-width: 0;
 }
 
 /* Events list */
 .eventsList {
   overflow-y: auto;
+  overflow-x: hidden;
   border-right: 1px solid var(--border-primary);
   height: 100%;
+  min-width: 0;
 }
 
 .eventsHeader {
@@ -282,6 +285,8 @@
   position: sticky;
   top: 0;
   z-index: var(--z-base);
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .eventsHeaderTop {
@@ -305,6 +310,9 @@
   display: flex;
   gap: var(--space-2);
   align-items: center;
+  flex-wrap: wrap;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
 .filterGroup {
@@ -674,6 +682,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  min-width: 0;
 }
 
 .detailPanelEmpty {
@@ -716,6 +725,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  overflow-x: hidden;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .detailTitle {
@@ -726,6 +740,9 @@
   line-height: var(--leading-tight);
   flex: 1;
   padding-right: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .detailHeaderActions {
