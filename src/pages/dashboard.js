@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLevel, setFilterLevel] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(null);
@@ -279,6 +280,15 @@ export default function Dashboard() {
     const issue = event.issue;
     const countSuffix = issue?.count > 1 ? ` (${issue.count}x)` : '';
     const title = `🐛 ${getEventTitle(event)}${countSuffix}`;
+    
+    // Check if issue is ignored
+    if (issue?.status === 'IGNORED') {
+      alert(
+        `Cannot Create GitHub Issue\n\n` +
+        `This issue is currently ignored. Please unignore it first before creating a GitHub issue.`
+      );
+      return;
+    }
     
     // Check if GitHub issue already exists for this error
     if (issue?.githubIssueUrl) {
@@ -626,6 +636,57 @@ export default function Dashboard() {
     }
   };
 
+  const handleIgnoreIssue = async (issue) => {
+    if (!issue) return;
+
+    try {
+      // Toggle between IGNORED and UNRESOLVED
+      const newStatus = issue.status === 'IGNORED' ? 'UNRESOLVED' : 'IGNORED';
+      
+      const response = await fetch(`/api/issues/${issue.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update the selected event's issue
+        if (selectedEvent?.issue?.id === issue.id) {
+          setSelectedEvent({
+            ...selectedEvent,
+            issue: data.issue
+          });
+        }
+        
+        // Update selected issue if it's the one being updated
+        if (selectedIssue?.id === issue.id) {
+          setSelectedIssue(data.issue);
+        }
+        
+        // Update issues list
+        setIssues(prevIssues => 
+          prevIssues.map(iss => 
+            iss.id === issue.id ? data.issue : iss
+          )
+        );
+        
+        // Show success message
+        alert(`Issue ${newStatus === 'IGNORED' ? 'ignored - will not appear in main view or auto-report to GitHub' : 'unignored'} successfully!`);
+        
+        // Refresh data
+        fetchData();
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to ${newStatus === 'IGNORED' ? 'ignore' : 'unignore'} issue: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error ignoring issue:', error);
+      alert('Error updating issue status');
+    }
+  };
+
   const handleAddComment = async (issueId) => {
     if (!newComment.trim()) return;
 
@@ -723,7 +784,17 @@ export default function Dashboard() {
     const matchesLevel = filterLevel === 'all' || 
       issue.level === filterLevel;
     
-    return matchesSearch && matchesLevel;
+    const matchesStatus = (() => {
+      if (filterStatus === 'all') return true;
+      if (filterStatus === 'active') return issue.status !== 'RESOLVED' && issue.status !== 'IGNORED';
+      if (filterStatus === 'unresolved') return issue.status === 'UNRESOLVED';
+      if (filterStatus === 'resolved') return issue.status === 'RESOLVED';
+      if (filterStatus === 'ignored') return issue.status === 'IGNORED';
+      if (filterStatus === 'in_progress') return issue.status === 'IN_PROGRESS';
+      return true;
+    })();
+    
+    return matchesSearch && matchesLevel && matchesStatus;
   });
 
   const renderStackTrace = (exception) => {
@@ -807,17 +878,30 @@ export default function Dashboard() {
           <h3 className={styles.detailTitle}>{getEventTitle(selectedEvent)}</h3>
           <div className={styles.detailHeaderActions}>
             {selectedEvent.issue && (
-              <button 
-                onClick={() => handleResolveIssue(selectedEvent.issue)}
-                className={styles.resolveButton}
-                title={selectedEvent.issue.status === 'RESOLVED' ? "Reopen issue" : "Resolve issue"}
-                style={{
-                  backgroundColor: selectedEvent.issue.status === 'RESOLVED' ? '#22c55e' : undefined,
-                  opacity: selectedEvent.issue.status === 'RESOLVED' ? 1 : undefined
-                }}
-              >
-                {selectedEvent.issue.status === 'RESOLVED' ? '✅ Resolved' : '⭕ Resolve'}
-              </button>
+              <>
+                <button 
+                  onClick={() => handleResolveIssue(selectedEvent.issue)}
+                  className={styles.resolveButton}
+                  title={selectedEvent.issue.status === 'RESOLVED' ? "Reopen issue" : "Resolve issue"}
+                  style={{
+                    backgroundColor: selectedEvent.issue.status === 'RESOLVED' ? '#22c55e' : undefined,
+                    opacity: selectedEvent.issue.status === 'RESOLVED' ? 1 : undefined
+                  }}
+                >
+                  {selectedEvent.issue.status === 'RESOLVED' ? '✅ Resolved' : '⭕ Resolve'}
+                </button>
+                <button 
+                  onClick={() => handleIgnoreIssue(selectedEvent.issue)}
+                  className={styles.ignoreButton}
+                  title={selectedEvent.issue.status === 'IGNORED' ? "Unignore issue" : "Ignore issue - won't appear in main view or auto-report to GitHub"}
+                  style={{
+                    backgroundColor: selectedEvent.issue.status === 'IGNORED' ? '#6b7280' : undefined,
+                    opacity: selectedEvent.issue.status === 'IGNORED' ? 1 : undefined
+                  }}
+                >
+                  {selectedEvent.issue.status === 'IGNORED' ? '🔕 Ignored' : '🔕 Ignore'}
+                </button>
+              </>
             )}
             <button 
               onClick={() => handleCreateGitHubIssue(selectedEvent)}
@@ -1436,6 +1520,39 @@ export default function Dashboard() {
                       </>
                     )}
                   </div>
+                  <div className={styles.filterRow}>
+                    <span className={styles.filterLabel}>Status:</span>
+                    <button
+                      onClick={() => setFilterStatus('active')}
+                      className={`${styles.filterButton} ${filterStatus === 'active' ? styles.filterButtonActive : ''}`}
+                    >
+                      ⚡ Active
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('unresolved')}
+                      className={`${styles.filterButton} ${filterStatus === 'unresolved' ? styles.filterButtonActive : ''}`}
+                    >
+                      ⭕ Unresolved
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('resolved')}
+                      className={`${styles.filterButton} ${filterStatus === 'resolved' ? styles.filterButtonActive : ''}`}
+                    >
+                      ✅ Resolved
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('ignored')}
+                      className={`${styles.filterButton} ${filterStatus === 'ignored' ? styles.filterButtonActive : ''}`}
+                    >
+                      🔕 Ignored
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('all')}
+                      className={`${styles.filterButton} ${filterStatus === 'all' ? styles.filterButtonActive : ''}`}
+                    >
+                      All
+                    </button>
+                  </div>
                 </div>
                 <input
                   type="text"
@@ -1556,21 +1673,45 @@ export default function Dashboard() {
                               ✅
                             </span>
                           )}
+                          {issue.status === 'IGNORED' && (
+                            <span 
+                              className={styles.ignoredBadge} 
+                              title="Issue ignored - click to unignore"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleIgnoreIssue(issue);
+                              }}
+                            >
+                              🔕
+                            </span>
+                          )}
                         </h4>
                         <div className={styles.eventMeta}>
                           <span>{issue.project?.name || 'Unknown Project'}</span>
                           <span>• {issue.status}</span>
-                          {issue.status !== 'RESOLVED' && (
-                            <button
-                              className={styles.quickResolveButton}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleResolveIssue(issue);
-                              }}
-                              title="Resolve this issue"
-                            >
-                              Resolve
-                            </button>
+                          {issue.status !== 'RESOLVED' && issue.status !== 'IGNORED' && (
+                            <>
+                              <button
+                                className={styles.quickResolveButton}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleResolveIssue(issue);
+                                }}
+                                title="Resolve this issue"
+                              >
+                                Resolve
+                              </button>
+                              <button
+                                className={styles.quickIgnoreButton}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleIgnoreIssue(issue);
+                                }}
+                                title="Ignore this issue - won't appear in main view or auto-report to GitHub"
+                              >
+                                Ignore
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>

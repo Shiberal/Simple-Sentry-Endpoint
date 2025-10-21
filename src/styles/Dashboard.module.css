@@ -303,6 +303,21 @@
   flex-wrap: wrap;
 }
 
+.filterRow {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: var(--space-1);
+}
+
+.filterLabel {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+  margin-right: var(--space-1);
+}
+
 .filterButton {
   padding: 4px var(--space-2);
   background-color: transparent;
@@ -543,7 +558,8 @@
   opacity: 0.8;
 }
 
-.resolvedBadge {
+.resolvedBadge,
+.ignoredBadge {
   display: inline-flex;
   align-items: center;
   font-size: 12px;
@@ -551,7 +567,8 @@
   transition: transform var(--transition-fast);
 }
 
-.resolvedBadge:hover {
+.resolvedBadge:hover,
+.ignoredBadge:hover {
   transform: scale(1.2);
 }
 
@@ -563,7 +580,8 @@
   align-items: center;
 }
 
-.quickResolveButton {
+.quickResolveButton,
+.quickIgnoreButton {
   background: transparent;
   border: 1px solid var(--border-primary);
   color: var(--text-secondary);
@@ -584,6 +602,17 @@
 }
 
 .quickResolveButton:active {
+  transform: translateY(0);
+}
+
+.quickIgnoreButton:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-color: var(--text-secondary);
+  transform: translateY(-1px);
+}
+
+.quickIgnoreButton:active {
   transform: translateY(0);
 }
 
@@ -654,7 +683,8 @@
   align-items: center;
 }
 
-.resolveButton {
+.resolveButton,
+.ignoreButton {
   background: transparent;
   border: 1px solid var(--border-primary);
   color: var(--text-primary);
@@ -681,6 +711,17 @@
 }
 
 .resolveButton:active {
+  transform: translateY(0);
+}
+
+.ignoreButton:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-color: var(--text-secondary);
+  transform: translateY(-1px);
+}
+
+.ignoreButton:active {
   transform: translateY(0);
 }
 

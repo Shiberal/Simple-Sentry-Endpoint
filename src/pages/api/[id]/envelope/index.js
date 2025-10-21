@@ -188,8 +188,8 @@ export default async function handler(req, res) {
         
         console.log('💾 Event saved to database (ID:', event.id, ')');
 
-        // Auto-create GitHub issue if enabled and this is a new issue
-        if (isNewIssue && project.autoGithubReport) {
+        // Auto-create GitHub issue if enabled and this is a new issue (but not ignored)
+        if (isNewIssue && project.autoGithubReport && issue.status !== 'IGNORED') {
           // Check if error matches filters
           const filters = project.autoGithubReportFilters;
           if (shouldAutoReport({ issue, eventData, filters })) {
@@ -219,8 +219,8 @@ export default async function handler(req, res) {
               console.log('⚠️  Failed to auto-create GitHub issue');
             }
           }
-        } else if (!isNewIssue && project.autoGithubReport && issue.githubIssueNumber) {
-          // For recurring errors, update the GitHub issue
+        } else if (!isNewIssue && project.autoGithubReport && issue.githubIssueNumber && issue.status !== 'IGNORED') {
+          // For recurring errors, update the GitHub issue (but skip if ignored)
           const filters = project.autoGithubReportFilters;
           if (shouldAutoReport({ issue, eventData, filters })) {
             const timeSinceFirst = new Date() - new Date(issue.firstSeen);

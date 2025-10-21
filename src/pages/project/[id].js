@@ -19,6 +19,7 @@ export default function ProjectSettings() {
   const [filterEnvironments, setFilterEnvironments] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [ignoredIssues, setIgnoredIssues] = useState([]);
 
   useEffect(() => {
     if (id) {
@@ -58,11 +59,47 @@ export default function ProjectSettings() {
       const filters = data.project.autoGithubReportFilters || {};
       setFilterLevels(filters.levels || ['error']);
       setFilterEnvironments(filters.environments ? filters.environments.join(', ') : '');
+      
+      // Fetch ignored issues for this project
+      fetchIgnoredIssues();
     } catch (error) {
       console.error('Error fetching project:', error);
       router.push('/dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchIgnoredIssues = async () => {
+    try {
+      const response = await fetch(`/api/issues?projectId=${id}&status=ignored&pageSize=100`);
+      if (response.ok) {
+        const data = await response.json();
+        setIgnoredIssues(data.issues || []);
+      }
+    } catch (error) {
+      console.error('Error fetching ignored issues:', error);
+    }
+  };
+
+  const handleUnignoreIssue = async (issueId) => {
+    try {
+      const response = await fetch(`/api/issues/${issueId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'UNRESOLVED' })
+      });
+
+      if (response.ok) {
+        // Refresh ignored issues list
+        fetchIgnoredIssues();
+        alert('Issue unignored successfully!');
+      } else {
+        alert('Failed to unignore issue');
+      }
+    } catch (error) {
+      console.error('Error unignoring issue:', error);
+      alert('Error unignoring issue');
     }
   };
 
@@ -597,6 +634,48 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
                 </button>
               </div>
             </form>
+          </section>
+
+          {/* Ignored Issues Section */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>🔕 Ignored Issues</h2>
+            <p className={styles.sectionDescription}>
+              Issues that are ignored will not appear in the main dashboard view and will not trigger GitHub auto-reporting.
+              You can unignore them at any time to restore normal monitoring.
+            </p>
+            {ignoredIssues.length === 0 ? (
+              <div className={styles.emptyState}>
+                <p className={styles.emptyText}>No ignored issues for this project.</p>
+              </div>
+            ) : (
+              <div className={styles.ignoredIssuesList}>
+                {ignoredIssues.map(issue => (
+                  <div key={issue.id} className={styles.ignoredIssueItem}>
+                    <div className={styles.ignoredIssueInfo}>
+                      <div className={styles.ignoredIssueHeader}>
+                        <span className={styles.ignoredIssueTitle}>{issue.title}</span>
+                        <span className={styles.ignoredIssueBadge}>
+                          {issue.level.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className={styles.ignoredIssueMeta}>
+                        <span>Occurrences: {issue.count}</span>
+                        <span>•</span>
+                        <span>Last seen: {new Date(issue.lastSeen).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span>First seen: {new Date(issue.firstSeen).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleUnignoreIssue(issue.id)}
+                      className={styles.unignoreButton}
+                    >
+                      Unignore
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Danger Zone */}
