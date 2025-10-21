@@ -10,7 +10,10 @@ export default function handler(req, res) {
   console.log(`     - /api/projects/*`);
   console.log(`     - /api/issues/*`);
   console.log(`     - /api/events/*`);
-  console.log(`     - /api/[id]/envelope (Sentry ingestion endpoint)`);
+  console.log(`     - /api/[id]/envelope (Sentry envelope endpoint)`);
+  console.log(`     - /api/[id]/store (Sentry legacy JSON endpoint)`);
+  console.log(`     - /api/[id]/security (CSP violation reports)`);
+  console.log(`     - /api/[id]/minidump (Native crash dumps)`);
   console.log(`     - /api/analytics/*`);
   
   res.status(404).json({

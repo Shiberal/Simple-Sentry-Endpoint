@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLevel, setFilterLevel] = useState('all');
   const [filterStatus, setFilterStatus] = useState('active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
+  const [filterEventType, setFilterEventType] = useState('all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(null);
@@ -747,6 +748,32 @@ export default function Dashboard() {
     return 'event';
   };
 
+  // Get event type badge info (for CSP, minidump, etc.)
+  const getEventTypeBadge = (issue) => {
+    // Check if issue has CSP-specific fields
+    if (issue.violatedDirective || issue.blockedUri) {
+      return { icon: '🛡️', label: 'CSP', color: '#f97316' }; // Orange
+    }
+    // Check events array for event type if available
+    if (issue.events && issue.events.length > 0) {
+      const latestEvent = issue.events[0];
+      if (latestEvent.eventType === 'MINIDUMP') {
+        return { icon: '💥', label: 'Crash', color: '#9333ea' }; // Purple
+      }
+      if (latestEvent.eventType === 'TRANSACTION') {
+        return { icon: '⚡', label: 'Perf', color: '#3b82f6' }; // Blue
+      }
+      if (latestEvent.eventType === 'MESSAGE') {
+        return { icon: '💬', label: 'Message', color: '#10b981' }; // Green
+      }
+      if (latestEvent.eventType === 'CSP') {
+        return { icon: '🛡️', label: 'CSP', color: '#f97316' }; // Orange
+      }
+    }
+    // Default for regular errors
+    return null;
+  };
+
   const getEventTitle = (event) => {
     // If it's an issue object (has title field)
     if (event.title) {
@@ -797,8 +824,21 @@ export default function Dashboard() {
       if (filterStatus === 'in_progress') return issue.status === 'IN_PROGRESS';
       return true;
     })();
+
+    const matchesEventType = (() => {
+      if (filterEventType === 'all') return true;
+      // Check for CSP issues
+      if (filterEventType === 'CSP' && (issue.violatedDirective || issue.blockedUri)) return true;
+      // Check event type in events array
+      if (issue.events && issue.events.length > 0) {
+        return issue.events.some(event => event.eventType === filterEventType);
+      }
+      // Default: show ERROR type issues when filtering by ERROR
+      if (filterEventType === 'ERROR' && !issue.violatedDirective && !issue.blockedUri) return true;
+      return false;
+    })();
     
-    return matchesSearch && matchesLevel && matchesStatus;
+    return matchesSearch && matchesLevel && matchesStatus && matchesEventType;
   });
 
   const renderStackTrace = (exception) => {
@@ -1210,6 +1250,111 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {/* CSP Violation Details */}
+              {(data.type === 'csp' || data.csp || selectedEvent.issue?.violatedDirective) && (
+                <div className={styles.detailSection}>
+                  <h4 className={styles.detailSectionTitle}>🛡️ CSP Violation Details</h4>
+                  <div className={styles.infoCard}>
+                    <div className={styles.infoGrid}>
+                      {(data.contexts?.csp?.violated_directive || selectedEvent.issue?.violatedDirective) && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>Violated Directive</span>
+                          <span className={styles.infoValue}>
+                            {data.contexts?.csp?.violated_directive || selectedEvent.issue?.violatedDirective}
+                          </span>
+                        </div>
+                      )}
+                      {(data.contexts?.csp?.blocked_uri || selectedEvent.issue?.blockedUri) && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>Blocked URI</span>
+                          <span className={styles.infoValue}>
+                            {data.contexts?.csp?.blocked_uri || selectedEvent.issue?.blockedUri}
+                          </span>
+                        </div>
+                      )}
+                      {(data.contexts?.csp?.document_uri || data.csp?.['document-uri']) && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>Document URI</span>
+                          <span className={styles.infoValue}>
+                            {data.contexts?.csp?.document_uri || data.csp?.['document-uri']}
+                          </span>
+                        </div>
+                      )}
+                      {(data.contexts?.csp?.source_file || selectedEvent.issue?.sourceFile) && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>Source File</span>
+                          <span className={styles.infoValue}>
+                            {data.contexts?.csp?.source_file || selectedEvent.issue?.sourceFile}
+                          </span>
+                        </div>
+                      )}
+                      {(data.contexts?.csp?.disposition || data.csp?.disposition) && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>Disposition</span>
+                          <span className={styles.infoValue}>
+                            {data.contexts?.csp?.disposition || data.csp?.disposition}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {(data.contexts?.csp?.original_policy || data.csp?.['original-policy']) && (
+                      <div style={{ marginTop: 'var(--space-3)' }}>
+                        <span className={styles.infoLabel}>Original Policy</span>
+                        <pre className={styles.codeBlock} style={{ fontSize: '10px', marginTop: 'var(--space-1)' }}>
+                          {data.contexts?.csp?.original_policy || data.csp?.['original-policy']}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Minidump/Crash Details */}
+              {(data.type === 'minidump' || data.minidump) && (
+                <div className={styles.detailSection}>
+                  <h4 className={styles.detailSectionTitle}>💥 Native Crash Details</h4>
+                  <div className={styles.infoCard}>
+                    <div className={styles.infoGrid}>
+                      {data.minidump?.crash_reason && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>Crash Reason</span>
+                          <span className={styles.infoValue}>{data.minidump.crash_reason}</span>
+                        </div>
+                      )}
+                      {data.minidump?.crash_address && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>Crash Address</span>
+                          <span className={styles.infoValue}>{data.minidump.crash_address}</span>
+                        </div>
+                      )}
+                      {data.minidump?.platform && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>Platform</span>
+                          <span className={styles.infoValue}>{data.minidump.platform}</span>
+                        </div>
+                      )}
+                      {data.minidump?.os_version && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>OS Version</span>
+                          <span className={styles.infoValue}>{data.minidump.os_version}</span>
+                        </div>
+                      )}
+                      {data.minidump?.app_version && (
+                        <div className={styles.infoItem}>
+                          <span className={styles.infoLabel}>App Version</span>
+                          <span className={styles.infoValue}>{data.minidump.app_version}</span>
+                        </div>
+                      )}
+                    </div>
+                    {data.minidump?.note && (
+                      <div style={{ marginTop: 'var(--space-2)', fontSize: '11px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                        ℹ️ {data.minidump.note}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {data.exception && (
                 <div className={styles.detailSection}>
                   <h4 className={styles.detailSectionTitle}>Exception</h4>
@@ -1514,6 +1659,18 @@ export default function Dashboard() {
                           <option value="ignored">🔕 Ignored</option>
                           <option value="all">All Statuses</option>
                         </select>
+                        <select 
+                          value={filterEventType} 
+                          onChange={(e) => setFilterEventType(e.target.value)}
+                          className={styles.filterSelect}
+                        >
+                          <option value="all">All Types</option>
+                          <option value="ERROR">🔴 Errors</option>
+                          <option value="CSP">🛡️ CSP Violations</option>
+                          <option value="MINIDUMP">💥 Crashes</option>
+                          <option value="TRANSACTION">⚡ Performance</option>
+                          <option value="MESSAGE">💬 Messages</option>
+                        </select>
                       </div>
                       <button
                         onClick={() => setIsSelectionMode(true)}
@@ -1626,6 +1783,18 @@ export default function Dashboard() {
                               {issue.count}x
                             </span>
                           )}
+                          {(() => {
+                            const typeBadge = getEventTypeBadge(issue);
+                            return typeBadge ? (
+                              <span 
+                                className={styles.eventTypeBadge} 
+                                title={`${typeBadge.label} event`}
+                                style={{ backgroundColor: typeBadge.color }}
+                              >
+                                {typeBadge.icon} {typeBadge.label}
+                              </span>
+                            ) : null;
+                          })()}
                           {issue.githubIssueUrl && (
                             <span className={styles.githubBadge} title="GitHub issue exists">
                               🐙

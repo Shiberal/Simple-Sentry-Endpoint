@@ -66,7 +66,7 @@ export default async function handler(req, res) {
         const orderBy = {};
         orderBy[sortBy] = sortOrder;
 
-        // Fetch issues with counts
+        // Fetch issues with counts and latest event
         const [issues, totalCount] = await Promise.all([
           prisma.issue.findMany({
             where,
@@ -84,6 +84,17 @@ export default async function handler(req, res) {
                   name: true,
                   email: true
                 }
+              },
+              events: {
+                select: {
+                  id: true,
+                  eventType: true,
+                  createdAt: true
+                },
+                orderBy: {
+                  createdAt: 'desc'
+                },
+                take: 1 // Only get the latest event for event type badge
               },
               _count: {
                 select: {

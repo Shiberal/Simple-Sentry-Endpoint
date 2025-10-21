@@ -617,6 +617,19 @@
   opacity: 0.8;
 }
 
+.eventTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: white;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .resolvedBadge,
 .ignoredBadge {
   display: inline-flex;
