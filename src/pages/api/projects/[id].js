@@ -125,14 +125,15 @@ export default async function handler(req, res) {
           return res.status(403).json({ error: 'Access denied' });
         }
 
-        const { githubRepo, githubToken } = req.body;
+        const { githubRepo, githubToken, autoGithubReport } = req.body;
 
         // Update the project with GitHub configuration
         const updatedProject = await prisma.project.update({
           where: { id: parseInt(id) },
           data: {
             githubRepo: githubRepo || null,
-            githubToken: githubToken || null
+            githubToken: githubToken || null,
+            autoGithubReport: autoGithubReport !== undefined ? autoGithubReport : false
           }
         });
 

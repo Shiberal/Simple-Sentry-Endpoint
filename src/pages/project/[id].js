@@ -14,6 +14,7 @@ export default function ProjectSettings() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [githubRepo, setGithubRepo] = useState('');
   const [githubToken, setGithubToken] = useState('');
+  const [autoGithubReport, setAutoGithubReport] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -49,6 +50,7 @@ export default function ProjectSettings() {
       setProject(data.project);
       setGithubRepo(data.project.githubRepo || '');
       setGithubToken(data.project.githubToken || '');
+      setAutoGithubReport(data.project.autoGithubReport || false);
     } catch (error) {
       console.error('Error fetching project:', error);
       router.push('/dashboard');
@@ -74,7 +76,8 @@ export default function ProjectSettings() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           githubRepo,
-          githubToken
+          githubToken,
+          autoGithubReport
         })
       });
 
@@ -498,6 +501,21 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
                   >
                     Create token →
                   </a>
+                </p>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.checkboxLabel}>
+                  <input
+                    type="checkbox"
+                    checked={autoGithubReport}
+                    onChange={(e) => setAutoGithubReport(e.target.checked)}
+                    className={styles.checkbox}
+                  />
+                  <span>Automatically create GitHub issues for new errors</span>
+                </label>
+                <p className={styles.helpText}>
+                  When enabled, new issues will automatically create GitHub issues in your configured repository.
                 </p>
               </div>
 
