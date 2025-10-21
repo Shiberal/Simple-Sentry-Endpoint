@@ -17,28 +17,43 @@ export function generateFingerprint(eventData) {
   // 2. Error message (normalized)
   let message = eventData.message || eventData.exception?.values?.[0]?.value || '';
   
-  // Normalize message by removing numbers, UUIDs, timestamps, etc.
+  // Normalize message by removing variable parts
   message = message
-    .replace(/\d+/g, '<num>')  // Replace numbers
-    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>')  // UUIDs
-    .replace(/\b(https?:\/\/[^\s]+)/g, '<url>')  // URLs
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>')  // UUIDs first
+    .replace(/\b(https?:\/\/[^\s]+)/g, '<url>')  // Full URLs
+    .replace(/\/[^\s,;]*(\.php|\.js|\.css|\.ico|\.png|\.jpg|\.svg)/gi, '<path>')  // File paths
+    .replace(/\d{4,}/g, '<num>')  // Large numbers (IDs, timestamps)
+    .replace(/\s+\d+\s+/g, ' <num> ')  // Numbers with spaces
     .replace(/["']([^"']+)["']/g, '<str>')  // String literals
+    .replace(/\s+/g, ' ')  // Normalize whitespace
     .toLowerCase()
     .trim();
   
   components.push(message);
 
   // 3. Stack trace (first 2-3 frames for signature)
-  if (eventData.exception?.values?.[0]?.stacktrace?.frames) {
+  if (eventData.exception?.values?.[0]?.stacktrace?.frames && 
+      eventData.exception.values[0].stacktrace.frames.length > 0) {
     const frames = eventData.exception.values[0].stacktrace.frames;
     // Get last few frames (most relevant) or first few if reversed
     const relevantFrames = frames.slice(-3).map(frame => {
-      const filename = frame.filename || frame.module || '';
+      // Normalize file paths
+      let filename = (frame.filename || frame.module || '').replace(/^.*\/(vendor|node_modules)\//, '<vendor>/');
       const func = frame.function || '';
-      const line = frame.lineno || '';
-      return `${filename}:${func}:${line}`;
+      // Don't include line numbers in fingerprint as they can change
+      return `${filename}:${func}`;
     });
     components.push(...relevantFrames);
+  } else {
+    // For errors without stack traces, use additional context
+    // Include platform to differentiate similar errors from different sources
+    if (eventData.platform) {
+      components.push(`platform:${eventData.platform}`);
+    }
+    // Include environment to separate prod/dev issues
+    if (eventData.environment) {
+      components.push(`env:${eventData.environment}`);
+    }
   }
 
   // 4. Culprit (if available)
