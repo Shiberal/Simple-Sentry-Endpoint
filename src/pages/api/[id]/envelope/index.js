@@ -3,7 +3,7 @@ import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import { generateFingerprint, extractTitle, extractCulprit, extractLevel } from '@/lib/fingerprint';
 import { sendNewIssueAlert } from '@/lib/email';
-import { createGitHubIssue, shouldAutoReport } from '@/lib/github';
+import { createGitHubIssue, shouldAutoReport, addGitHubComment } from '@/lib/github';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -202,10 +202,48 @@ export default async function handler(req, res) {
               baseUrl
             });
             
-            if (githubIssue) {
+            if (githubIssue && githubIssue.created) {
               console.log('✅ GitHub issue auto-created:', githubIssue.html_url);
+              
+              // Store GitHub issue info in database to prevent duplicates
+              await prisma.issue.update({
+                where: { id: issue.id },
+                data: {
+                  githubIssueUrl: githubIssue.html_url,
+                  githubIssueNumber: githubIssue.number
+                }
+              });
+            } else if (githubIssue && githubIssue.exists) {
+              console.log('ℹ️  GitHub issue already exists:', githubIssue.html_url);
             } else {
               console.log('⚠️  Failed to auto-create GitHub issue');
+            }
+          }
+        } else if (!isNewIssue && project.autoGithubReport && issue.githubIssueNumber) {
+          // For recurring errors, add a comment to the existing GitHub issue
+          const filters = project.autoGithubReportFilters;
+          if (shouldAutoReport({ issue, eventData, filters })) {
+            // Only comment on significant count milestones
+            if (issue.count % 10 === 0 || issue.count === 5) {
+              const timeSinceFirst = new Date() - new Date(issue.firstSeen);
+              const days = Math.floor(timeSinceFirst / (1000 * 60 * 60 * 24));
+              const hours = Math.floor((timeSinceFirst % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+              
+              const comment = `## 🔄 Error Recurred - ${issue.count} Total Occurrences\n\n` +
+                `This error has now occurred **${issue.count} time${issue.count !== 1 ? 's' : ''}**.\n\n` +
+                `### 📊 Statistics\n\n` +
+                `- **First Seen:** ${new Date(issue.firstSeen).toLocaleString()}\n` +
+                `- **Last Seen:** ${new Date(issue.lastSeen).toLocaleString()}\n` +
+                `- **Time Span:** ${days > 0 ? `${days} day${days !== 1 ? 's' : ''} ` : ''}${hours} hour${hours !== 1 ? 's' : ''}\n` +
+                `- **Severity:** ${issue.level.toUpperCase()}\n` +
+                `- **Status:** ${issue.status}\n\n` +
+                `🔗 [View in Dashboard](${process.env.BASE_URL || 'http://localhost:3000'}/dashboard)`;
+              
+              await addGitHubComment({
+                issueNumber: issue.githubIssueNumber,
+                project,
+                comment
+              });
             }
           }
         }

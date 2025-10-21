@@ -246,12 +246,36 @@ export default function Dashboard() {
   };
 
   const handleCreateGitHubIssue = async (event) => {
-    const title = `🐛 ${getEventTitle(event)}`;
     const data = event.data;
     const issue = event.issue;
+    const countSuffix = issue?.count > 1 ? ` (${issue.count}x)` : '';
+    const title = `🐛 ${getEventTitle(event)}${countSuffix}`;
+    
+    // Check if GitHub issue already exists for this error
+    if (issue?.githubIssueUrl) {
+      const confirmed = confirm(
+        `GitHub Issue Already Exists!\n\n` +
+        `This error already has a GitHub issue:\n` +
+        `${issue.githubIssueUrl}\n\n` +
+        `Would you like to open it?`
+      );
+      
+      if (confirmed) {
+        window.open(issue.githubIssueUrl, '_blank');
+      }
+      return;
+    }
     
     // Generate enhanced issue body
     let body = `## 🚨 Error Report\n\n`;
+    body += `This issue was manually created from the error dashboard.\n\n`;
+    if (issue?.fingerprint) {
+      body += `**Error Fingerprint:** \`${issue.fingerprint}\`\n`;
+    }
+    if (issue?.count) {
+      body += `**Occurrences:** ${issue.count} time${issue.count !== 1 ? 's' : ''}\n`;
+    }
+    body += `\n`;
     
     // Error summary
     if (data.exception?.values?.[0]) {
@@ -287,9 +311,10 @@ export default function Dashboard() {
     // Occurrence information
     if (issue) {
       body += `### 📊 Occurrence Information\n\n`;
-      body += `- **Times occurred:** ${issue.count}\n`;
-      body += `- **First seen:** ${new Date(issue.firstSeen).toLocaleString()}\n`;
-      body += `- **Last seen:** ${new Date(issue.lastSeen).toLocaleString()}\n`;
+      body += `- **Times Occurred:** ${issue.count} time${issue.count !== 1 ? 's' : ''}\n`;
+      body += `- **First Seen:** ${new Date(issue.firstSeen).toLocaleString()}\n`;
+      body += `- **Last Seen:** ${new Date(issue.lastSeen).toLocaleString()}\n`;
+      body += `- **Severity Level:** ${issue.level.toUpperCase()}\n`;
       body += `- **Status:** ${issue.status}\n\n`;
     }
     
@@ -409,6 +434,39 @@ export default function Dashboard() {
         
         if (response.ok) {
           const githubIssue = await response.json();
+          
+          // Save GitHub issue info to database to prevent duplicates
+          if (issue?.id) {
+            try {
+              await fetch(`/api/issues/${issue.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  githubIssueUrl: githubIssue.html_url,
+                  githubIssueNumber: githubIssue.number
+                })
+              });
+              
+              // Update local state to reflect the change
+              setEvents(prevEvents => 
+                prevEvents.map(e => 
+                  e.issue?.id === issue.id 
+                    ? {
+                        ...e,
+                        issue: {
+                          ...e.issue,
+                          githubIssueUrl: githubIssue.html_url,
+                          githubIssueNumber: githubIssue.number
+                        }
+                      }
+                    : e
+                )
+              );
+            } catch (err) {
+              console.error('Failed to save GitHub issue info:', err);
+            }
+          }
+          
           const successMsg = `✅ GitHub Issue Created Successfully!\n\n` +
             `📝 Issue #${githubIssue.number}\n` +
             `🏷️  Labels: ${labels.join(', ')}\n` +
@@ -674,9 +732,13 @@ export default function Dashboard() {
             <button 
               onClick={() => handleCreateGitHubIssue(selectedEvent)}
               className={styles.githubButton}
-              title="Create GitHub issue"
+              title={selectedEvent.issue?.githubIssueUrl ? "Open existing GitHub issue" : "Create GitHub issue"}
+              style={{
+                backgroundColor: selectedEvent.issue?.githubIssueUrl ? '#22c55e' : undefined,
+                opacity: selectedEvent.issue?.githubIssueUrl ? 1 : undefined
+              }}
             >
-              🐙
+              {selectedEvent.issue?.githubIssueUrl ? '🐙 ✓' : '🐙'}
             </button>
             <button 
               onClick={() => {

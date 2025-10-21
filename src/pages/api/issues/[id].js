@@ -79,7 +79,7 @@ export default async function handler(req, res) {
     case 'PATCH':
       try {
         const issueId = parseInt(id);
-        const { status, assignedToId } = req.body;
+        const { status, assignedToId, githubIssueUrl, githubIssueNumber } = req.body;
 
         const updateData = {};
         
@@ -112,6 +112,15 @@ export default async function handler(req, res) {
             }
             updateData.assignedToId = parseInt(assignedToId);
           }
+        }
+
+        // Update GitHub issue info
+        if (githubIssueUrl !== undefined) {
+          updateData.githubIssueUrl = githubIssueUrl;
+        }
+        
+        if (githubIssueNumber !== undefined) {
+          updateData.githubIssueNumber = githubIssueNumber;
         }
 
         const issue = await prisma.issue.update({

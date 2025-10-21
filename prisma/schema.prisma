@@ -48,27 +48,30 @@ model Project {
 }
 
 model Issue {
-  id           Int         @id @default(autoincrement())
-  projectId    Int
-  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  fingerprint  String      // Hash of error signature for grouping
-  title        String      // Error message/title
-  culprit      String?     // Function/file where error occurred
-  level        String      @default("error") // error, warning, info
-  status       IssueStatus @default(UNRESOLVED)
-  count        Int         @default(1) // Number of occurrences
-  firstSeen    DateTime    @default(now())
-  lastSeen     DateTime    @default(now())
-  assignedToId Int?
-  assignedTo   User?       @relation("AssignedIssues", fields: [assignedToId], references: [id], onDelete: SetNull)
-  events       Event[]
-  comments     Comment[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id              Int         @id @default(autoincrement())
+  projectId       Int
+  project         Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fingerprint     String      // Hash of error signature for grouping
+  title           String      // Error message/title
+  culprit         String?     // Function/file where error occurred
+  level           String      @default("error") // error, warning, info
+  status          IssueStatus @default(UNRESOLVED)
+  count           Int         @default(1) // Number of occurrences
+  firstSeen       DateTime    @default(now())
+  lastSeen        DateTime    @default(now())
+  assignedToId    Int?
+  assignedTo      User?       @relation("AssignedIssues", fields: [assignedToId], references: [id], onDelete: SetNull)
+  githubIssueUrl  String?     // URL of the created GitHub issue (if auto-reported)
+  githubIssueNumber Int?      // GitHub issue number (if auto-reported)
+  events          Event[]
+  comments        Comment[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   @@unique([projectId, fingerprint])
   @@index([projectId, status])
   @@index([projectId, lastSeen])
+  @@index([projectId, githubIssueNumber])
 }
 
 model Event {

@@ -43,6 +43,12 @@ export function shouldAutoReport({ issue, eventData, filters }) {
  * @returns {Promise<Object|null>} - Created GitHub issue or null if failed
  */
 export async function createGitHubIssue({ issue, eventData, project, baseUrl }) {
+  // Check if GitHub issue already exists for this error
+  if (issue.githubIssueUrl) {
+    console.log('ℹ️  GitHub issue already exists for this error:', issue.githubIssueUrl);
+    return { html_url: issue.githubIssueUrl, number: issue.githubIssueNumber, exists: true };
+  }
+
   // Validate GitHub configuration
   if (!project.githubRepo) {
     console.log('⚠️  GitHub repo not configured for project:', project.name);
@@ -71,12 +77,15 @@ export async function createGitHubIssue({ issue, eventData, project, baseUrl }) 
       return null;
     }
 
-    // Build the issue title
-    const title = `🐛 ${issue.title}`;
+    // Build the issue title with occurrence count
+    const countSuffix = issue.count > 1 ? ` (${issue.count}x)` : '';
+    const title = `🐛 ${issue.title}${countSuffix}`;
     
     // Generate enhanced issue body
     let body = `## 🚨 Error Report\n\n`;
     body += `This issue was automatically created from [${project.name}](${baseUrl}/dashboard).\n\n`;
+    body += `**Error Fingerprint:** \`${issue.fingerprint}\`\n`;
+    body += `**Occurrences:** ${issue.count} time${issue.count !== 1 ? 's' : ''}\n\n`;
     
     // Error summary
     if (eventData.exception?.values?.[0]) {
@@ -111,10 +120,11 @@ export async function createGitHubIssue({ issue, eventData, project, baseUrl }) 
     
     // Occurrence information
     body += `### 📊 Occurrence Information\n\n`;
+    body += `- **Times Occurred:** ${issue.count} time${issue.count !== 1 ? 's' : ''}\n`;
     body += `- **First Seen:** ${new Date(issue.firstSeen).toLocaleString()}\n`;
     body += `- **Last Seen:** ${new Date(issue.lastSeen).toLocaleString()}\n`;
-    body += `- **Count:** ${issue.count} occurrence(s)\n`;
-    body += `- **Level:** ${issue.level}\n`;
+    body += `- **Severity Level:** ${issue.level.toUpperCase()}\n`;
+    body += `- **Status:** ${issue.status}\n`;
     body += `\n`;
     
     // Environment info
@@ -195,10 +205,75 @@ export async function createGitHubIssue({ issue, eventData, project, baseUrl }) 
     const githubIssue = await response.json();
     console.log('✅ GitHub issue created:', githubIssue.html_url);
     
-    return githubIssue;
+    return {
+      html_url: githubIssue.html_url,
+      number: githubIssue.number,
+      id: githubIssue.id,
+      created: true
+    };
   } catch (error) {
     console.error('❌ Error creating GitHub issue:', error.message);
     return null;
+  }
+}
+
+/**
+ * Add a comment to an existing GitHub issue
+ * @param {Object} params
+ * @param {number} params.issueNumber - GitHub issue number
+ * @param {Object} params.project - Project with githubRepo and githubToken
+ * @param {string} params.comment - Comment text to add
+ * @returns {Promise<boolean>} - True if successful
+ */
+export async function addGitHubComment({ issueNumber, project, comment }) {
+  try {
+    // Parse repository
+    let owner, repo;
+    const repoStr = project.githubRepo;
+    
+    if (repoStr.includes('github.com/')) {
+      const match = repoStr.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (match) {
+        owner = match[1];
+        repo = match[2].replace(/\.git$/, '');
+      }
+    } else if (repoStr.includes('/')) {
+      [owner, repo] = repoStr.split('/');
+    }
+
+    if (!owner || !repo) {
+      console.error('❌ Invalid GitHub repository format:', repoStr);
+      return false;
+    }
+
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`;
+    
+    const headers = {
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'Sentry-Clone-Error-Reporter'
+    };
+
+    if (project.githubToken) {
+      headers['Authorization'] = `token ${project.githubToken}`;
+    }
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ body: comment })
+    });
+
+    if (!response.ok) {
+      console.error('❌ Failed to add GitHub comment:', response.status);
+      return false;
+    }
+
+    console.log('✅ Comment added to GitHub issue #' + issueNumber);
+    return true;
+  } catch (error) {
+    console.error('❌ Error adding GitHub comment:', error.message);
+    return false;
   }
 }
 
