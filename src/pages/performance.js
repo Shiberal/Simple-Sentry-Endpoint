@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import dynamic from 'next/dynamic';
 import styles from '@/styles/Dashboard.module.css';
-
-// Dynamically import charts to avoid SSR issues
-const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
 export default function PerformancePage() {
   const router = useRouter();
@@ -66,6 +62,41 @@ export default function PerformancePage() {
     return `${seconds.toFixed(2)}s`;
   };
 
+  const renderBarChart = (data, labels, color, unit = '') => {
+    if (!data || data.length === 0) return null;
+    const max = Math.max(...data);
+    
+    return (
+      <div style={{ padding: '20px 0' }}>
+        {data.map((value, index) => {
+          const percentage = max > 0 ? (value / max) * 100 : 0;
+          return (
+            <div key={index} style={{ marginBottom: '15px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <span style={{ fontWeight: '500' }}>{labels[index]}</span>
+                <span style={{ color: '#666' }}>{value.toFixed(2)}{unit}</span>
+              </div>
+              <div style={{ 
+                width: '100%', 
+                height: '24px', 
+                background: '#f0f0f0', 
+                borderRadius: '4px',
+                overflow: 'hidden'
+              }}>
+                <div style={{ 
+                  width: `${percentage}%`, 
+                  height: '100%', 
+                  background: color,
+                  transition: 'width 0.3s ease'
+                }}></div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   if (loading && !analytics) {
     return (
       <div className={styles.container}>
@@ -78,161 +109,6 @@ export default function PerformancePage() {
       </div>
     );
   }
-
-  // Prepare chart data
-  const memoryChartOptions = {
-    chart: {
-      type: 'line',
-      height: 350,
-      toolbar: { show: true },
-      animations: { enabled: true }
-    },
-    colors: ['#00E396', '#008FFB', '#FEB019'],
-    stroke: {
-      curve: 'smooth',
-      width: 2
-    },
-    xaxis: {
-      categories: analytics?.memoryTimeline?.map((_, i) => `T${i + 1}`) || [],
-      title: { text: 'Transaction' }
-    },
-    yaxis: {
-      title: { text: 'Memory (MB)' },
-      labels: {
-        formatter: (val) => val ? val.toFixed(2) : '0'
-      }
-    },
-    legend: {
-      position: 'top'
-    },
-    tooltip: {
-      shared: true,
-      intersect: false
-    }
-  };
-
-  const memoryChartSeries = [
-    {
-      name: 'Heap Used',
-      data: analytics?.memoryTimeline?.map(m => m.heapUsed / 1024 / 1024) || []
-    },
-    {
-      name: 'Heap Total',
-      data: analytics?.memoryTimeline?.map(m => m.heapTotal / 1024 / 1024) || []
-    },
-    {
-      name: 'RSS',
-      data: analytics?.memoryTimeline?.map(m => m.rss / 1024 / 1024) || []
-    }
-  ];
-
-  const durationChartOptions = {
-    chart: {
-      type: 'bar',
-      height: 350,
-      toolbar: { show: true }
-    },
-    colors: ['#546E7A'],
-    plotOptions: {
-      bar: {
-        borderRadius: 4,
-        dataLabels: {
-          position: 'top'
-        }
-      }
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: (val) => formatDuration(val),
-      offsetY: -20,
-      style: {
-        fontSize: '12px',
-        colors: ['#304758']
-      }
-    },
-    xaxis: {
-      categories: analytics?.transactionDurations?.map((_, i) => `T${i + 1}`) || [],
-      title: { text: 'Transaction' }
-    },
-    yaxis: {
-      title: { text: 'Duration (seconds)' },
-      labels: {
-        formatter: (val) => val ? val.toFixed(3) : '0'
-      }
-    }
-  };
-
-  const durationChartSeries = [{
-    name: 'Duration',
-    data: analytics?.transactionDurations || []
-  }];
-
-  const cpuChartOptions = {
-    chart: {
-      type: 'area',
-      height: 350,
-      toolbar: { show: true }
-    },
-    colors: ['#FF4560'],
-    stroke: {
-      curve: 'smooth',
-      width: 2
-    },
-    fill: {
-      type: 'gradient',
-      gradient: {
-        shadeIntensity: 1,
-        opacityFrom: 0.7,
-        opacityTo: 0.3
-      }
-    },
-    xaxis: {
-      categories: analytics?.cpuTimeline?.map((_, i) => `T${i + 1}`) || [],
-      title: { text: 'Transaction' }
-    },
-    yaxis: {
-      title: { text: 'CPU Usage (%)' },
-      labels: {
-        formatter: (val) => val ? val.toFixed(2) : '0'
-      }
-    }
-  };
-
-  const cpuChartSeries = [{
-    name: 'CPU %',
-    data: analytics?.cpuTimeline || []
-  }];
-
-  const eventLoopChartOptions = {
-    chart: {
-      type: 'line',
-      height: 350,
-      toolbar: { show: true }
-    },
-    colors: ['#775DD0'],
-    stroke: {
-      curve: 'smooth',
-      width: 3
-    },
-    xaxis: {
-      categories: analytics?.eventLoopTimeline?.map((_, i) => `T${i + 1}`) || [],
-      title: { text: 'Transaction' }
-    },
-    yaxis: {
-      title: { text: 'Event Loop Lag (ms)' },
-      labels: {
-        formatter: (val) => val ? val.toFixed(2) : '0'
-      }
-    },
-    markers: {
-      size: 5
-    }
-  };
-
-  const eventLoopChartSeries = [{
-    name: 'Lag (ms)',
-    data: analytics?.eventLoopTimeline || []
-  }];
 
   return (
     <div className={styles.container}>
@@ -329,76 +205,99 @@ export default function PerformancePage() {
 
           {/* Charts */}
           <div style={{ marginBottom: '30px' }}>
-            <div style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '8px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              marginBottom: '20px'
-            }}>
-              <h2 style={{ marginTop: 0 }}>Transaction Duration Over Time</h2>
-              {typeof window !== 'undefined' && (
-                <Chart
-                  options={durationChartOptions}
-                  series={durationChartSeries}
-                  type="bar"
-                  height={350}
-                />
-              )}
-            </div>
+            {analytics.transactionDurations && analytics.transactionDurations.length > 0 && (
+              <div style={{
+                background: 'white',
+                padding: '20px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                marginBottom: '20px'
+              }}>
+                <h2 style={{ marginTop: 0 }}>Transaction Duration Over Time</h2>
+                {renderBarChart(
+                  analytics.transactionDurations,
+                  analytics.transactionDurations.map((_, i) => `Transaction ${i + 1}`),
+                  'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                  's'
+                )}
+              </div>
+            )}
 
-            <div style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '8px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              marginBottom: '20px'
-            }}>
-              <h2 style={{ marginTop: 0 }}>Memory Usage Timeline</h2>
-              {typeof window !== 'undefined' && (
-                <Chart
-                  options={memoryChartOptions}
-                  series={memoryChartSeries}
-                  type="line"
-                  height={350}
-                />
-              )}
-            </div>
+            {analytics.memoryTimeline && analytics.memoryTimeline.length > 0 && (
+              <div style={{
+                background: 'white',
+                padding: '20px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                marginBottom: '20px'
+              }}>
+                <h2 style={{ marginTop: 0 }}>Memory Usage Timeline</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>Heap Used (MB)</h3>
+                    {renderBarChart(
+                      analytics.memoryTimeline.map(m => m.heapUsed / 1024 / 1024),
+                      analytics.memoryTimeline.map((_, i) => `T${i + 1}`),
+                      '#00E396',
+                      ' MB'
+                    )}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>Heap Total (MB)</h3>
+                    {renderBarChart(
+                      analytics.memoryTimeline.map(m => m.heapTotal / 1024 / 1024),
+                      analytics.memoryTimeline.map((_, i) => `T${i + 1}`),
+                      '#008FFB',
+                      ' MB'
+                    )}
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>RSS (MB)</h3>
+                    {renderBarChart(
+                      analytics.memoryTimeline.map(m => m.rss / 1024 / 1024),
+                      analytics.memoryTimeline.map((_, i) => `T${i + 1}`),
+                      '#FEB019',
+                      ' MB'
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
-            <div style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '8px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              marginBottom: '20px'
-            }}>
-              <h2 style={{ marginTop: 0 }}>CPU Usage Over Time</h2>
-              {typeof window !== 'undefined' && (
-                <Chart
-                  options={cpuChartOptions}
-                  series={cpuChartSeries}
-                  type="area"
-                  height={350}
-                />
-              )}
-            </div>
+            {analytics.cpuTimeline && analytics.cpuTimeline.length > 0 && (
+              <div style={{
+                background: 'white',
+                padding: '20px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                marginBottom: '20px'
+              }}>
+                <h2 style={{ marginTop: 0 }}>CPU Usage Over Time</h2>
+                {renderBarChart(
+                  analytics.cpuTimeline,
+                  analytics.cpuTimeline.map((_, i) => `Transaction ${i + 1}`),
+                  'linear-gradient(90deg, #FF4560 0%, #FF6B6B 100%)',
+                  '%'
+                )}
+              </div>
+            )}
 
-            <div style={{
-              background: 'white',
-              padding: '20px',
-              borderRadius: '8px',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}>
-              <h2 style={{ marginTop: 0 }}>Event Loop Lag</h2>
-              {typeof window !== 'undefined' && (
-                <Chart
-                  options={eventLoopChartOptions}
-                  series={eventLoopChartSeries}
-                  type="line"
-                  height={350}
-                />
-              )}
-            </div>
+            {analytics.eventLoopTimeline && analytics.eventLoopTimeline.length > 0 && (
+              <div style={{
+                background: 'white',
+                padding: '20px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}>
+                <h2 style={{ marginTop: 0 }}>Event Loop Lag</h2>
+                {renderBarChart(
+                  analytics.eventLoopTimeline,
+                  analytics.eventLoopTimeline.map((_, i) => `Transaction ${i + 1}`),
+                  'linear-gradient(90deg, #775DD0 0%, #9B7FE8 100%)',
+                  ' ms'
+                )}
+              </div>
+            )}
           </div>
 
           {/* Transaction List */}
