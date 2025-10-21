@@ -344,3 +344,53 @@
   accent-color: var(--accent-primary);
 }
 
+.filterSection {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.filterTitle {
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+.checkboxGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.levelBadge {
+  font-size: var(--font-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: var(--weight-medium);
+  text-transform: capitalize;
+}
+
+.levelBadge[data-level="error"] {
+  background-color: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+}
+
+.levelBadge[data-level="fatal"] {
+  background-color: rgba(127, 29, 29, 0.1);
+  color: #7f1d1d;
+}
+
+.levelBadge[data-level="warning"] {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.levelBadge[data-level="info"] {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+

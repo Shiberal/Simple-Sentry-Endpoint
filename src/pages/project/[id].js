@@ -15,6 +15,8 @@ export default function ProjectSettings() {
   const [githubRepo, setGithubRepo] = useState('');
   const [githubToken, setGithubToken] = useState('');
   const [autoGithubReport, setAutoGithubReport] = useState(false);
+  const [filterLevels, setFilterLevels] = useState(['error']);
+  const [filterEnvironments, setFilterEnvironments] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -51,6 +53,11 @@ export default function ProjectSettings() {
       setGithubRepo(data.project.githubRepo || '');
       setGithubToken(data.project.githubToken || '');
       setAutoGithubReport(data.project.autoGithubReport || false);
+      
+      // Load filters
+      const filters = data.project.autoGithubReportFilters || {};
+      setFilterLevels(filters.levels || ['error']);
+      setFilterEnvironments(filters.environments ? filters.environments.join(', ') : '');
     } catch (error) {
       console.error('Error fetching project:', error);
       router.push('/dashboard');
@@ -71,13 +78,20 @@ export default function ProjectSettings() {
     setSaved(false);
     
     try {
+      // Build filters object
+      const filters = {
+        levels: filterLevels,
+        environments: filterEnvironments ? filterEnvironments.split(',').map(e => e.trim()).filter(Boolean) : []
+      };
+
       const response = await fetch(`/api/projects/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           githubRepo,
           githubToken,
-          autoGithubReport
+          autoGithubReport,
+          autoGithubReportFilters: filters
         })
       });
 
@@ -518,6 +532,57 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
                   When enabled, new issues will automatically create GitHub issues in your configured repository.
                 </p>
               </div>
+
+              {autoGithubReport && (
+                <div className={styles.filterSection}>
+                  <h3 className={styles.filterTitle}>Auto-Report Filters</h3>
+                  <p className={styles.helpText} style={{ marginBottom: 'var(--space-4)' }}>
+                    Configure which errors should automatically create GitHub issues.
+                  </p>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Error Levels</label>
+                    <div className={styles.checkboxGroup}>
+                      {['error', 'warning', 'info', 'fatal'].map(level => (
+                        <label key={level} className={styles.checkboxLabel}>
+                          <input
+                            type="checkbox"
+                            checked={filterLevels.includes(level)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFilterLevels([...filterLevels, level]);
+                              } else {
+                                setFilterLevels(filterLevels.filter(l => l !== level));
+                              }
+                            }}
+                            className={styles.checkbox}
+                          />
+                          <span className={styles.levelBadge} data-level={level}>
+                            {level}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className={styles.helpText}>
+                      Select which error levels should trigger auto-reporting.
+                    </p>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.label}>Environments (Optional)</label>
+                    <input
+                      type="text"
+                      value={filterEnvironments}
+                      onChange={(e) => setFilterEnvironments(e.target.value)}
+                      placeholder="e.g., production, staging"
+                      className={styles.input}
+                    />
+                    <p className={styles.helpText}>
+                      Comma-separated list of environments. Leave empty to report from all environments.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className={styles.formActions}>
                 <button 

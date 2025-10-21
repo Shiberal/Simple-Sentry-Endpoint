@@ -3,7 +3,7 @@ import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import { generateFingerprint, extractTitle, extractCulprit, extractLevel } from '@/lib/fingerprint';
 import { sendNewIssueAlert } from '@/lib/email';
-import { createGitHubIssue } from '@/lib/github';
+import { createGitHubIssue, shouldAutoReport } from '@/lib/github';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -190,19 +190,23 @@ export default async function handler(req, res) {
 
         // Auto-create GitHub issue if enabled and this is a new issue
         if (isNewIssue && project.autoGithubReport) {
-          console.log('🐙 Auto-creating GitHub issue...');
-          const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-          const githubIssue = await createGitHubIssue({
-            issue,
-            eventData,
-            project,
-            baseUrl
-          });
-          
-          if (githubIssue) {
-            console.log('✅ GitHub issue auto-created:', githubIssue.html_url);
-          } else {
-            console.log('⚠️  Failed to auto-create GitHub issue');
+          // Check if error matches filters
+          const filters = project.autoGithubReportFilters;
+          if (shouldAutoReport({ issue, eventData, filters })) {
+            console.log('🐙 Auto-creating GitHub issue...');
+            const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+            const githubIssue = await createGitHubIssue({
+              issue,
+              eventData,
+              project,
+              baseUrl
+            });
+            
+            if (githubIssue) {
+              console.log('✅ GitHub issue auto-created:', githubIssue.html_url);
+            } else {
+              console.log('⚠️  Failed to auto-create GitHub issue');
+            }
           }
         }
 

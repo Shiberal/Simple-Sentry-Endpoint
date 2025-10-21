@@ -3,6 +3,37 @@
  */
 
 /**
+ * Check if an error should auto-create a GitHub issue based on filters
+ * @param {Object} params
+ * @param {Object} params.issue - The issue object from database
+ * @param {Object} params.eventData - The event data
+ * @param {Object} params.filters - Filter configuration { levels: [], environments: [] }
+ * @returns {boolean} - True if error matches filters
+ */
+export function shouldAutoReport({ issue, eventData, filters }) {
+  if (!filters) return true; // No filters means report all
+  
+  // Check level filter
+  if (filters.levels && filters.levels.length > 0) {
+    if (!filters.levels.includes(issue.level)) {
+      console.log(`⏭️  Skipping auto-report: level "${issue.level}" not in filter [${filters.levels.join(', ')}]`);
+      return false;
+    }
+  }
+  
+  // Check environment filter
+  if (filters.environments && filters.environments.length > 0) {
+    const eventEnv = eventData.environment || '';
+    if (!filters.environments.includes(eventEnv)) {
+      console.log(`⏭️  Skipping auto-report: environment "${eventEnv}" not in filter [${filters.environments.join(', ')}]`);
+      return false;
+    }
+  }
+  
+  return true;
+}
+
+/**
  * Create a GitHub issue from an error event
  * @param {Object} params
  * @param {Object} params.issue - The issue object from database
