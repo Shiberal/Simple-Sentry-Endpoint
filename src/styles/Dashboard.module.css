@@ -284,7 +284,7 @@
   background-color: var(--bg-primary);
   position: sticky;
   top: 0;
-  z-index: var(--z-base);
+  z-index: var(--z-sticky);
   overflow-x: hidden;
   max-width: 100%;
 }
