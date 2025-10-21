@@ -8,10 +8,7 @@ if [ -z "$DATABASE_URL" ]; then
 fi
 
 echo "Running database migrations..."
-npx prisma migrate deploy || {
-  echo "Migrate deploy failed, trying db push..."
-  npx prisma db push --accept-data-loss
-}
+npx prisma db push 
 
 echo "Database is ready!"
 echo "Starting server..."
