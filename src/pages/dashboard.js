@@ -742,6 +742,11 @@ export default function Dashboard() {
   const getEventType = (event) => {
     // Support both event and issue data structures
     const data = event.data || event;
+    
+    // Check if it's a message event (has message but no exception)
+    if (data.message && !data.exception) return 'message';
+    
+    // Otherwise check by level
     if (data.level === 'error' || event.level === 'error' || data.exception) return 'error';
     if (data.level === 'warning' || event.level === 'warning') return 'warning';
     if (data.level === 'info' || event.level === 'info') return 'info';
@@ -991,7 +996,7 @@ export default function Dashboard() {
           >
             Overview
           </button>
-          {data.exception && (
+          {data.exception?.values?.[0]?.stacktrace?.frames && (
             <button
               onClick={() => setActiveTab('stacktrace')}
               className={`${styles.tab} ${activeTab === 'stacktrace' ? styles.tabActive : ''}`}
@@ -1048,12 +1053,14 @@ export default function Dashboard() {
                       className={styles.eventType}
                       style={{
                         backgroundColor: getEventType(selectedEvent) === 'error' ? 'var(--error-bg)' : 
-                                       getEventType(selectedEvent) === 'warning' ? 'var(--warning-bg)' : 'var(--info-bg)',
+                                       getEventType(selectedEvent) === 'warning' ? 'var(--warning-bg)' : 
+                                       getEventType(selectedEvent) === 'message' ? 'var(--success-bg)' : 'var(--info-bg)',
                         color: getEventType(selectedEvent) === 'error' ? 'var(--error)' : 
-                               getEventType(selectedEvent) === 'warning' ? 'var(--warning)' : 'var(--info)'
+                               getEventType(selectedEvent) === 'warning' ? 'var(--warning)' : 
+                               getEventType(selectedEvent) === 'message' ? 'var(--success)' : 'var(--info)'
                       }}
                     >
-                      {getEventType(selectedEvent).toUpperCase()}
+                      {getEventType(selectedEvent) === 'message' ? '💬 MESSAGE' : getEventType(selectedEvent).toUpperCase()}
                     </span>
                   </div>
 
@@ -1355,7 +1362,8 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {data.exception && (
+              {/* Message or Exception */}
+              {data.exception ? (
                 <div className={styles.detailSection}>
                   <h4 className={styles.detailSectionTitle}>Exception</h4>
                   <div className={styles.exceptionBox}>
@@ -1367,7 +1375,16 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
-              )}
+              ) : data.message ? (
+                <div className={styles.detailSection}>
+                  <h4 className={styles.detailSectionTitle}>💬 Message</h4>
+                  <div className={styles.exceptionBox} style={{ backgroundColor: 'var(--success-bg)', borderColor: 'var(--success)' }}>
+                    <div className={styles.exceptionValue} style={{ color: 'var(--text-primary)' }}>
+                      {data.message}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               {data.tags && Object.keys(data.tags).length > 0 && (
                 <div className={styles.detailSection}>
@@ -1750,7 +1767,8 @@ export default function Dashboard() {
                         className={`${styles.eventCard} ${isSelected ? styles.eventCardSelected : ''}`}
                         style={{
                           borderLeftColor: type === 'error' ? 'var(--error)' : 
-                                         type === 'warning' ? 'var(--warning)' : 'var(--info)',
+                                         type === 'warning' ? 'var(--warning)' : 
+                                         type === 'info' ? 'var(--info)' : 'var(--success)',
                         }}
                       >
                         {isSelectionMode && (
@@ -1767,9 +1785,11 @@ export default function Dashboard() {
                             className={styles.eventType}
                             style={{
                               backgroundColor: type === 'error' ? 'var(--error-bg)' : 
-                                             type === 'warning' ? 'var(--warning-bg)' : 'var(--info-bg)',
+                                             type === 'warning' ? 'var(--warning-bg)' : 
+                                             type === 'info' ? 'var(--info-bg)' : 'var(--success-bg)',
                               color: type === 'error' ? 'var(--error)' : 
-                                     type === 'warning' ? 'var(--warning)' : 'var(--info)'
+                                     type === 'warning' ? 'var(--warning)' : 
+                                     type === 'info' ? 'var(--info)' : 'var(--success)'
                             }}
                           >
                             {type.toUpperCase()}

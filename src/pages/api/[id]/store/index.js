@@ -113,53 +113,7 @@ export default async function handler(req, res) {
 
         console.log('✅ Project found:', project.name, '(ID:', project.id, ')');
 
-        // Generate fingerprint for grouping
-        const fingerprint = generateFingerprint(eventData);
-        const title = extractTitle(eventData);
-        const culprit = extractCulprit(eventData);
-        const level = extractLevel(eventData);
-
-        // Find or create issue
-        let issue = await prisma.issue.findUnique({
-          where: {
-            projectId_fingerprint: {
-              projectId: project.id,
-              fingerprint: fingerprint
-            }
-          }
-        });
-
-        let isNewIssue = false;
-
-        if (issue) {
-          // Update existing issue
-          console.log('🔄 Updating existing issue:', issue.title);
-          issue = await prisma.issue.update({
-            where: { id: issue.id },
-            data: {
-              count: { increment: 1 },
-              lastSeen: new Date()
-            }
-          });
-        } else {
-          // Create new issue
-          console.log('🆕 Creating NEW issue:', title);
-          isNewIssue = true;
-          issue = await prisma.issue.create({
-            data: {
-              projectId: project.id,
-              fingerprint,
-              title,
-              culprit,
-              level,
-              count: 1,
-              firstSeen: new Date(),
-              lastSeen: new Date()
-            }
-          });
-        }
-
-        // Determine event type from data
+        // Determine event type from data first
         let eventType = 'ERROR'; // Default
         if (eventData.type === 'transaction') {
           eventType = 'TRANSACTION';
@@ -167,15 +121,80 @@ export default async function handler(req, res) {
           eventType = 'MESSAGE';
         }
 
-        // Save event to database linked to issue
-        const event = await prisma.event.create({
-          data: {
-            projectId: project.id,
-            issueId: issue.id,
-            eventType: eventType,
-            data: eventData
+        let issue = null;
+        let isNewIssue = false;
+        let event = null;
+
+        // Only create issues for errors and messages, not for transactions
+        if (eventType === 'TRANSACTION') {
+          console.log('📊 Processing TRANSACTION:', eventData.transaction || 'unnamed transaction');
+          
+          // Save transaction directly without creating an issue
+          event = await prisma.event.create({
+            data: {
+              projectId: project.id,
+              issueId: null, // Transactions don't have issues
+              eventType: eventType,
+              data: eventData
+            }
+          });
+          
+          console.log('💾 Transaction saved to database (ID:', event.id, ')');
+        } else {
+          // For errors and messages, create/update issues
+          const fingerprint = generateFingerprint(eventData);
+          const title = extractTitle(eventData);
+          const culprit = extractCulprit(eventData);
+          const level = extractLevel(eventData);
+
+          // Find or create issue
+          issue = await prisma.issue.findUnique({
+            where: {
+              projectId_fingerprint: {
+                projectId: project.id,
+                fingerprint: fingerprint
+              }
+            }
+          });
+
+          if (issue) {
+            // Update existing issue
+            console.log('🔄 Updating existing issue:', issue.title);
+            issue = await prisma.issue.update({
+              where: { id: issue.id },
+              data: {
+                count: { increment: 1 },
+                lastSeen: new Date()
+              }
+            });
+          } else {
+            // Create new issue
+            console.log('🆕 Creating NEW issue:', title);
+            isNewIssue = true;
+            issue = await prisma.issue.create({
+              data: {
+                projectId: project.id,
+                fingerprint,
+                title,
+                culprit,
+                level,
+                count: 1,
+                firstSeen: new Date(),
+                lastSeen: new Date()
+              }
+            });
           }
-        });
+
+          // Save event to database linked to issue
+          event = await prisma.event.create({
+            data: {
+              projectId: project.id,
+              issueId: issue.id,
+              eventType: eventType,
+              data: eventData
+            }
+          });
+        }
         
         console.log('💾 Event saved to database (ID:', event.id, ')');
 
@@ -242,62 +261,71 @@ export default async function handler(req, res) {
           }
         }
 
-        // Check alert rules and send notifications
-        const alertRules = await prisma.alertRule.findMany({
-          where: {
-            projectId: project.id,
-            enabled: true
-          }
-        });
+        // Check alert rules and send notifications (only for errors, not transactions)
+        if (issue && eventType !== 'TRANSACTION') {
+          const alertRules = await prisma.alertRule.findMany({
+            where: {
+              projectId: project.id,
+              enabled: true
+            }
+          });
 
-        for (const rule of alertRules) {
-          const condition = rule.condition;
-          let shouldTrigger = false;
+          const level = extractLevel(eventData);
 
-          if (condition.level && Array.isArray(condition.level)) {
-            if (condition.level.includes(level)) {
+          for (const rule of alertRules) {
+            const condition = rule.condition;
+            let shouldTrigger = false;
+
+            if (condition.level && Array.isArray(condition.level)) {
+              if (condition.level.includes(level)) {
+                shouldTrigger = true;
+              }
+            } else {
               shouldTrigger = true;
             }
-          } else {
-            shouldTrigger = true;
-          }
 
-          if (shouldTrigger && condition.environment) {
-            const eventEnv = eventData.environment || '';
-            if (eventEnv !== condition.environment) {
-              shouldTrigger = false;
-            }
-          }
-
-          if (shouldTrigger && (isNewIssue || condition.triggerOn === 'all')) {
-            if (rule.lastTriggered) {
-              const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
-              if (new Date(rule.lastTriggered) > hourAgo && !isNewIssue) {
-                continue;
+            if (shouldTrigger && condition.environment) {
+              const eventEnv = eventData.environment || '';
+              if (eventEnv !== condition.environment) {
+                shouldTrigger = false;
               }
             }
 
-            const recipients = rule.emailRecipients.split(',').map(e => e.trim()).filter(Boolean);
-            if (recipients.length > 0) {
-              console.log('📧 Sending alert to:', recipients.join(', '));
-              await sendNewIssueAlert({
-                recipients,
-                issue,
-                project,
-                baseUrl: process.env.BASE_URL || 'http://localhost:3000'
-              });
+            if (shouldTrigger && (isNewIssue || condition.triggerOn === 'all')) {
+              if (rule.lastTriggered) {
+                const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+                if (new Date(rule.lastTriggered) > hourAgo && !isNewIssue) {
+                  continue;
+                }
+              }
 
-              await prisma.alertRule.update({
-                where: { id: rule.id },
-                data: { lastTriggered: new Date() }
-              });
+              const recipients = rule.emailRecipients.split(',').map(e => e.trim()).filter(Boolean);
+              if (recipients.length > 0) {
+                console.log('📧 Sending alert to:', recipients.join(', '));
+                await sendNewIssueAlert({
+                  recipients,
+                  issue,
+                  project,
+                  baseUrl: process.env.BASE_URL || 'http://localhost:3000'
+                });
+
+                await prisma.alertRule.update({
+                  where: { id: rule.id },
+                  data: { lastTriggered: new Date() }
+                });
+              }
             }
           }
         }
         
         console.log('✅ SUCCESS: Event processed successfully via /store/ endpoint!');
         console.log(`   Event ID: ${event.id}`);
-        console.log(`   Issue ID: ${issue.id}`);
+        console.log(`   Event Type: ${eventType}`);
+        if (issue) {
+          console.log(`   Issue ID: ${issue.id}`);
+        } else {
+          console.log(`   Issue ID: N/A (transaction)`);
+        }
         
         // Return Sentry-compatible response
         res.status(200).json({ 
