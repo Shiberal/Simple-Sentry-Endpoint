@@ -1601,41 +1601,43 @@ export default function Dashboard() {
                 const metrics = {};
                 if (data.breadcrumbs) {
                   const breadcrumbs = data.breadcrumbs.values || data.breadcrumbs;
-                  breadcrumbs.forEach(bc => {
-                    const msg = bc.message || '';
-                    
-                    // Memory metrics
-                    if (msg.includes('Heap Used:')) {
-                      const match = msg.match(/([\d.]+)\s*MB/);
-                      if (match) metrics.heapUsed = parseFloat(match[1]);
-                    }
-                    if (msg.includes('Heap Total:')) {
-                      const match = msg.match(/([\d.]+)\s*MB/);
-                      if (match) metrics.heapTotal = parseFloat(match[1]);
-                    }
-                    if (msg.includes('RSS:')) {
-                      const match = msg.match(/([\d.]+)\s*MB/);
-                      if (match) metrics.rss = parseFloat(match[1]);
-                    }
-                    
-                    // Performance metrics
-                    if (msg.includes('CPU usage:')) {
-                      const match = msg.match(/([\d.]+)%/);
-                      if (match) metrics.cpu = parseFloat(match[1]);
-                    }
-                    if (msg.includes('event loop lag:')) {
-                      const match = msg.match(/([\d.]+)\s*ms/);
-                      if (match) metrics.eventLoopLag = parseFloat(match[1]);
-                    }
-                    if (msg.includes('active connections:')) {
-                      const match = msg.match(/:\s*(\d+)/);
-                      if (match) metrics.activeConnections = parseInt(match[1]);
-                    }
-                    if (msg.includes('throughput:')) {
-                      const match = msg.match(/([\d.]+)\s*req\/s/);
-                      if (match) metrics.throughput = parseFloat(match[1]);
-                    }
-                  });
+                  if (Array.isArray(breadcrumbs)) {
+                    breadcrumbs.forEach(bc => {
+                      const msg = bc.message || '';
+                      
+                      // Memory metrics
+                      if (msg.includes('Heap Used:')) {
+                        const match = msg.match(/([\d.]+)\s*MB/);
+                        if (match) metrics.heapUsed = parseFloat(match[1]);
+                      }
+                      if (msg.includes('Heap Total:')) {
+                        const match = msg.match(/([\d.]+)\s*MB/);
+                        if (match) metrics.heapTotal = parseFloat(match[1]);
+                      }
+                      if (msg.includes('RSS:')) {
+                        const match = msg.match(/([\d.]+)\s*MB/);
+                        if (match) metrics.rss = parseFloat(match[1]);
+                      }
+                      
+                      // Performance metrics
+                      if (msg.includes('CPU usage:')) {
+                        const match = msg.match(/([\d.]+)%/);
+                        if (match) metrics.cpu = parseFloat(match[1]);
+                      }
+                      if (msg.includes('event loop lag:')) {
+                        const match = msg.match(/([\d.]+)\s*ms/);
+                        if (match) metrics.eventLoopLag = parseFloat(match[1]);
+                      }
+                      if (msg.includes('active connections:')) {
+                        const match = msg.match(/:\s*(\d+)/);
+                        if (match) metrics.activeConnections = parseInt(match[1]);
+                      }
+                      if (msg.includes('throughput:')) {
+                        const match = msg.match(/([\d.]+)\s*req\/s/);
+                        if (match) metrics.throughput = parseFloat(match[1]);
+                      }
+                    });
+                  }
                 }
 
                 // Get memory from contexts
