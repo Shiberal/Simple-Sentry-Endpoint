@@ -575,6 +575,57 @@ export default function Dashboard() {
     }
   };
 
+  const handleResolveIssue = async (issue) => {
+    if (!issue) return;
+
+    try {
+      // Toggle between RESOLVED and UNRESOLVED
+      const newStatus = issue.status === 'RESOLVED' ? 'UNRESOLVED' : 'RESOLVED';
+      
+      const response = await fetch(`/api/issues/${issue.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Update the selected event's issue
+        if (selectedEvent?.issue?.id === issue.id) {
+          setSelectedEvent({
+            ...selectedEvent,
+            issue: data.issue
+          });
+        }
+        
+        // Update selected issue if it's the one being updated
+        if (selectedIssue?.id === issue.id) {
+          setSelectedIssue(data.issue);
+        }
+        
+        // Update issues list
+        setIssues(prevIssues => 
+          prevIssues.map(iss => 
+            iss.id === issue.id ? data.issue : iss
+          )
+        );
+        
+        // Show success message
+        alert(`Issue ${newStatus === 'RESOLVED' ? 'resolved' : 'reopened'} successfully!`);
+        
+        // Refresh data
+        fetchData();
+      } else {
+        const errorData = await response.json();
+        alert(`Failed to ${newStatus === 'RESOLVED' ? 'resolve' : 'reopen'} issue: ${errorData.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error resolving issue:', error);
+      alert('Error updating issue status');
+    }
+  };
+
   const handleAddComment = async (issueId) => {
     if (!newComment.trim()) return;
 
@@ -755,6 +806,19 @@ export default function Dashboard() {
         <div className={styles.detailHeader}>
           <h3 className={styles.detailTitle}>{getEventTitle(selectedEvent)}</h3>
           <div className={styles.detailHeaderActions}>
+            {selectedEvent.issue && (
+              <button 
+                onClick={() => handleResolveIssue(selectedEvent.issue)}
+                className={styles.resolveButton}
+                title={selectedEvent.issue.status === 'RESOLVED' ? "Reopen issue" : "Resolve issue"}
+                style={{
+                  backgroundColor: selectedEvent.issue.status === 'RESOLVED' ? '#22c55e' : undefined,
+                  opacity: selectedEvent.issue.status === 'RESOLVED' ? 1 : undefined
+                }}
+              >
+                {selectedEvent.issue.status === 'RESOLVED' ? '✅ Resolved' : '⭕ Resolve'}
+              </button>
+            )}
             <button 
               onClick={() => handleCreateGitHubIssue(selectedEvent)}
               className={styles.githubButton}
@@ -864,6 +928,25 @@ export default function Dashboard() {
                       {getEventType(selectedEvent).toUpperCase()}
                     </span>
                   </div>
+
+                  {selectedEvent.issue && (
+                    <div className={styles.overviewItem}>
+                      <span className={styles.overviewLabel}>Status</span>
+                      <span 
+                        className={styles.eventType}
+                        style={{
+                          backgroundColor: selectedEvent.issue.status === 'RESOLVED' ? 'var(--success-bg)' : 
+                                         selectedEvent.issue.status === 'IGNORED' ? 'var(--bg-tertiary)' : 
+                                         selectedEvent.issue.status === 'IN_PROGRESS' ? 'var(--warning-bg)' : 'var(--error-bg)',
+                          color: selectedEvent.issue.status === 'RESOLVED' ? 'var(--success)' : 
+                                selectedEvent.issue.status === 'IGNORED' ? 'var(--text-secondary)' : 
+                                selectedEvent.issue.status === 'IN_PROGRESS' ? 'var(--warning)' : 'var(--error)'
+                        }}
+                      >
+                        {selectedEvent.issue.status === 'IN_PROGRESS' ? 'IN PROGRESS' : selectedEvent.issue.status}
+                      </span>
+                    </div>
+                  )}
 
                   <div className={styles.overviewItem}>
                     <span className={styles.overviewLabel}>Project</span>
@@ -1461,10 +1544,34 @@ export default function Dashboard() {
                               🐙
                             </span>
                           )}
+                          {issue.status === 'RESOLVED' && (
+                            <span 
+                              className={styles.resolvedBadge} 
+                              title="Issue resolved - click to reopen"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResolveIssue(issue);
+                              }}
+                            >
+                              ✅
+                            </span>
+                          )}
                         </h4>
                         <div className={styles.eventMeta}>
                           <span>{issue.project?.name || 'Unknown Project'}</span>
                           <span>• {issue.status}</span>
+                          {issue.status !== 'RESOLVED' && (
+                            <button
+                              className={styles.quickResolveButton}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleResolveIssue(issue);
+                              }}
+                              title="Resolve this issue"
+                            >
+                              Resolve
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

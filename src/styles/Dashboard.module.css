@@ -543,12 +543,48 @@
   opacity: 0.8;
 }
 
+.resolvedBadge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.resolvedBadge:hover {
+  transform: scale(1.2);
+}
+
 .eventMeta {
   font-size: 10px;
   color: var(--text-secondary);
   display: flex;
   gap: var(--space-1);
   align-items: center;
+}
+
+.quickResolveButton {
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  margin-left: auto;
+  font-weight: var(--weight-medium);
+}
+
+.quickResolveButton:hover {
+  background-color: var(--success-bg);
+  color: var(--success);
+  border-color: var(--success);
+  transform: translateY(-1px);
+}
+
+.quickResolveButton:active {
+  transform: translateY(0);
 }
 
 /* Detail panel */
@@ -616,6 +652,36 @@
   display: flex;
   gap: var(--space-1);
   align-items: center;
+}
+
+.resolveButton {
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary);
+  font-size: var(--font-sm);
+  cursor: pointer;
+  padding: 6px 12px;
+  line-height: 1;
+  transition: all var(--transition-fast);
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 28px;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.resolveButton:hover {
+  background-color: var(--success-bg);
+  color: var(--success);
+  border-color: var(--success);
+  transform: translateY(-1px);
+}
+
+.resolveButton:active {
+  transform: translateY(0);
 }
 
 .githubButton,
