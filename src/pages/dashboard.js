@@ -246,42 +246,131 @@ export default function Dashboard() {
   };
 
   const handleCreateGitHubIssue = async (event) => {
-    const title = getEventTitle(event);
+    const title = `🐛 ${getEventTitle(event)}`;
     const data = event.data;
+    const issue = event.issue;
     
-    // Generate issue body
-    let body = `## Error Report from Sentry Clone\n\n`;
-    body += `**Error:** ${title}\n\n`;
+    // Generate enhanced issue body
+    let body = `## 🚨 Error Report\n\n`;
     
+    // Error summary
     if (data.exception?.values?.[0]) {
       const exc = data.exception.values[0];
-      body += `**Type:** ${exc.type}\n`;
-      body += `**Message:** ${exc.value}\n\n`;
+      body += `### Exception Details\n\n`;
+      body += `**Type:** \`${exc.type}\`\n`;
+      body += `**Message:** ${exc.value}\n`;
+      if (data.culprit) body += `**Culprit:** \`${data.culprit}\`\n`;
+      body += `\n`;
       
+      // Stack trace with better formatting
       if (exc.stacktrace?.frames) {
-        body += `### Stack Trace\n\`\`\`\n`;
+        body += `### 📍 Stack Trace\n\n`;
+        body += `\`\`\`${data.platform || 'text'}\n`;
         exc.stacktrace.frames.slice().reverse().forEach((frame, idx) => {
-          body += `  ${idx}. ${frame.function || 'anonymous'} (${frame.filename}:${frame.lineno})\n`;
+          const fn = frame.function || frame.module || 'anonymous';
+          const file = frame.filename || frame.abs_path || 'unknown';
+          const line = frame.lineno || '?';
+          const col = frame.colno ? `:${frame.colno}` : '';
+          body += `${idx + 1}. ${fn}\n   at ${file}:${line}${col}\n`;
+          
+          // Add context lines if available
+          if (frame.context_line) {
+            body += `   > ${frame.context_line.trim()}\n`;
+          }
         });
         body += `\`\`\`\n\n`;
       }
+    } else if (data.message) {
+      body += `**Message:** ${data.message}\n\n`;
     }
     
+    // Occurrence information
+    if (issue) {
+      body += `### 📊 Occurrence Information\n\n`;
+      body += `- **Times occurred:** ${issue.count}\n`;
+      body += `- **First seen:** ${new Date(issue.firstSeen).toLocaleString()}\n`;
+      body += `- **Last seen:** ${new Date(issue.lastSeen).toLocaleString()}\n`;
+      body += `- **Status:** ${issue.status}\n\n`;
+    }
+    
+    // Environment & Context
+    body += `### 🔧 Environment\n\n`;
+    if (data.environment) body += `- **Environment:** ${data.environment}\n`;
+    if (data.platform) body += `- **Platform:** ${data.platform}\n`;
+    if (data.release) body += `- **Release:** ${data.release}\n`;
+    if (data.server_name) body += `- **Server:** ${data.server_name}\n`;
+    if (data.sdk) body += `- **SDK:** ${data.sdk.name} ${data.sdk.version}\n`;
+    body += `\n`;
+    
+    // User context
     if (data.user) {
-      body += `### User Context\n`;
-      if (data.user.id) body += `- ID: ${data.user.id}\n`;
-      if (data.user.username) body += `- Username: ${data.user.username}\n`;
-      if (data.user.email) body += `- Email: ${data.user.email}\n`;
+      body += `### 👤 User Context\n\n`;
+      if (data.user.id) body += `- **User ID:** ${data.user.id}\n`;
+      if (data.user.username) body += `- **Username:** ${data.user.username}\n`;
+      if (data.user.email) body += `- **Email:** ${data.user.email}\n`;
+      if (data.user.ip_address) body += `- **IP Address:** ${data.user.ip_address}\n`;
       body += `\n`;
     }
     
-    if (data.environment) body += `**Environment:** ${data.environment}\n`;
-    if (data.platform) body += `**Platform:** ${data.platform}\n`;
-    if (data.release) body += `**Release:** ${data.release}\n`;
+    // Tags
+    if (data.tags && Object.keys(data.tags).length > 0) {
+      body += `### 🏷️ Tags\n\n`;
+      Object.entries(data.tags).forEach(([key, value]) => {
+        body += `- **${key}:** ${value}\n`;
+      });
+      body += `\n`;
+    }
     
-    body += `\n**Event ID:** ${event.id}\n`;
-    body += `**Timestamp:** ${new Date(event.createdAt).toISOString()}\n`;
-    body += `**Project:** ${event.project.name}\n`;
+    // Breadcrumbs (last 10)
+    if (data.breadcrumbs?.values?.length > 0) {
+      body += `### 🍞 Breadcrumbs (Last 10)\n\n`;
+      data.breadcrumbs.values.slice(-10).forEach((crumb, idx) => {
+        const time = crumb.timestamp ? new Date(crumb.timestamp * 1000).toLocaleTimeString() : '';
+        body += `${idx + 1}. **[${crumb.category || 'default'}]** ${crumb.message || crumb.type} `;
+        if (time) body += `_(${time})_`;
+        body += `\n`;
+      });
+      body += `\n`;
+    }
+    
+    // Extra context
+    if (data.contexts && Object.keys(data.contexts).length > 0) {
+      body += `### 📦 Additional Context\n\n`;
+      Object.entries(data.contexts).forEach(([key, value]) => {
+        if (key !== 'trace' && typeof value === 'object') {
+          body += `**${key}:**\n\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\`\n\n`;
+        }
+      });
+    }
+    
+    // Request info
+    if (data.request) {
+      body += `### 🌐 Request Information\n\n`;
+      if (data.request.url) body += `- **URL:** ${data.request.url}\n`;
+      if (data.request.method) body += `- **Method:** ${data.request.method}\n`;
+      if (data.request.headers?.['User-Agent']) body += `- **User Agent:** ${data.request.headers['User-Agent']}\n`;
+      body += `\n`;
+    }
+    
+    // Footer with links
+    body += `---\n\n`;
+    body += `📅 **Event ID:** \`${event.id}\`\n`;
+    body += `⏰ **Timestamp:** ${new Date(event.createdAt).toLocaleString()}\n`;
+    body += `📁 **Project:** ${event.project.name}\n`;
+    
+    // Add link to dashboard if available
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    if (issue) {
+      body += `🔗 **[View in Dashboard](${baseUrl}/dashboard?issue=${issue.id})**\n`;
+    }
+    
+    // Generate labels
+    const labels = [];
+    if (data.level) labels.push(data.level);
+    if (data.platform) labels.push(data.platform);
+    if (data.environment) labels.push(data.environment);
+    labels.push('sentry');
+    labels.push('automated');
     
     // Check if project has GitHub configuration
     if (event.project.githubRepo) {
@@ -311,27 +400,43 @@ export default function Dashboard() {
         const response = await fetch(`https://api.github.com/repos/${owner}/${repoName}/issues`, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ title, body })
+          body: JSON.stringify({ 
+            title, 
+            body,
+            labels: labels.filter(Boolean) // Add labels to the issue
+          })
         });
         
         if (response.ok) {
-          const issue = await response.json();
-          alert(`✓ GitHub issue created successfully!\n\nIssue #${issue.number}\n${issue.html_url}`);
+          const githubIssue = await response.json();
+          const successMsg = `✅ GitHub Issue Created Successfully!\n\n` +
+            `📝 Issue #${githubIssue.number}\n` +
+            `🏷️  Labels: ${labels.join(', ')}\n` +
+            `🔗 ${githubIssue.html_url}\n\n` +
+            `Opening in new tab...`;
+          alert(successMsg);
+          
           // Open the issue in a new tab
-          window.open(issue.html_url, '_blank');
+          window.open(githubIssue.html_url, '_blank');
           return;
         } else {
           const error = await response.json();
-          throw new Error(error.message || 'Failed to create issue');
+          const errorMsg = error.message || error.errors?.[0]?.message || 'Failed to create issue';
+          throw new Error(errorMsg);
         }
       } catch (error) {
         console.error('Error creating GitHub issue:', error);
-        alert(`Failed to create GitHub issue: ${error.message}\n\nFalling back to manual mode...`);
+        const errorDetails = error.message.includes('Bad credentials') 
+          ? 'Invalid GitHub token. Please check your project settings.'
+          : error.message.includes('Not Found')
+          ? 'Repository not found. Please check the repository name in project settings.'
+          : error.message;
+        alert(`❌ Failed to create GitHub issue:\n\n${errorDetails}\n\nFalling back to manual mode...`);
       }
     }
     
     // Fallback to manual mode if no GitHub config or API call failed
-    setGithubIssueData({ title, body });
+    setGithubIssueData({ title, body, labels: labels.join(', ') });
     setShowGitHubModal(true);
   };
 
