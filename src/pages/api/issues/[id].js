@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { updateGitHubIssueState } from '@/lib/github';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -81,7 +82,31 @@ export default async function handler(req, res) {
         const issueId = parseInt(id);
         const { status, assignedToId, githubIssueUrl, githubIssueNumber } = req.body;
 
+        // Get current issue to check for changes and GitHub info
+        const currentIssue = await prisma.issue.findUnique({
+          where: { id: issueId },
+          include: {
+            project: {
+              select: {
+                id: true,
+                name: true,
+                githubRepo: true,
+                githubToken: true
+              }
+            }
+          }
+        });
+
+        if (!currentIssue) {
+          return res.status(404).json({
+            success: false,
+            error: 'Issue not found'
+          });
+        }
+
         const updateData = {};
+        let shouldUpdateGitHub = false;
+        let newGitHubState = null;
         
         if (status !== undefined) {
           // Validate status
@@ -93,6 +118,22 @@ export default async function handler(req, res) {
             });
           }
           updateData.status = status;
+
+          // Check if we need to update GitHub issue state
+          if (currentIssue.githubIssueNumber && currentIssue.project.githubRepo) {
+            const oldStatus = currentIssue.status;
+            
+            // Close GitHub issue when marking as RESOLVED
+            if (status === 'RESOLVED' && oldStatus !== 'RESOLVED') {
+              shouldUpdateGitHub = true;
+              newGitHubState = 'closed';
+            }
+            // Reopen GitHub issue when unmarking RESOLVED
+            else if (status !== 'RESOLVED' && oldStatus === 'RESOLVED') {
+              shouldUpdateGitHub = true;
+              newGitHubState = 'open';
+            }
+          }
         }
 
         if (assignedToId !== undefined) {
@@ -133,9 +174,31 @@ export default async function handler(req, res) {
                 name: true,
                 email: true
               }
+            },
+            project: {
+              select: {
+                id: true,
+                name: true,
+                githubRepo: true,
+                githubToken: true
+              }
             }
           }
         });
+
+        // Update GitHub issue state if needed
+        if (shouldUpdateGitHub && newGitHubState) {
+          const comment = newGitHubState === 'closed' 
+            ? `✅ This issue has been marked as **resolved** in the error monitoring dashboard.`
+            : `🔄 This issue has been **reopened** in the error monitoring dashboard.`;
+
+          await updateGitHubIssueState({
+            issueNumber: currentIssue.githubIssueNumber,
+            project: currentIssue.project,
+            state: newGitHubState,
+            comment
+          });
+        }
 
         res.status(200).json({
           success: true,

@@ -621,8 +621,12 @@ export default function Dashboard() {
           )
         );
         
-        // Show success message
-        alert(`Issue ${newStatus === 'RESOLVED' ? 'resolved' : 'reopened'} successfully!`);
+        // Show success message with GitHub info if applicable
+        let message = `Issue ${newStatus === 'RESOLVED' ? 'resolved' : 'reopened'} successfully!`;
+        if (issue.githubIssueNumber) {
+          message += `\n\nGitHub issue #${issue.githubIssueNumber} has been ${newStatus === 'RESOLVED' ? 'closed' : 'reopened'}.`;
+        }
+        alert(message);
         
         // Refresh data
         fetchData();
@@ -1486,75 +1490,39 @@ export default function Dashboard() {
                   <h2 className={styles.eventsTitle}>
                     Issues ({filteredIssues.length})
                   </h2>
-                  <div className={styles.filterButtons}>
-                    {!isSelectionMode && (
-                      <>
-                        <button
-                          onClick={() => setFilterLevel('all')}
-                          className={`${styles.filterButton} ${filterLevel === 'all' ? styles.filterButtonActive : ''}`}
+                  {!isSelectionMode && (
+                    <div className={styles.filterToolbar}>
+                      <div className={styles.filterGroup}>
+                        <select 
+                          value={filterLevel} 
+                          onChange={(e) => setFilterLevel(e.target.value)}
+                          className={styles.filterSelect}
                         >
-                          All Levels
-                        </button>
-                        <button
-                          onClick={() => setFilterLevel('error')}
-                          className={`${styles.filterButton} ${filterLevel === 'error' ? styles.filterButtonActive : ''}`}
+                          <option value="all">All Levels</option>
+                          <option value="error">🔴 Errors</option>
+                          <option value="warning">🟡 Warnings</option>
+                          <option value="info">🔵 Info</option>
+                        </select>
+                        <select 
+                          value={filterStatus} 
+                          onChange={(e) => setFilterStatus(e.target.value)}
+                          className={styles.filterSelect}
                         >
-                          🔴 Errors
-                        </button>
-                        <button
-                          onClick={() => setFilterLevel('warning')}
-                          className={`${styles.filterButton} ${filterLevel === 'warning' ? styles.filterButtonActive : ''}`}
-                        >
-                          🟡 Warnings
-                        </button>
-                        <button
-                          onClick={() => setFilterLevel('info')}
-                          className={`${styles.filterButton} ${filterLevel === 'info' ? styles.filterButtonActive : ''}`}
-                        >
-                          🔵 Info
-                        </button>
-                        <button
-                          onClick={() => setIsSelectionMode(true)}
-                          className={styles.selectButton}
-                        >
-                          ☑️ Select
-                        </button>
-                      </>
-                    )}
-                  </div>
-                  <div className={styles.filterRow}>
-                    <span className={styles.filterLabel}>Status:</span>
-                    <button
-                      onClick={() => setFilterStatus('active')}
-                      className={`${styles.filterButton} ${filterStatus === 'active' ? styles.filterButtonActive : ''}`}
-                    >
-                      ⚡ Active
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('unresolved')}
-                      className={`${styles.filterButton} ${filterStatus === 'unresolved' ? styles.filterButtonActive : ''}`}
-                    >
-                      ⭕ Unresolved
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('resolved')}
-                      className={`${styles.filterButton} ${filterStatus === 'resolved' ? styles.filterButtonActive : ''}`}
-                    >
-                      ✅ Resolved
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('ignored')}
-                      className={`${styles.filterButton} ${filterStatus === 'ignored' ? styles.filterButtonActive : ''}`}
-                    >
-                      🔕 Ignored
-                    </button>
-                    <button
-                      onClick={() => setFilterStatus('all')}
-                      className={`${styles.filterButton} ${filterStatus === 'all' ? styles.filterButtonActive : ''}`}
-                    >
-                      All
-                    </button>
-                  </div>
+                          <option value="active">⚡ Active</option>
+                          <option value="unresolved">⭕ Unresolved</option>
+                          <option value="resolved">✅ Resolved</option>
+                          <option value="ignored">🔕 Ignored</option>
+                          <option value="all">All Statuses</option>
+                        </select>
+                      </div>
+                      <button
+                        onClick={() => setIsSelectionMode(true)}
+                        className={styles.selectButton}
+                      >
+                        ☑️ Select
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <input
                   type="text"

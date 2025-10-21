@@ -289,6 +289,73 @@ export async function updateGitHubIssue({ issueNumber, project, issue, comment }
 }
 
 /**
+ * Close or reopen a GitHub issue
+ * @param {Object} params
+ * @param {number} params.issueNumber - GitHub issue number
+ * @param {Object} params.project - Project with githubRepo and githubToken
+ * @param {string} params.state - 'closed' or 'open'
+ * @param {string} params.comment - Optional comment to add when closing/reopening
+ * @returns {Promise<boolean>} - True if successful
+ */
+export async function updateGitHubIssueState({ issueNumber, project, state, comment }) {
+  try {
+    // Parse repository
+    let owner, repo;
+    const repoStr = project.githubRepo;
+    
+    if (repoStr.includes('github.com/')) {
+      const match = repoStr.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      if (match) {
+        owner = match[1];
+        repo = match[2].replace(/\.git$/, '');
+      }
+    } else if (repoStr.includes('/')) {
+      [owner, repo] = repoStr.split('/');
+    }
+
+    if (!owner || !repo) {
+      console.error('❌ Invalid GitHub repository format:', repoStr);
+      return false;
+    }
+
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
+    
+    const headers = {
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'Sentry-Clone-Error-Reporter'
+    };
+
+    if (project.githubToken) {
+      headers['Authorization'] = `token ${project.githubToken}`;
+    }
+
+    const response = await fetch(apiUrl, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ state })
+    });
+
+    if (!response.ok) {
+      console.error(`❌ Failed to ${state === 'closed' ? 'close' : 'reopen'} GitHub issue:`, response.status);
+      return false;
+    }
+
+    console.log(`✅ GitHub issue ${state === 'closed' ? 'closed' : 'reopened'}: #${issueNumber}`);
+
+    // Add comment if provided
+    if (comment) {
+      await addGitHubComment({ issueNumber, project, comment });
+    }
+
+    return true;
+  } catch (error) {
+    console.error(`❌ Error ${state === 'closed' ? 'closing' : 'reopening'} GitHub issue:`, error.message);
+    return false;
+  }
+}
+
+/**
  * Add a comment to an existing GitHub issue
  * @param {Object} params
  * @param {number} params.issueNumber - GitHub issue number
