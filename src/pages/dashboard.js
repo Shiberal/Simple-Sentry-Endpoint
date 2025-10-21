@@ -387,11 +387,22 @@ export default function Dashboard() {
     }
     
     // Breadcrumbs (last 10)
-    if (data.breadcrumbs?.values?.length > 0) {
+    const breadcrumbs = Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs?.values;
+    if (breadcrumbs && breadcrumbs.length > 0) {
       body += `### 🍞 Breadcrumbs (Last 10)\n\n`;
-      data.breadcrumbs.values.slice(-10).forEach((crumb, idx) => {
-        const time = crumb.timestamp ? new Date(crumb.timestamp * 1000).toLocaleTimeString() : '';
-        body += `${idx + 1}. **[${crumb.category || 'default'}]** ${crumb.message || crumb.type} `;
+      breadcrumbs.slice(-10).forEach((crumb, idx) => {
+        // Handle different timestamp formats
+        let time = '';
+        if (crumb.timestamp) {
+          if (typeof crumb.timestamp === 'number' && crumb.timestamp > 1000000000000) {
+            time = new Date(crumb.timestamp).toLocaleTimeString();
+          } else if (typeof crumb.timestamp === 'number' && crumb.timestamp > 1000000000) {
+            time = new Date(crumb.timestamp * 1000).toLocaleTimeString();
+          } else {
+            time = crumb.timestamp;
+          }
+        }
+        body += `${idx + 1}. **[${crumb.category || crumb.level || 'default'}]** ${crumb.message || crumb.type} `;
         if (time) body += `_(${time})_`;
         body += `\n`;
       });
@@ -1004,12 +1015,12 @@ export default function Dashboard() {
               Stack Trace
             </button>
           )}
-          {data.breadcrumbs?.values?.length > 0 && (
+          {((data.breadcrumbs?.values?.length > 0) || (Array.isArray(data.breadcrumbs) && data.breadcrumbs.length > 0)) && (
             <button
               onClick={() => setActiveTab('breadcrumbs')}
               className={`${styles.tab} ${activeTab === 'breadcrumbs' ? styles.tabActive : ''}`}
             >
-              Breadcrumbs
+              Breadcrumbs ({Array.isArray(data.breadcrumbs) ? data.breadcrumbs.length : data.breadcrumbs.values.length})
             </button>
           )}
           {(data.request || data.contexts) && (
@@ -1417,26 +1428,39 @@ export default function Dashboard() {
             </div>
           )}
 
-          {activeTab === 'breadcrumbs' && data.breadcrumbs?.values && (
+          {activeTab === 'breadcrumbs' && (data.breadcrumbs?.values || (Array.isArray(data.breadcrumbs) && data.breadcrumbs.length > 0)) && (
             <div className={styles.detailSection}>
               <h4 className={styles.detailSectionTitle}>Breadcrumbs</h4>
               <div className={styles.breadcrumbsContainer}>
-                {data.breadcrumbs.values.map((crumb, idx) => (
-                  <div key={idx} className={styles.breadcrumb}>
-                    <div className={styles.breadcrumbHeader}>
-                      <span className={styles.breadcrumbType}>{crumb.type || 'default'}</span>
-                      <span className={styles.breadcrumbTime}>{crumb.timestamp}</span>
+                {(Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs.values).map((crumb, idx) => {
+                  // Format timestamp if it's a unix timestamp
+                  const timestamp = crumb.timestamp 
+                    ? (typeof crumb.timestamp === 'number' && crumb.timestamp > 1000000000000 
+                        ? new Date(crumb.timestamp).toLocaleString()
+                        : typeof crumb.timestamp === 'number' && crumb.timestamp > 1000000000
+                        ? new Date(crumb.timestamp * 1000).toLocaleString()
+                        : crumb.timestamp)
+                    : '';
+                  
+                  return (
+                    <div key={idx} className={styles.breadcrumb}>
+                      <div className={styles.breadcrumbHeader}>
+                        <span className={styles.breadcrumbType}>
+                          {crumb.type || crumb.category || crumb.level || 'default'}
+                        </span>
+                        <span className={styles.breadcrumbTime}>{timestamp}</span>
+                      </div>
+                      {crumb.message && (
+                        <div className={styles.breadcrumbMessage}>{crumb.message}</div>
+                      )}
+                      {crumb.data && (
+                        <pre className={styles.breadcrumbData}>
+                          {JSON.stringify(crumb.data, null, 2)}
+                        </pre>
+                      )}
                     </div>
-                    {crumb.message && (
-                      <div className={styles.breadcrumbMessage}>{crumb.message}</div>
-                    )}
-                    {crumb.data && (
-                      <pre className={styles.breadcrumbData}>
-                        {JSON.stringify(crumb.data, null, 2)}
-                      </pre>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

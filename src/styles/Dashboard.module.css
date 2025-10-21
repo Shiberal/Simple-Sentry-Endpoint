@@ -284,7 +284,7 @@
   background-color: var(--bg-primary);
   position: sticky;
   top: 0;
-  z-index: var(--z-sticky);
+  z-index: 100;
   overflow-x: hidden;
   max-width: 100%;
 }
@@ -531,6 +531,8 @@
 /* Events container */
 .eventsContainer {
   padding: var(--space-1);
+  position: relative;
+  z-index: var(--z-base);
 }
 
 .eventCard {
@@ -543,6 +545,7 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   position: relative;
+  z-index: 1;
 }
 
 .eventCard:hover {

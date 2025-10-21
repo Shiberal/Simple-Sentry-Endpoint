@@ -324,7 +324,8 @@ export default function PerformancePage() {
                     const data = transaction.data;
                     const duration = data.timestamp - data.start_timestamp;
                     const memory = data.contexts?.device?.app_memory || 0;
-                    const cpu = data.breadcrumbs?.find(b => b.message?.includes('CPU usage'))?.message?.match(/[\d.]+/)?.[0] || 'N/A';
+                    const breadcrumbs = Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs?.values || [];
+                    const cpu = breadcrumbs.find(b => b.message?.includes('CPU usage'))?.message?.match(/[\d.]+/)?.[0] || 'N/A';
                     
                     return (
                       <tr key={transaction.id} style={{ borderBottom: '1px solid #eee' }}>

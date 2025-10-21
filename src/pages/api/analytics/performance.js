@@ -69,16 +69,19 @@ function analyzeTransactions(transactions) {
       totalDuration += duration;
     }
 
+    // Get breadcrumbs array (handle both formats: array directly or object with values)
+    const breadcrumbs = Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs?.values || [];
+
     // Extract memory data from breadcrumbs
-    const memoryBreadcrumb = data.breadcrumbs?.find(b => 
+    const memoryBreadcrumb = breadcrumbs.find(b => 
       b.message && (b.message.includes('Heap Used') || b.message.includes('memory metrics'))
     );
     
     if (memoryBreadcrumb) {
       // Parse memory from breadcrumb message or use context data
-      const heapUsedMatch = data.breadcrumbs?.find(b => b.message?.includes('Heap Used:'))?.message?.match(/([\d.]+)\s*MB/);
-      const heapTotalMatch = data.breadcrumbs?.find(b => b.message?.includes('Heap Total:'))?.message?.match(/([\d.]+)\s*MB/);
-      const rssMatch = data.breadcrumbs?.find(b => b.message?.includes('RSS:'))?.message?.match(/([\d.]+)\s*MB/);
+      const heapUsedMatch = breadcrumbs.find(b => b.message?.includes('Heap Used:'))?.message?.match(/([\d.]+)\s*MB/);
+      const heapTotalMatch = breadcrumbs.find(b => b.message?.includes('Heap Total:'))?.message?.match(/([\d.]+)\s*MB/);
+      const rssMatch = breadcrumbs.find(b => b.message?.includes('RSS:'))?.message?.match(/([\d.]+)\s*MB/);
       
       const heapUsed = heapUsedMatch ? parseFloat(heapUsedMatch[1]) * 1024 * 1024 : 0;
       const heapTotal = heapTotalMatch ? parseFloat(heapTotalMatch[1]) * 1024 * 1024 : 0;
@@ -92,7 +95,7 @@ function analyzeTransactions(transactions) {
     }
 
     // Extract CPU data
-    const cpuBreadcrumb = data.breadcrumbs?.find(b => 
+    const cpuBreadcrumb = breadcrumbs.find(b => 
       b.message && b.message.includes('CPU usage')
     );
     
@@ -107,7 +110,7 @@ function analyzeTransactions(transactions) {
     }
 
     // Extract event loop lag
-    const eventLoopBreadcrumb = data.breadcrumbs?.find(b => 
+    const eventLoopBreadcrumb = breadcrumbs.find(b => 
       b.message && b.message.includes('event loop lag')
     );
     
