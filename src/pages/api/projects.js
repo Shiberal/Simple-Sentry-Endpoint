@@ -33,7 +33,16 @@ export default async function handler(req, res) {
           where,
           include: {
             _count: {
-              select: { events: true }
+              select: { 
+                events: true,
+                issues: {
+                  where: {
+                    status: {
+                      notIn: ['RESOLVED', 'IGNORED']
+                    }
+                  }
+                }
+              }
             },
             users: {
               select: {

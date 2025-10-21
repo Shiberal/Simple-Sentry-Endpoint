@@ -1401,7 +1401,9 @@ export default function Dashboard() {
                     className={`${styles.projectItem} ${selectedProject === null ? styles.projectItemActive : ''}`}
                   >
                     <span>All Projects</span>
-                    <span className={styles.badge}>{issues.length}</span>
+                    <span className={styles.badge}>
+                      {issues.filter(issue => issue.status !== 'RESOLVED' && issue.status !== 'IGNORED').length}
+                    </span>
                   </button>
                   {projects.map(project => (
                     <div key={project.id} className={styles.projectItemContainer}>
@@ -1410,7 +1412,7 @@ export default function Dashboard() {
                         className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
                       >
                         <span>{project.name}</span>
-                        <span className={styles.badge}>{project._count.events}</span>
+                        <span className={styles.badge}>{project._count.issues || 0}</span>
                       </button>
                       {selectedProject === project.id && (
                         <Link 
