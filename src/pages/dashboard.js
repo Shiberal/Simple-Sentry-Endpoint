@@ -1190,7 +1190,7 @@ export default function Dashboard() {
                     className={`${styles.projectItem} ${selectedProject === null ? styles.projectItemActive : ''}`}
                   >
                     <span>All Projects</span>
-                    <span className={styles.badge}>{events.length}</span>
+                    <span className={styles.badge}>{issues.length}</span>
                   </button>
                   {projects.map(project => (
                     <div key={project.id} className={styles.projectItemContainer}>
