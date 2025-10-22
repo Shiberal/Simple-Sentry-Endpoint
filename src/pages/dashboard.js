@@ -19,7 +19,7 @@ export default function Dashboard() {
   const [newProjectName, setNewProjectName] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterLevel, setFilterLevel] = useState('all');
+  const [filterLevel, setFilterLevel] = useState('error');
   const [filterStatus, setFilterStatus] = useState('active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
   const [filterEventType, setFilterEventType] = useState('all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
