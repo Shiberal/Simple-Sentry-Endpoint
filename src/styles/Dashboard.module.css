@@ -611,6 +611,41 @@
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   line-height: 1;
+  gap: 4px;
+}
+
+.navButton {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  padding: 1px 6px;
+  line-height: 1;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+}
+
+.navButton:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: scale(1.05);
+}
+
+.navButton:active {
+  transform: scale(0.95);
+}
+
+.eventCounter {
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  color: white;
+  padding: 0 2px;
 }
 
 .githubBadge {

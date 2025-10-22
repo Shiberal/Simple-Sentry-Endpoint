@@ -36,6 +36,7 @@ export default function Dashboard() {
   const [newComment, setNewComment] = useState('');
   const [analyticsData, setAnalyticsData] = useState(null);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
+  const [issueEventIndices, setIssueEventIndices] = useState({}); // Track current event index per issue
 
   useEffect(() => {
     checkAuth();
@@ -760,6 +761,51 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('Error loading issue details:', error);
+    }
+  };
+
+  // Navigate to previous duplicate event
+  const navigateToPreviousEvent = async (issue, e) => {
+    e.stopPropagation();
+    if (!issue || issue.count <= 1) return;
+    
+    const currentIndex = issueEventIndices[issue.id] || 0;
+    const newIndex = currentIndex > 0 ? currentIndex - 1 : issue.count - 1;
+    
+    setIssueEventIndices(prev => ({ ...prev, [issue.id]: newIndex }));
+    
+    // Fetch and show the event at this index
+    await showEventAtIndex(issue, newIndex);
+  };
+
+  // Navigate to next duplicate event
+  const navigateToNextEvent = async (issue, e) => {
+    e.stopPropagation();
+    if (!issue || issue.count <= 1) return;
+    
+    const currentIndex = issueEventIndices[issue.id] || 0;
+    const newIndex = (currentIndex + 1) % issue.count;
+    
+    setIssueEventIndices(prev => ({ ...prev, [issue.id]: newIndex }));
+    
+    // Fetch and show the event at this index
+    await showEventAtIndex(issue, newIndex);
+  };
+
+  // Show event at specific index for an issue
+  const showEventAtIndex = async (issue, index) => {
+    try {
+      const response = await fetch(`/api/issues/${issue.id}`);
+      const data = await response.json();
+      if (data.success && data.issue.events && data.issue.events.length > index) {
+        setSelectedEvent({
+          ...data.issue.events[index],
+          issue: issue
+        });
+        setActiveTab('overview');
+      }
+    } catch (error) {
+      console.error('Error fetching issue event:', error);
     }
   };
 
@@ -2281,7 +2327,23 @@ export default function Dashboard() {
                           {issue.title}
                           {issue.count > 1 && (
                             <span className={styles.occurrenceBadge}>
-                              {issue.count}x
+                              <button 
+                                onClick={(e) => navigateToPreviousEvent(issue, e)}
+                                className={styles.navButton}
+                                title="Previous duplicate event"
+                              >
+                                &lt;
+                              </button>
+                              <span className={styles.eventCounter}>
+                                {(issueEventIndices[issue.id] || 0) + 1}/{issue.count}
+                              </span>
+                              <button 
+                                onClick={(e) => navigateToNextEvent(issue, e)}
+                                className={styles.navButton}
+                                title="Next duplicate event"
+                              >
+                                &gt;
+                              </button>
                             </span>
                           )}
                           {(() => {
