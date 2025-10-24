@@ -1085,6 +1085,63 @@
   line-height: var(--leading-normal);
 }
 
+/* Code Snippet */
+.codeSnippet {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.snippetLine {
+  display: flex;
+  align-items: stretch;
+  min-height: 20px;
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.snippetLine:last-child {
+  border-bottom: none;
+}
+
+.snippetLineError {
+  background-color: var(--error-bg);
+}
+
+.snippetLineNumber {
+  display: inline-block;
+  min-width: 50px;
+  padding: 2px 12px;
+  text-align: right;
+  color: var(--text-secondary);
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-primary);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.snippetLineError .snippetLineNumber {
+  background-color: var(--error);
+  color: white;
+  font-weight: var(--weight-semibold);
+}
+
+.snippetLineContent {
+  padding: 2px 12px;
+  white-space: pre;
+  overflow-x: auto;
+  flex: 1;
+  color: var(--text-primary);
+}
+
+.snippetLineError .snippetLineContent {
+  font-weight: var(--weight-medium);
+}
+
 /* Tags */
 .tagsContainer {
   display: flex;

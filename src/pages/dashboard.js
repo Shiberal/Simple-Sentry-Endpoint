@@ -1478,6 +1478,81 @@ export default function Dashboard() {
                       {data.exception.values?.[0]?.value || 'No message'}
                     </div>
                   </div>
+                  
+                  {/* Error Snippet */}
+                  {(() => {
+                    const frames = data.exception.values?.[0]?.stacktrace?.frames;
+                    if (!frames || frames.length === 0) return null;
+                    
+                    // Find the last frame (the one that triggered the error)
+                    const errorFrame = frames[frames.length - 1];
+                    
+                    // Check if we have context lines
+                    const hasContext = errorFrame.pre_context || errorFrame.context_line || errorFrame.post_context;
+                    if (!hasContext) return null;
+                    
+                    // Build the snippet with line numbers
+                    const lines = [];
+                    const startLine = errorFrame.lineno - (errorFrame.pre_context?.length || 0);
+                    
+                    // Add pre-context lines
+                    if (errorFrame.pre_context) {
+                      errorFrame.pre_context.forEach((line, idx) => {
+                        lines.push({
+                          number: startLine + idx,
+                          content: line,
+                          isError: false
+                        });
+                      });
+                    }
+                    
+                    // Add the error line
+                    if (errorFrame.context_line) {
+                      lines.push({
+                        number: errorFrame.lineno,
+                        content: errorFrame.context_line,
+                        isError: true
+                      });
+                    }
+                    
+                    // Add post-context lines
+                    if (errorFrame.post_context) {
+                      errorFrame.post_context.forEach((line, idx) => {
+                        lines.push({
+                          number: errorFrame.lineno + idx + 1,
+                          content: line,
+                          isError: false
+                        });
+                      });
+                    }
+                    
+                    return (
+                      <div style={{ marginTop: 'var(--space-3)' }}>
+                        <h4 className={styles.detailSectionTitle}>📄 Code Snippet</h4>
+                        {errorFrame.filename && (
+                          <div style={{ 
+                            fontSize: '11px', 
+                            color: 'var(--text-secondary)', 
+                            marginBottom: 'var(--space-2)',
+                            fontFamily: 'monospace'
+                          }}>
+                            {errorFrame.filename}:{errorFrame.lineno}
+                          </div>
+                        )}
+                        <div className={styles.codeSnippet}>
+                          {lines.map((line, idx) => (
+                            <div 
+                              key={idx} 
+                              className={`${styles.snippetLine} ${line.isError ? styles.snippetLineError : ''}`}
+                            >
+                              <span className={styles.snippetLineNumber}>{line.number}</span>
+                              <span className={styles.snippetLineContent}>{line.content}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : data.message ? (
                 <div className={styles.detailSection}>

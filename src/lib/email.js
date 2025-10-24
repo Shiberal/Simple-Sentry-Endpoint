@@ -34,7 +34,7 @@ function createTransporter() {
  * @param {Object} params.project - Project data
  * @param {string} params.baseUrl - Base URL for links
  */
-export async function sendNewIssueAlert({ recipients, issue, project, baseUrl = 'http://localhost:3000' }) {
+export async function sendNewIssueAlert({ recipients, issue, project, baseUrl }) {
   const transporter = createTransporter();
 
   const subject = `[${project.name}] New ${issue.level.toUpperCase()}: ${issue.title}`;
@@ -126,7 +126,7 @@ View details: ${baseUrl}/dashboard?issue=${issue.id}
  * @param {number} params.recentCount - Number of recent occurrences
  * @param {string} params.baseUrl - Base URL for links
  */
-export async function sendIssueSpikeAlert({ recipients, issue, project, recentCount, baseUrl = 'http://localhost:3000' }) {
+export async function sendIssueSpikeAlert({ recipients, issue, project, recentCount, baseUrl }) {
   const transporter = createTransporter();
 
   const subject = `[${project.name}] Issue Spike: ${issue.title} (${recentCount} occurrences)`;

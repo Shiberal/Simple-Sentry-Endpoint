@@ -222,7 +222,10 @@ export default async function handler(req, res) {
           const filters = project.autoGithubReportFilters;
           if (shouldAutoReport({ issue, eventData, filters })) {
             console.log('🐙 Auto-creating GitHub issue...');
-            const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+            // Detect base URL from request headers
+            const protocol = req.headers['x-forwarded-proto'] || (req.connection.encrypted ? 'https' : 'http');
+            const host = req.headers['x-forwarded-host'] || req.headers.host;
+            const baseUrl = `${protocol}://${host}`;
             const githubIssue = await createGitHubIssue({
               issue,
               eventData,
@@ -262,6 +265,11 @@ export default async function handler(req, res) {
               issue.count === 2 ||        // At 2nd occurrence
               issue.count % 25 === 0;     // Every 25 occurrences
             
+            // Detect base URL from request headers
+            const protocol = req.headers['x-forwarded-proto'] || (req.connection.encrypted ? 'https' : 'http');
+            const host = req.headers['x-forwarded-host'] || req.headers.host;
+            const baseUrl = `${protocol}://${host}`;
+            
             const comment = shouldComment ? 
               `## 🔄 Error Recurred - ${issue.count} Total Occurrences\n\n` +
               `This error has now occurred **${issue.count} time${issue.count !== 1 ? 's' : ''}**.\n\n` +
@@ -272,7 +280,7 @@ export default async function handler(req, res) {
               `- **Severity:** ${issue.level.toUpperCase()}\n` +
               `- **Status:** ${issue.status}\n\n` +
               (eventData.environment ? `- **Environment:** ${eventData.environment}\n\n` : '') +
-              `🔗 [View in Dashboard](${process.env.BASE_URL || 'http://localhost:3000'}/dashboard)`
+              `🔗 [View in Dashboard](${baseUrl}/dashboard)`
               : null;
             
             console.log(`🔄 Updating GitHub issue #${issue.githubIssueNumber} with new count: ${issue.count}`);
@@ -332,11 +340,15 @@ export default async function handler(req, res) {
               const recipients = rule.emailRecipients.split(',').map(e => e.trim()).filter(Boolean);
               if (recipients.length > 0) {
                 console.log('📧 Sending alert to:', recipients.join(', '));
+                // Detect base URL from request headers
+                const protocol = req.headers['x-forwarded-proto'] || (req.connection.encrypted ? 'https' : 'http');
+                const host = req.headers['x-forwarded-host'] || req.headers.host;
+                const baseUrl = `${protocol}://${host}`;
                 await sendNewIssueAlert({
                   recipients,
                   issue,
                   project,
-                  baseUrl: process.env.BASE_URL || 'http://localhost:3000'
+                  baseUrl
                 });
 
                 // Update last triggered time
