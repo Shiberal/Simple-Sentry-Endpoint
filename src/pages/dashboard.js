@@ -187,9 +187,20 @@ export default function Dashboard() {
     if (!deletingIssue) return;
     
     try {
-      const response = await fetch(`/api/issues/${deletingIssue.id}`, {
-        method: 'DELETE'
-      });
+      let response;
+      
+      // Check if it's a standalone event
+      if (deletingIssue._isStandaloneEvent) {
+        const eventId = deletingIssue.id.replace('event-', '');
+        response = await fetch(`/api/events/${eventId}`, {
+          method: 'DELETE'
+        });
+      } else {
+        // It's a regular issue
+        response = await fetch(`/api/issues/${deletingIssue.id}`, {
+          method: 'DELETE'
+        });
+      }
 
       if (response.ok) {
         // Close the detail panel if the deleted issue is currently selected
@@ -201,12 +212,12 @@ export default function Dashboard() {
         setShowDeleteConfirm(false);
         setDeletingIssue(null);
       } else {
-        console.error('Failed to delete issue');
-        alert('Failed to delete issue');
+        console.error('Failed to delete item');
+        alert('Failed to delete item');
       }
     } catch (error) {
-      console.error('Error deleting issue:', error);
-      alert('Error deleting issue');
+      console.error('Error deleting item:', error);
+      alert('Error deleting item');
     }
   };
 
@@ -241,10 +252,17 @@ export default function Dashboard() {
     if (selectedEvents.length === 0) return;
     
     try {
-      // Delete all selected issues (since we're now working with issues)
-      const deletePromises = selectedEvents.map(issueId =>
-        fetch(`/api/issues/${issueId}`, { method: 'DELETE' })
-      );
+      // Delete all selected issues and standalone events
+      const deletePromises = selectedEvents.map(id => {
+        // Check if it's a standalone event (format: "event-123")
+        if (typeof id === 'string' && id.startsWith('event-')) {
+          const eventId = id.replace('event-', '');
+          return fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+        } else {
+          // It's an issue
+          return fetch(`/api/issues/${id}`, { method: 'DELETE' });
+        }
+      });
       
       const results = await Promise.all(deletePromises);
       const allSuccessful = results.every(res => res.ok);
@@ -261,11 +279,11 @@ export default function Dashboard() {
         setShowDeleteConfirm(false);
         setDeletingIssue(null);
       } else {
-        alert('Some issues failed to delete');
+        alert('Some items failed to delete');
       }
     } catch (error) {
-      console.error('Error deleting issues:', error);
-      alert('Error deleting issues');
+      console.error('Error deleting items:', error);
+      alert('Error deleting items');
     }
   };
 

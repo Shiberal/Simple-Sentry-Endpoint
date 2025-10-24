@@ -9,6 +9,13 @@ export default async function handler(req, res) {
       try {
         const eventId = parseInt(id);
         
+        if (isNaN(eventId)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid event ID'
+          });
+        }
+        
         // Check if event exists
         const event = await prisma.event.findUnique({
           where: { id: eventId }
