@@ -10,6 +10,13 @@ export default async function handler(req, res) {
       try {
         const issueId = parseInt(id);
         
+        if (isNaN(issueId)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid issue ID'
+          });
+        }
+        
         const issue = await prisma.issue.findUnique({
           where: { id: issueId },
           include: {
@@ -80,6 +87,14 @@ export default async function handler(req, res) {
     case 'PATCH':
       try {
         const issueId = parseInt(id);
+        
+        if (isNaN(issueId)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid issue ID'
+          });
+        }
+        
         const { status, assignedToId, githubIssueUrl, githubIssueNumber } = req.body;
 
         // Get current issue to check for changes and GitHub info
@@ -217,6 +232,13 @@ export default async function handler(req, res) {
     case 'DELETE':
       try {
         const issueId = parseInt(id);
+        
+        if (isNaN(issueId)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid issue ID'
+          });
+        }
         
         // Delete the issue (events will be cascade deleted or orphaned based on schema)
         await prisma.issue.delete({

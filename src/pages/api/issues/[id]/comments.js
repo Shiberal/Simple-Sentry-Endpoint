@@ -33,6 +33,13 @@ export default async function handler(req, res) {
       try {
         const issueId = parseInt(id);
         
+        if (isNaN(issueId)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid issue ID'
+          });
+        }
+        
         const comments = await prisma.comment.findMany({
           where: { issueId },
           include: {
@@ -66,6 +73,14 @@ export default async function handler(req, res) {
     case 'POST':
       try {
         const issueId = parseInt(id);
+        
+        if (isNaN(issueId)) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid issue ID'
+          });
+        }
+        
         const { text } = req.body;
 
         if (!text || text.trim().length === 0) {
