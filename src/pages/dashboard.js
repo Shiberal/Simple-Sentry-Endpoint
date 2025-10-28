@@ -2194,25 +2194,20 @@ export default function Dashboard() {
                   >
                     <span>All Projects</span>
                     <span className={styles.badge}>
-                      {issues.filter(issue => issue.status !== 'RESOLVED' && issue.status !== 'IGNORED').length}
+                      {projects.reduce((sum, p) => sum + (p._count.issues || 0), 0)}
                     </span>
                   </button>
-                  {projects.map(project => {
-                    // Calculate total errors across all projects
-                    const totalErrors = projects.reduce((sum, p) => sum + (p._count.issues || 0), 0);
-                    
-                    return (
-                      <div key={project.id} className={styles.projectItemContainer}>
-                        <button
-                          onClick={() => setSelectedProject(project.id)}
-                          className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
-                        >
-                          <span>{project.name}</span>
-                          <span className={styles.badge}>{totalErrors}</span>
-                        </button>
-                      </div>
-                    );
-                  })}
+                  {projects.map(project => (
+                    <div key={project.id} className={styles.projectItemContainer}>
+                      <button
+                        onClick={() => setSelectedProject(project.id)}
+                        className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
+                      >
+                        <span>{project.name}</span>
+                        <span className={styles.badge}>{project._count.issues || 0}</span>
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               </div>
