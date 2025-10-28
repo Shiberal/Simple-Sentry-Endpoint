@@ -2197,25 +2197,22 @@ export default function Dashboard() {
                       {issues.filter(issue => issue.status !== 'RESOLVED' && issue.status !== 'IGNORED').length}
                     </span>
                   </button>
-                  {projects.map(project => (
-                    <div key={project.id} className={styles.projectItemContainer}>
-                      <button
-                        onClick={() => setSelectedProject(project.id)}
-                        className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
-                      >
-                        <span>{project.name}</span>
-                        <span className={styles.badge}>{project._count.issues || 0}</span>
-                      </button>
-                      {selectedProject === project.id && (
-                        <Link 
-                          href={`/project/${project.id}`}
-                          className={styles.settingsLink}
+                  {projects.map(project => {
+                    // Calculate total errors across all projects
+                    const totalErrors = projects.reduce((sum, p) => sum + (p._count.issues || 0), 0);
+                    
+                    return (
+                      <div key={project.id} className={styles.projectItemContainer}>
+                        <button
+                          onClick={() => setSelectedProject(project.id)}
+                          className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
                         >
-                          ⚙️ Settings
-                        </Link>
-                      )}
-                    </div>
-                  ))}
+                          <span>{project.name}</span>
+                          <span className={styles.badge}>{totalErrors}</span>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
               </div>
@@ -2315,12 +2312,22 @@ export default function Dashboard() {
                           <option value="MESSAGE">💬 Messages</option>
                         </select>
                       </div>
-                      <button
-                        onClick={() => setIsSelectionMode(true)}
-                        className={styles.selectButton}
-                      >
-                        ☑️ Select
-                      </button>
+                      <div className={styles.toolbarActions}>
+                        <button
+                          onClick={() => setIsSelectionMode(true)}
+                          className={styles.selectButton}
+                        >
+                          ☑️ Select
+                        </button>
+                        {selectedProject && (
+                          <Link 
+                            href={`/project/${selectedProject}`}
+                            className={styles.projectSettingsButton}
+                          >
+                            ⚙️ Project Settings
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

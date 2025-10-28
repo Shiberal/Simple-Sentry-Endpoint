@@ -212,19 +212,6 @@
   background-color: var(--bg-secondary);
 }
 
-.settingsLink {
-  display: block;
-  font-size: var(--font-xs);
-  color: var(--accent-primary);
-  text-decoration: none;
-  padding: var(--space-1) var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
-.settingsLink:hover {
-  color: var(--accent-hover);
-}
-
 /* Content wrapper */
 .contentWrapper {
   flex: 1;
@@ -523,6 +510,42 @@
 }
 
 .selectButton:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.toolbarActions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.projectSettingsButton {
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-weight: var(--weight-medium);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.projectSettingsButton:hover {
+  background-color: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 102, 255, 0.15);
+}
+
+.projectSettingsButton:active {
   transform: translateY(0);
   box-shadow: none;
 }
