@@ -20,6 +20,9 @@ export default function ProjectSettings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [ignoredIssues, setIgnoredIssues] = useState([]);
+  const [telegramChatId, setTelegramChatId] = useState('');
+  const [savingTelegram, setSavingTelegram] = useState(false);
+  const [savedTelegram, setSavedTelegram] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -54,6 +57,7 @@ export default function ProjectSettings() {
       setGithubRepo(data.project.githubRepo || '');
       setGithubToken(data.project.githubToken || '');
       setAutoGithubReport(data.project.autoGithubReport || false);
+      setTelegramChatId(data.project.telegramChatId || '');
       
       // Load filters
       const filters = data.project.autoGithubReportFilters || {};
@@ -141,6 +145,32 @@ export default function ProjectSettings() {
       alert('Failed to save GitHub configuration');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveTelegram = async (e) => {
+    e.preventDefault();
+    setSavingTelegram(true);
+    setSavedTelegram(false);
+    
+    try {
+      const response = await fetch(`/api/projects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          telegramChatId: telegramChatId || null
+        })
+      });
+
+      if (response.ok) {
+        setSavedTelegram(true);
+        setTimeout(() => setSavedTelegram(false), 3000);
+      }
+    } catch (error) {
+      console.error('Error saving Telegram config:', error);
+      alert('Failed to save Telegram configuration');
+    } finally {
+      setSavingTelegram(false);
     }
   };
 
@@ -634,6 +664,59 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
                 </button>
               </div>
             </form>
+          </section>
+
+          {/* Telegram Integration */}
+          <section className={styles.section}>
+            <h2 className={styles.sectionTitle}>📱 Telegram Integration</h2>
+            <p className={styles.sectionDescription}>
+              Receive instant error notifications in your Telegram channel or chat.
+            </p>
+            <form onSubmit={handleSaveTelegram} className={styles.form}>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Telegram Chat ID</label>
+                <input
+                  type="text"
+                  value={telegramChatId}
+                  onChange={(e) => setTelegramChatId(e.target.value)}
+                  placeholder="e.g., -1001234567890 or @channel_name"
+                  className={styles.input}
+                />
+                <p className={styles.helpText}>
+                  Enter your Telegram chat ID or channel username. 
+                  For channels, use the format <code>@channel_name</code> or the numeric ID like <code>-1001234567890</code>.
+                  <br />
+                  <strong>Note:</strong> Make sure to add your bot as an administrator to the channel/group.
+                  <br />
+                  <a 
+                    href="https://t.me/userinfobot" 
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={styles.link}
+                  >
+                    Get your Chat ID with @userinfobot →
+                  </a>
+                </p>
+              </div>
+
+              <div className={styles.formActions}>
+                <button 
+                  type="submit" 
+                  disabled={savingTelegram}
+                  className={styles.saveButton}
+                  style={{
+                    opacity: savingTelegram ? 0.6 : 1
+                  }}
+                >
+                  {savingTelegram ? 'Saving...' : savedTelegram ? '✓ Saved!' : 'Save Telegram Config'}
+                </button>
+              </div>
+            </form>
+            {!process.env.NEXT_PUBLIC_TELEGRAM_CONFIGURED && (
+              <div className={styles.warningBox}>
+                <p>⚠️ Telegram bot token not configured on the server. Contact your administrator to set the <code>TELEGRAM_BOT_TOKEN</code> environment variable.</p>
+              </div>
+            )}
           </section>
 
           {/* Ignored Issues Section */}

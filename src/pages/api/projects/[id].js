@@ -125,17 +125,20 @@ export default async function handler(req, res) {
           return res.status(403).json({ error: 'Access denied' });
         }
 
-        const { githubRepo, githubToken, autoGithubReport, autoGithubReportFilters } = req.body;
+        const { githubRepo, githubToken, autoGithubReport, autoGithubReportFilters, telegramChatId } = req.body;
 
-        // Update the project with GitHub configuration
+        // Build update data object (only include fields that are provided)
+        const updateData = {};
+        if (githubRepo !== undefined) updateData.githubRepo = githubRepo || null;
+        if (githubToken !== undefined) updateData.githubToken = githubToken || null;
+        if (autoGithubReport !== undefined) updateData.autoGithubReport = autoGithubReport;
+        if (autoGithubReportFilters !== undefined) updateData.autoGithubReportFilters = autoGithubReportFilters || null;
+        if (telegramChatId !== undefined) updateData.telegramChatId = telegramChatId || null;
+
+        // Update the project
         const updatedProject = await prisma.project.update({
           where: { id: parseInt(id) },
-          data: {
-            githubRepo: githubRepo || null,
-            githubToken: githubToken || null,
-            autoGithubReport: autoGithubReport !== undefined ? autoGithubReport : false,
-            autoGithubReportFilters: autoGithubReportFilters || null
-          }
+          data: updateData
         });
 
         res.status(200).json({

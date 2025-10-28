@@ -2,6 +2,7 @@ import { promisify } from 'util';
 import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import crypto from 'crypto';
+import { sendErrorNotification } from '@/lib/telegram';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -216,6 +217,22 @@ export default async function handler(req, res) {
         });
         
         console.log('💾 CSP violation saved to database (ID:', event.id, ')');
+
+        // Send Telegram notification for new issues
+        if (isNewIssue && project.telegramChatId && issue.status !== 'IGNORED') {
+          console.log('📱 Sending Telegram notification...');
+          try {
+            const telegramResult = await sendErrorNotification(issue, event, project);
+            if (telegramResult.success) {
+              console.log('✅ Telegram notification sent successfully');
+            } else {
+              console.warn('⚠️ Failed to send Telegram notification:', telegramResult.error);
+            }
+          } catch (error) {
+            console.error('❌ Error sending Telegram notification:', error);
+          }
+        }
+
         console.log('✅ SUCCESS: CSP report processed successfully!');
         console.log(`   Event ID: ${event.id}`);
         console.log(`   Issue ID: ${issue.id}`);

@@ -47,6 +47,7 @@ model Project {
   githubToken             String? // Optional GitHub personal access token for API access
   autoGithubReport        Boolean     @default(false) // Automatically create GitHub issues for new errors
   autoGithubReportFilters Json? // Filters for auto GitHub reporting: { levels: ["error"], environments: ["production"] }
+  telegramChatId          String? // Telegram chat/channel ID for error notifications
   createdAt               DateTime    @default(now())
   updatedAt               DateTime    @updatedAt
   events                  Event[]
