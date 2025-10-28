@@ -37,10 +37,28 @@ export default function Dashboard() {
   const [analyticsData, setAnalyticsData] = useState(null);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
   const [issueEventIndices, setIssueEventIndices] = useState({}); // Track current event index per issue
+  const [notifications, setNotifications] = useState([]); // Notification system
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Notification system
+  const showNotification = (message, type = 'info') => {
+    const id = Date.now() + Math.random();
+    const notification = { id, message, type };
+    
+    setNotifications(prev => [...prev, notification]);
+    
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 10000);
+  };
+
+  const removeNotification = (id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
 
   const checkAuth = async () => {
     try {
@@ -150,15 +168,15 @@ export default function Dashboard() {
       const data = await response.json();
       
       if (data.success) {
-        alert(`✅ Successfully merged ${data.duplicatesMerged} duplicate issue${data.duplicatesMerged !== 1 ? 's' : ''}!`);
+        showNotification(`✅ Successfully merged ${data.duplicatesMerged} duplicate issue${data.duplicatesMerged !== 1 ? 's' : ''}!`, 'success');
         // Refresh the dashboard
         fetchData();
       } else {
-        alert(`❌ Failed to merge duplicates: ${data.message || 'Unknown error'}`);
+        showNotification(`❌ Failed to merge duplicates: ${data.message || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error deduplicating:', error);
-      alert('❌ Error deduplicating issues');
+      showNotification('❌ Error deduplicating issues', 'error');
     } finally {
       setIsDeduplicating(false);
     }
@@ -213,11 +231,11 @@ export default function Dashboard() {
         setDeletingIssue(null);
       } else {
         console.error('Failed to delete item');
-        alert('Failed to delete item');
+        showNotification('Failed to delete item', 'error');
       }
     } catch (error) {
       console.error('Error deleting item:', error);
-      alert('Error deleting item');
+      showNotification('Error deleting item', 'error');
     }
   };
 
@@ -240,11 +258,11 @@ export default function Dashboard() {
         setDeletingEvent(null);
       } else {
         console.error('Failed to delete event');
-        alert('Failed to delete event');
+        showNotification('Failed to delete event', 'error');
       }
     } catch (error) {
       console.error('Error deleting event:', error);
-      alert('Error deleting event');
+      showNotification('Error deleting event', 'error');
     }
   };
 
@@ -279,11 +297,11 @@ export default function Dashboard() {
         setShowDeleteConfirm(false);
         setDeletingIssue(null);
       } else {
-        alert('Some items failed to delete');
+        showNotification('Some items failed to delete', 'error');
       }
     } catch (error) {
       console.error('Error deleting items:', error);
-      alert('Error deleting items');
+      showNotification('Error deleting items', 'error');
     }
   };
 
@@ -316,9 +334,9 @@ export default function Dashboard() {
     
     // Check if issue is ignored
     if (issue?.status === 'IGNORED') {
-      alert(
-        `Cannot Create GitHub Issue\n\n` +
-        `This issue is currently ignored. Please unignore it first before creating a GitHub issue.`
+      showNotification(
+        `Cannot Create GitHub Issue - This issue is currently ignored. Please unignore it first before creating a GitHub issue.`,
+        'warning'
       );
       return;
     }
@@ -547,12 +565,10 @@ export default function Dashboard() {
             }
           }
           
-          const successMsg = `✅ GitHub Issue Created Successfully!\n\n` +
-            `📝 Issue #${githubIssue.number}\n` +
-            `🏷️  Labels: ${labels.join(', ')}\n` +
-            `🔗 ${githubIssue.html_url}\n\n` +
-            `Opening in new tab...`;
-          alert(successMsg);
+          showNotification(
+            `✅ GitHub Issue #${githubIssue.number} created successfully! Opening in new tab...`,
+            'success'
+          );
           
           // Open the issue in a new tab
           window.open(githubIssue.html_url, '_blank');
@@ -569,7 +585,7 @@ export default function Dashboard() {
           : error.message.includes('Not Found')
           ? 'Repository not found. Please check the repository name in project settings.'
           : error.message;
-        alert(`❌ Failed to create GitHub issue:\n\n${errorDetails}\n\nFalling back to manual mode...`);
+        showNotification(`❌ Failed to create GitHub issue: ${errorDetails}. Falling back to manual mode...`, 'error');
       }
     }
     
@@ -596,11 +612,11 @@ export default function Dashboard() {
         // Refresh issues list
         fetchData();
       } else {
-        alert('Failed to update status');
+        showNotification('Failed to update status', 'error');
       }
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Error updating status');
+      showNotification('Error updating status', 'error');
     }
   };
 
@@ -621,11 +637,11 @@ export default function Dashboard() {
         // Refresh issues list
         fetchData();
       } else {
-        alert('Failed to assign issue');
+        showNotification('Failed to assign issue', 'error');
       }
     } catch (error) {
       console.error('Error assigning issue:', error);
-      alert('Error assigning issue');
+      showNotification('Error assigning issue', 'error');
     }
   };
 
@@ -668,19 +684,19 @@ export default function Dashboard() {
         // Show success message with GitHub info if applicable
         let message = `Issue ${newStatus === 'RESOLVED' ? 'resolved' : 'reopened'} successfully!`;
         if (issue.githubIssueNumber) {
-          message += `\n\nGitHub issue #${issue.githubIssueNumber} has been ${newStatus === 'RESOLVED' ? 'closed' : 'reopened'}.`;
+          message += ` GitHub issue #${issue.githubIssueNumber} has been ${newStatus === 'RESOLVED' ? 'closed' : 'reopened'}.`;
         }
-        alert(message);
+        showNotification(message, 'success');
         
         // Refresh data
         fetchData();
       } else {
         const errorData = await response.json();
-        alert(`Failed to ${newStatus === 'RESOLVED' ? 'resolve' : 'reopen'} issue: ${errorData.error || 'Unknown error'}`);
+        showNotification(`Failed to ${newStatus === 'RESOLVED' ? 'resolve' : 'reopen'} issue: ${errorData.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error resolving issue:', error);
-      alert('Error updating issue status');
+      showNotification('Error updating issue status', 'error');
     }
   };
 
@@ -721,17 +737,17 @@ export default function Dashboard() {
         );
         
         // Show success message
-        alert(`Issue ${newStatus === 'IGNORED' ? 'ignored - will not appear in main view or auto-report to GitHub' : 'unignored'} successfully!`);
+        showNotification(`Issue ${newStatus === 'IGNORED' ? 'ignored - will not appear in main view or auto-report to GitHub' : 'unignored'} successfully!`, 'success');
         
         // Refresh data
         fetchData();
       } else {
         const errorData = await response.json();
-        alert(`Failed to ${newStatus === 'IGNORED' ? 'ignore' : 'unignore'} issue: ${errorData.error || 'Unknown error'}`);
+        showNotification(`Failed to ${newStatus === 'IGNORED' ? 'ignore' : 'unignore'} issue: ${errorData.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error ignoring issue:', error);
-      alert('Error updating issue status');
+      showNotification('Error updating issue status', 'error');
     }
   };
 
@@ -760,11 +776,11 @@ export default function Dashboard() {
           }
         }
       } else {
-        alert('Failed to add comment');
+        showNotification('Failed to add comment', 'error');
       }
     } catch (error) {
       console.error('Error adding comment:', error);
-      alert('Error adding comment');
+      showNotification('Error adding comment', 'error');
     }
   };
 
@@ -2679,7 +2695,7 @@ export default function Dashboard() {
                   type="button" 
                   onClick={() => {
                     navigator.clipboard.writeText(`Title: ${githubIssueData.title}\n\n${githubIssueData.body}`);
-                    alert('Copied to clipboard!');
+                    showNotification('Copied to clipboard!', 'success');
                   }} 
                   className={styles.modalButtonSubmit}
                 >
@@ -2696,6 +2712,33 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Notification System */}
+        <div className={styles.notificationContainer}>
+          {notifications.map((notification) => (
+            <div 
+              key={notification.id} 
+              className={`${styles.notification} ${styles[`notification${notification.type.charAt(0).toUpperCase() + notification.type.slice(1)}`]}`}
+            >
+              <div className={styles.notificationContent}>
+                <span className={styles.notificationIcon}>
+                  {notification.type === 'success' && '✅'}
+                  {notification.type === 'error' && '❌'}
+                  {notification.type === 'warning' && '⚠️'}
+                  {notification.type === 'info' && 'ℹ️'}
+                </span>
+                <span className={styles.notificationMessage}>{notification.message}</span>
+              </div>
+              <button 
+                className={styles.notificationClose}
+                onClick={() => removeNotification(notification.id)}
+                aria-label="Close notification"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
     </>
   );

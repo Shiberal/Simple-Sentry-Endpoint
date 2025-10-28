@@ -1623,3 +1623,117 @@
   font-size: var(--font-sm);
 }
 
+/* Notification System */
+.notificationContainer {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 450px;
+  pointer-events: none;
+}
+
+.notification {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  pointer-events: auto;
+  animation: slideIn 0.3s ease-out;
+  min-width: 320px;
+  max-width: 100%;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.notificationContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.notificationIcon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.notificationMessage {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.notificationClose {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 12px;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.notificationClose:hover {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Notification Types */
+.notificationSuccess {
+  border-left: 4px solid #10b981;
+}
+
+.notificationError {
+  border-left: 4px solid #ef4444;
+}
+
+.notificationWarning {
+  border-left: 4px solid #f59e0b;
+}
+
+.notificationInfo {
+  border-left: 4px solid #3b82f6;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .notificationContainer {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+  
+  .notification {
+    min-width: auto;
+  }
+}
+
