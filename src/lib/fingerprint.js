@@ -77,16 +77,38 @@ export function generateFingerprint(eventData) {
  * @returns {string}
  */
 export function extractTitle(eventData) {
+  // Try to extract from exception data
   if (eventData.exception?.values?.[0]) {
     const exc = eventData.exception.values[0];
-    return `${exc.type || 'Error'}: ${exc.value || 'Unknown error'}`;
+    const errorType = exc.type || 'Error';
+    const errorValue = exc.value || 'No error message provided';
+    return `${errorType}: ${errorValue}`;
   }
   
+  // Try to extract from message field
   if (eventData.message) {
     return eventData.message;
   }
 
-  return 'Unknown Error';
+  // Handle edge cases - event with empty/malformed exception data
+  if (eventData.exception && (!eventData.exception.values || eventData.exception.values.length === 0)) {
+    console.warn('⚠️ Event has exception field but no values array:', JSON.stringify(eventData.exception));
+    return 'Malformed Error: Empty exception data';
+  }
+
+  // Check if this is an incomplete SDK capture (has SDK fields but no actual error data)
+  if (eventData.event_id && (eventData.originalException !== undefined || eventData.syntheticException !== undefined)) {
+    console.warn('⚠️ Event appears to be incomplete SDK capture:', {
+      event_id: eventData.event_id,
+      hasOriginalException: eventData.originalException !== undefined,
+      hasSyntheticException: eventData.syntheticException !== undefined,
+      keys: Object.keys(eventData)
+    });
+    return 'Unknown Error: Incomplete error data (missing exception details)';
+  }
+
+  // Last resort
+  return 'Unknown Error: No error information provided';
 }
 
 /**
