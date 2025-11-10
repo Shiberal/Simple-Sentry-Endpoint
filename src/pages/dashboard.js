@@ -2221,6 +2221,8 @@ export default function Dashboard() {
               className={styles.sidebarToggle}
               title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
             >
+
+              
               <span style={{
                 transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
                 display: 'inline-block',
@@ -2392,8 +2394,6 @@ export default function Dashboard() {
                                     ...data.issue.events[0],
                                     issue: issue
                                   });
-                                  // Reset events list when switching issues
-                                  setIssueEvents([]);
                                   setActiveTab('overview');
                                 }
                               } catch (error) {
