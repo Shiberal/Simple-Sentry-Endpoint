@@ -68,21 +68,99 @@ export default function Dashboard() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // Prettify function to format JSON or text
+  // Prettify function to format JSON or text (loosely)
   const prettifyContent = (content) => {
     if (!content) return content;
     
-    // Try to parse as JSON
+    const trimmed = content.trim();
+    
+    // Helper function to find balanced JSON structures
+    const findBalancedJson = (str, startChar, endChar) => {
+      let depth = 0;
+      let start = -1;
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === startChar) {
+          if (depth === 0) start = i;
+          depth++;
+        } else if (str[i] === endChar) {
+          depth--;
+          if (depth === 0 && start !== -1) {
+            return str.substring(start, i + 1);
+          }
+        }
+      }
+      return null;
+    };
+    
+    // Try to parse as direct JSON
     try {
-      const parsed = JSON.parse(content);
+      const parsed = JSON.parse(trimmed);
       return JSON.stringify(parsed, null, 2);
     } catch (e) {
-      // If not JSON, try to format as text with better line breaks
+      // Try to find JSON objects/arrays embedded in the content
+      const jsonObject = findBalancedJson(trimmed, '{', '}');
+      const jsonArray = findBalancedJson(trimmed, '[', ']');
+      
+      // Try object first
+      if (jsonObject) {
+        try {
+          const parsed = JSON.parse(jsonObject);
+          const formatted = JSON.stringify(parsed, null, 2);
+          return trimmed.replace(jsonObject, formatted);
+        } catch (e2) {
+          // Try unescaping common escape sequences
+          try {
+            const unescaped = jsonObject
+              .replace(/\\"/g, '"')
+              .replace(/\\n/g, '\n')
+              .replace(/\\t/g, '\t')
+              .replace(/\\r/g, '\r');
+            const parsed = JSON.parse(unescaped);
+            const formatted = JSON.stringify(parsed, null, 2);
+            return trimmed.replace(jsonObject, formatted);
+          } catch (e3) {
+            // Continue to try array or other methods
+          }
+        }
+      }
+      
+      // Try array
+      if (jsonArray) {
+        try {
+          const parsed = JSON.parse(jsonArray);
+          const formatted = JSON.stringify(parsed, null, 2);
+          return trimmed.replace(jsonArray, formatted);
+        } catch (e2) {
+          // Continue to other methods
+        }
+      }
+      
+      // Try parsing as a JSON string (double-encoded, e.g., "{\"key\":\"value\"}")
+      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+        try {
+          // First unescape the outer quotes
+          const unescaped = trimmed.slice(1, -1)
+            .replace(/\\"/g, '"')
+            .replace(/\\n/g, '\n')
+            .replace(/\\t/g, '\t')
+            .replace(/\\r/g, '\r')
+            .replace(/\\\\/g, '\\');
+          const parsed = JSON.parse(unescaped);
+          return JSON.stringify(parsed, null, 2);
+        } catch (e2) {
+          // Continue to text formatting
+        }
+      }
+      
+      // If not JSON, format as text with better line breaks
       // Replace common escape sequences and format
       return content
         .replace(/\\n/g, '\n')
         .replace(/\\t/g, '\t')
-        .replace(/\\r/g, '\r');
+        .replace(/\\r/g, '\r')
+        .replace(/\\"/g, '"')
+        .replace(/\\'/g, "'")
+        .replace(/\\\\/g, '\\');
     }
   };
 
