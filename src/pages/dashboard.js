@@ -38,10 +38,18 @@ export default function Dashboard() {
   const [isDeduplicating, setIsDeduplicating] = useState(false);
   const [issueEventIndices, setIssueEventIndices] = useState({}); // Track current event index per issue
   const [notifications, setNotifications] = useState([]); // Notification system
+  const [prettifiedError, setPrettifiedError] = useState(false); // Track if error message is prettified
+  const [prettifiedMessage, setPrettifiedMessage] = useState(false); // Track if message is prettified
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Reset prettified states when selected event changes
+  useEffect(() => {
+    setPrettifiedError(false);
+    setPrettifiedMessage(false);
+  }, [selectedEvent]);
 
   // Notification system
   const showNotification = (message, type = 'info') => {
@@ -58,6 +66,24 @@ export default function Dashboard() {
 
   const removeNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  // Prettify function to format JSON or text
+  const prettifyContent = (content) => {
+    if (!content) return content;
+    
+    // Try to parse as JSON
+    try {
+      const parsed = JSON.parse(content);
+      return JSON.stringify(parsed, null, 2);
+    } catch (e) {
+      // If not JSON, try to format as text with better line breaks
+      // Replace common escape sequences and format
+      return content
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '\t')
+        .replace(/\\r/g, '\r');
+    }
   };
 
   const checkAuth = async () => {
@@ -1503,13 +1529,25 @@ export default function Dashboard() {
               {/* Message or Exception */}
               {data.exception ? (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>Exception</h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+                    <h4 className={styles.detailSectionTitle}>Exception</h4>
+                    <button
+                      className={styles.prettifyButton}
+                      onClick={() => setPrettifiedError(!prettifiedError)}
+                      title={prettifiedError ? 'Show original' : 'Prettify'}
+                    >
+                      {prettifiedError ? '📄 Original' : '✨ Prettify'}
+                    </button>
+                  </div>
                   <div className={styles.exceptionBox}>
                     <div className={styles.exceptionType}>
                       {data.exception.values?.[0]?.type || 'Exception'}
                     </div>
-                    <div className={styles.exceptionValue}>
-                      {data.exception.values?.[0]?.value || 'No message'}
+                    <div className={styles.exceptionValue} style={prettifiedError ? { whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '12px' } : {}}>
+                      {prettifiedError 
+                        ? prettifyContent(data.exception.values?.[0]?.value || 'No message')
+                        : (data.exception.values?.[0]?.value || 'No message')
+                      }
                     </div>
                   </div>
                   
@@ -1590,10 +1628,25 @@ export default function Dashboard() {
                 </div>
               ) : data.message ? (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>💬 Message</h4>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+                    <h4 className={styles.detailSectionTitle}>💬 Message</h4>
+                    <button
+                      className={styles.prettifyButton}
+                      onClick={() => setPrettifiedMessage(!prettifiedMessage)}
+                      title={prettifiedMessage ? 'Show original' : 'Prettify'}
+                    >
+                      {prettifiedMessage ? '📄 Original' : '✨ Prettify'}
+                    </button>
+                  </div>
                   <div className={styles.exceptionBox} style={{ backgroundColor: 'var(--success-bg)', borderColor: 'var(--success)' }}>
-                    <div className={styles.exceptionValue} style={{ color: 'var(--text-primary)' }}>
-                      {data.message}
+                    <div className={styles.exceptionValue} style={{ 
+                      color: 'var(--text-primary)',
+                      ...(prettifiedMessage ? { whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '12px' } : {})
+                    }}>
+                      {prettifiedMessage 
+                        ? prettifyContent(data.message)
+                        : data.message
+                      }
                     </div>
                   </div>
                 </div>

@@ -1108,6 +1108,33 @@
   line-height: var(--leading-normal);
 }
 
+.prettifyButton {
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-xs);
+  font-weight: var(--weight-medium);
+  transition: all var(--transition-fast);
+  line-height: 1.2;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.prettifyButton:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.prettifyButton:active {
+  transform: translateY(1px);
+}
+
 /* Code Snippet */
 .codeSnippet {
   background-color: var(--bg-secondary);
