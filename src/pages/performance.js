@@ -166,65 +166,77 @@ export default function PerformancePage() {
     
     // Simple line chart using SVG
     const chartHeight = 200;
-    const chartWidth = '100%';
-    const padding = 40;
+    const padding = { top: 20, right: 20, bottom: 40, left: 60 };
+    const chartWidth = 800; // Will be scaled to 100%
+    
+    // Calculate points in pixel coordinates
+    const getX = (index) => {
+      const availableWidth = chartWidth - padding.left - padding.right;
+      return padding.left + (index / (values.length - 1 || 1)) * availableWidth;
+    };
+    
+    const getY = (value) => {
+      const availableHeight = chartHeight - padding.top - padding.bottom;
+      return padding.top + availableHeight - ((value - min) / range) * availableHeight;
+    };
     
     const points = values.map((value, index) => {
-      const x = (index / (values.length - 1 || 1)) * 100;
-      const y = 100 - ((value - min) / range) * 100;
-      return `${x},${y}`;
+      return `${getX(index)},${getY(value)}`;
     }).join(' ');
     
     return (
       <div style={{ padding: '20px 0' }}>
         <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#333' }}>{label}</h3>
-        <div style={{ position: 'relative', width: '100%', height: chartHeight, background: '#f9f9f9', borderRadius: '4px', padding: '10px' }}>
-          <svg width="100%" height={chartHeight} style={{ overflow: 'visible' }}>
+        <div style={{ position: 'relative', width: '100%', background: '#f9f9f9', borderRadius: '4px', padding: '10px', overflowX: 'auto' }}>
+          <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ maxWidth: '100%', height: 'auto' }}>
             {/* Grid lines */}
-            {[0, 25, 50, 75, 100].map(y => (
-              <line
-                key={y}
-                x1="0%"
-                y1={`${y}%`}
-                x2="100%"
-                y2={`${y}%`}
-                stroke="#e0e0e0"
-                strokeWidth="1"
-              />
-            ))}
+            {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
+              const y = padding.top + (chartHeight - padding.top - padding.bottom) * (1 - ratio);
+              return (
+                <line
+                  key={ratio}
+                  x1={padding.left}
+                  y1={y}
+                  x2={chartWidth - padding.right}
+                  y2={y}
+                  stroke="#e0e0e0"
+                  strokeWidth="1"
+                />
+              );
+            })}
             {/* Line chart */}
             <polyline
               points={points}
               fill="none"
               stroke={color}
               strokeWidth="2"
-              style={{ transform: 'translateY(0)' }}
             />
             {/* Data points */}
             {values.map((value, index) => {
-              const x = (index / (values.length - 1 || 1)) * 100;
-              const y = 100 - ((value - min) / range) * 100;
+              const x = getX(index);
+              const y = getY(value);
               return (
                 <circle
                   key={index}
-                  cx={`${x}%`}
-                  cy={`${y}%`}
+                  cx={x}
+                  cy={y}
                   r="4"
                   fill={color}
                   style={{ cursor: 'pointer' }}
-                  title={`${labels[index]}: ${formatFn(value)}${unit}`}
-                />
+                >
+                  <title>{`${labels[index]}: ${formatFn(value)}${unit}`}</title>
+                </circle>
               );
             })}
           </svg>
           {/* Y-axis labels */}
-          <div style={{ position: 'absolute', left: '5px', top: '10px', bottom: '10px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '11px', color: '#666' }}>
+          <div style={{ position: 'absolute', left: '15px', top: '30px', bottom: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '11px', color: '#666', pointerEvents: 'none' }}>
             <span>{formatFn(max)}{unit}</span>
             <span>{formatFn((max + min) / 2)}{unit}</span>
             <span>{formatFn(min)}{unit}</span>
           </div>
           {/* X-axis labels */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px', fontSize: '11px', color: '#666', padding: '0 10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px', fontSize: '11px', color: '#666', padding: `0 ${padding.left}px 0 ${padding.left}px`, width: `${chartWidth}px`, maxWidth: '100%' }}>
             {labels.filter((_, i) => i % Math.ceil(labels.length / 5) === 0 || i === labels.length - 1).map((label, i) => (
               <span key={i}>{label}</span>
             ))}
