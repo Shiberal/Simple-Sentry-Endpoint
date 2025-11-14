@@ -219,11 +219,11 @@ export default function Dashboard() {
 
   const fetchAnalytics = async () => {
     try {
-      const params = selectedProject ? `?projectId=${selectedProject}` : '';
+      const projectParam = selectedProject ? `projectId=${selectedProject}&` : '';
       const [trendsRes, topIssuesRes, breakdownRes] = await Promise.all([
-        fetch(`/api/analytics/trends${params}&days=7`),
-        fetch(`/api/analytics/top-issues${params}&limit=10`),
-        fetch(`/api/analytics/breakdown${params}`)
+        fetch(`/api/analytics/trends?${projectParam}days=7`),
+        fetch(`/api/analytics/top-issues?${projectParam}limit=10`),
+        fetch(`/api/analytics/breakdown?${projectParam}`)
       ]);
 
       const [trends, topIssues, breakdown] = await Promise.all([
@@ -239,6 +239,11 @@ export default function Dashboard() {
       });
     } catch (error) {
       console.error('Error fetching analytics:', error);
+      setAnalyticsData({
+        trends: [],
+        topIssues: [],
+        breakdown: null
+      });
     }
   };
 
@@ -990,7 +995,29 @@ export default function Dashboard() {
 
   // Render line chart for trends
   const renderLineChart = (trends) => {
-    if (!trends || trends.length === 0) return null;
+    if (!trends || trends.length === 0) {
+      return (
+        <div style={{ 
+          background: 'var(--bg-primary)', 
+          border: '1px solid var(--border-primary)', 
+          borderRadius: 'var(--radius-md)',
+          padding: 'var(--space-4)',
+          marginBottom: 'var(--space-4)',
+          textAlign: 'center',
+          color: 'var(--text-secondary)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 var(--space-3) 0', 
+            fontSize: 'var(--font-base)', 
+            fontWeight: 'var(--weight-semibold)',
+            color: 'var(--text-primary)'
+          }}>
+            📈 Trends (Last 7 Days)
+          </h3>
+          <p>No data available yet. Send some events to see trends.</p>
+        </div>
+      );
+    }
     
     const chartHeight = 200;
     const svgWidth = 800; // Base width for calculations, will scale
@@ -2689,7 +2716,7 @@ export default function Dashboard() {
               ) : (
                 <>
                   {/* Line Chart */}
-                  {analyticsData?.trends && renderLineChart(analyticsData.trends)}
+                  {renderLineChart(analyticsData?.trends)}
                   
                   <div className={styles.eventsContainer}>
                   {filteredIssues.map(issue => {
