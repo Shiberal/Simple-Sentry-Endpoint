@@ -1062,7 +1062,7 @@ export default function PerformancePage() {
 
                 {/* Charts */}
                 <div style={{ marginBottom: '30px' }}>
-                  {analytics.transactionDurations && analytics.transactionDurations.length > 0 && (
+                  {Array.isArray(analytics.transactionDurations) && analytics.transactionDurations.length > 0 && (
                     <div style={{
                       background: 'white',
                       padding: '20px',
@@ -1080,7 +1080,7 @@ export default function PerformancePage() {
                     </div>
                   )}
 
-                  {analytics.memoryTimeline && analytics.memoryTimeline.length > 0 && (
+                  {Array.isArray(analytics.memoryTimeline) && analytics.memoryTimeline.length > 0 && (
                     <div style={{
                       background: 'white',
                       padding: '20px',
@@ -1121,7 +1121,7 @@ export default function PerformancePage() {
                     </div>
                   )}
 
-                  {analytics.cpuTimeline && analytics.cpuTimeline.length > 0 && (
+                  {Array.isArray(analytics.cpuTimeline) && analytics.cpuTimeline.length > 0 && (
                     <div style={{
                       background: 'white',
                       padding: '20px',
@@ -1139,7 +1139,7 @@ export default function PerformancePage() {
                     </div>
                   )}
 
-                  {analytics.eventLoopTimeline && analytics.eventLoopTimeline.length > 0 && (
+                  {Array.isArray(analytics.eventLoopTimeline) && analytics.eventLoopTimeline.length > 0 && (
                     <div style={{
                       background: 'white',
                       padding: '20px',
