@@ -35,7 +35,6 @@ export default function Dashboard() {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState('');
   const [analyticsData, setAnalyticsData] = useState(null);
-  const [performanceData, setPerformanceData] = useState(null);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
   const [issueEventIndices, setIssueEventIndices] = useState({}); // Track current event index per issue
   const [notifications, setNotifications] = useState([]); // Notification system
@@ -248,66 +247,11 @@ export default function Dashboard() {
     }
   };
 
-  const fetchPerformanceData = async () => {
-    if (!selectedProject) {
-      setPerformanceData(null);
-      return;
-    }
-    
-    try {
-      const response = await fetch(`/api/analytics/performance?projectId=${selectedProject}`);
-      const data = await response.json();
-      
-      if (data.transactions && data.transactions.length > 0) {
-        // Group transactions by transaction name/type
-        const grouped = {};
-        
-        data.transactions.forEach(transaction => {
-          const transactionName = transaction.data?.transaction || 'Unknown';
-          const timestamp = transaction.data?.timestamp || transaction.createdAt;
-          const startTimestamp = transaction.data?.start_timestamp;
-          
-          if (!grouped[transactionName]) {
-            grouped[transactionName] = [];
-          }
-          
-          // Calculate duration
-          let duration = 0;
-          if (timestamp && startTimestamp) {
-            duration = timestamp - startTimestamp;
-          }
-          
-          grouped[transactionName].push({
-            date: new Date(transaction.createdAt).toISOString().split('T')[0],
-            timestamp: transaction.createdAt,
-            duration: duration,
-            memory: transaction.data?.contexts?.device?.app_memory || 0,
-            cpu: 0, // Will extract from breadcrumbs if available
-            eventLoopLag: 0
-          });
-        });
-        
-        // Sort each group by timestamp and convert to time series
-        const series = Object.entries(grouped).map(([name, points]) => ({
-          name,
-          data: points.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-        }));
-        
-        setPerformanceData(series);
-      } else {
-        setPerformanceData([]);
-      }
-    } catch (error) {
-      console.error('Error fetching performance data:', error);
-      setPerformanceData([]);
-    }
-  };
 
   useEffect(() => {
     if (user) {
       fetchData();
       fetchAnalytics();
-      fetchPerformanceData();
     }
   }, [selectedProject, user, filterLevel, activeTab]);
 
@@ -1048,216 +992,6 @@ export default function Dashboard() {
     }
     // Default for regular errors
     return null;
-  };
-
-  // Render line chart for performance data grouped by transaction type
-  const renderLineChart = (performanceSeries) => {
-    if (!performanceSeries || performanceSeries.length === 0) {
-      return (
-        <div style={{ 
-          background: 'var(--bg-primary)', 
-          border: '1px solid var(--border-primary)', 
-          borderRadius: 'var(--radius-md)',
-          padding: 'var(--space-4)',
-          marginBottom: 'var(--space-4)',
-          textAlign: 'center',
-          color: 'var(--text-secondary)'
-        }}>
-          <h3 style={{ 
-            margin: '0 0 var(--space-3) 0', 
-            fontSize: 'var(--font-base)', 
-            fontWeight: 'var(--weight-semibold)',
-            color: 'var(--text-primary)'
-          }}>
-            ⚡ Performance by Transaction Type
-          </h3>
-          <p>No performance data available. Send some transaction events to see performance metrics.</p>
-        </div>
-      );
-    }
-    
-    const chartHeight = 200;
-    const svgWidth = 800;
-    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
-    const chartAreaHeight = chartHeight - padding.top - padding.bottom;
-    const chartAreaWidth = svgWidth - padding.left - padding.right;
-    
-    // Get all unique timestamps and sort them
-    const allTimestamps = new Set();
-    performanceSeries.forEach(series => {
-      series.data.forEach(point => {
-        allTimestamps.add(point.timestamp);
-      });
-    });
-    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(a) - new Date(b));
-    
-    // Get max duration for scaling
-    const maxDuration = Math.max(
-      ...performanceSeries.flatMap(series => 
-        series.data.map(point => point.duration || 0)
-      ),
-      1
-    );
-    
-    // Format dates for labels
-    const formatDate = (timestamp) => {
-      const date = new Date(timestamp);
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    };
-    
-    // Generate colors for each transaction type
-    const colors = [
-      'var(--accent-primary)',
-      'var(--error)',
-      '#f59e0b',
-      'var(--info)',
-      '#9333ea',
-      '#10b981',
-      '#3b82f6'
-    ];
-    
-    // Calculate points for each series
-    const getPoints = (series) => {
-      return sortedTimestamps.map((timestamp, index) => {
-        const point = series.data.find(p => p.timestamp === timestamp);
-        const duration = point?.duration || 0;
-        const x = padding.left + (index / (sortedTimestamps.length - 1 || 1)) * chartAreaWidth;
-        const y = padding.top + chartAreaHeight - (duration / maxDuration) * chartAreaHeight;
-        return { x, y, value: duration, hasData: !!point };
-      });
-    };
-    
-    const seriesPoints = performanceSeries.map(series => ({
-      name: series.name,
-      points: getPoints(series),
-      color: colors[performanceSeries.indexOf(series) % colors.length]
-    }));
-    
-    // Create SVG path for line
-    const createPath = (points) => {
-      if (points.length === 0) return '';
-      let path = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 1; i < points.length; i++) {
-        path += ` L ${points[i].x} ${points[i].y}`;
-      }
-      return path;
-    };
-    
-    return (
-      <div style={{ 
-        background: 'var(--bg-primary)', 
-        border: '1px solid var(--border-primary)', 
-        borderRadius: 'var(--radius-md)',
-        padding: 'var(--space-4)',
-        marginBottom: 'var(--space-4)'
-      }}>
-        <h3 style={{ 
-          margin: '0 0 var(--space-3) 0', 
-          fontSize: 'var(--font-base)', 
-          fontWeight: 'var(--weight-semibold)',
-          color: 'var(--text-primary)'
-        }}>
-          ⚡ Performance by Transaction Type
-        </h3>
-        <div style={{ position: 'relative', width: '100%', height: chartHeight, overflowX: 'auto' }}>
-          <svg width={svgWidth} height={chartHeight} style={{ minWidth: '100%' }} viewBox={`0 0 ${svgWidth} ${chartHeight}`} preserveAspectRatio="none">
-            {/* Grid lines */}
-            {[0, 25, 50, 75, 100].map((percent) => (
-              <line
-                key={percent}
-                x1={padding.left}
-                y1={padding.top + (percent / 100) * chartAreaHeight}
-                x2={svgWidth - padding.right}
-                y2={padding.top + (percent / 100) * chartAreaHeight}
-                stroke="var(--border-primary)"
-                strokeWidth="1"
-                strokeDasharray="2,2"
-                opacity="0.3"
-              />
-            ))}
-            
-            {/* Lines for each transaction type */}
-            {seriesPoints.map((series, seriesIndex) => (
-              <path
-                key={seriesIndex}
-                d={createPath(series.points)}
-                fill="none"
-                stroke={series.color}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            ))}
-            
-            {/* Data points */}
-            {seriesPoints.map((series, seriesIndex) => (
-              <g key={`points-${seriesIndex}`}>
-                {series.points.filter(p => p.hasData).map((point, i) => (
-                  <circle
-                    key={i}
-                    cx={point.x}
-                    cy={point.y}
-                    r="3"
-                    fill={series.color}
-                  />
-                ))}
-              </g>
-            ))}
-            
-            {/* X-axis labels */}
-            {sortedTimestamps.map((timestamp, i) => {
-              const x = padding.left + (i / (sortedTimestamps.length - 1 || 1)) * chartAreaWidth;
-              return (
-                <text
-                  key={i}
-                  x={x}
-                  y={chartHeight - 10}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="var(--text-secondary)"
-                >
-                  {formatDate(timestamp)}
-                </text>
-              );
-            })}
-            
-            {/* Y-axis labels */}
-            {[0, 1, 2, 3, 4].map((i) => {
-              const value = ((maxDuration / 4) * i).toFixed(2);
-              const y = padding.top + chartAreaHeight - (i / 4) * chartAreaHeight;
-              return (
-                <text
-                  key={i}
-                  x={padding.left - 10}
-                  y={y + 4}
-                  textAnchor="end"
-                  fontSize="10"
-                  fill="var(--text-secondary)"
-                >
-                  {value}s
-                </text>
-              );
-            })}
-          </svg>
-        </div>
-        
-        {/* Legend */}
-        <div style={{ 
-          display: 'flex', 
-          gap: 'var(--space-4)', 
-          marginTop: 'var(--space-3)',
-          flexWrap: 'wrap',
-          fontSize: 'var(--font-xs)'
-        }}>
-          {seriesPoints.map((series, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '12px', height: '2px', background: series.color }}></div>
-              <span style={{ color: 'var(--text-secondary)' }}>{series.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
   };
 
   const getEventTitle = (event) => {
@@ -2522,6 +2256,11 @@ export default function Dashboard() {
             </h1>
             <div className={styles.headerActions}>
               <span className={styles.userEmail}>{user.email}</span>
+              <Link href="/performance">
+                <button className={styles.headerButton}>
+                  ⚡ Performance
+                </button>
+              </Link>
               <ThemeToggle />
               <button 
                 onClick={() => setAutoRefresh(!autoRefresh)}
@@ -2772,9 +2511,6 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <>
-                  {/* Line Chart */}
-                  {renderLineChart(performanceData)}
-                  
                   <div className={styles.eventsContainer}>
                   {filteredIssues.map(issue => {
                     const type = issue.level;

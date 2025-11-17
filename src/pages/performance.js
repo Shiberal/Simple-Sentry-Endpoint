@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import styles from '@/styles/Dashboard.module.css';
 
 export default function PerformancePage() {
@@ -15,18 +16,24 @@ export default function PerformancePage() {
   const [timeSeriesData, setTimeSeriesData] = useState(null);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [performanceSeries, setPerformanceSeries] = useState([]);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [projectsCollapsed, setProjectsCollapsed] = useState(false);
+  const [selectedEndpoint, setSelectedEndpoint] = useState('all'); // Filter by endpoint/transaction name
+  const [selectedMetric, setSelectedMetric] = useState('duration'); // duration, memory, cpu
+  const [availableEndpoints, setAvailableEndpoints] = useState([]);
 
   useEffect(() => {
     fetchProjects();
   }, []);
 
   useEffect(() => {
-    if (selectedProject) {
-      if (viewMode === 'timeseries') {
+    if (viewMode === 'timeseries') {
+      if (selectedProject) {
         fetchTimeSeries();
-      } else {
-      fetchTransactions();
       }
+    } else {
+      fetchTransactions();
     }
   }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate]);
 
@@ -44,7 +51,14 @@ export default function PerformancePage() {
   };
 
   const fetchTransactions = async () => {
-    if (!selectedProject) return;
+    if (selectedProject === null || selectedProject === undefined) {
+      setTransactions([]);
+      setAnalytics(null);
+      setPerformanceSeries([]);
+      setAvailableEndpoints([]);
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     try {
@@ -52,6 +66,83 @@ export default function PerformancePage() {
       const data = await response.json();
       setTransactions(data.transactions || []);
       setAnalytics(data.analytics || null);
+      
+      // Group transactions by transaction type for line chart
+      if (data.transactions && data.transactions.length > 0) {
+        const grouped = {};
+        
+        data.transactions.forEach(transaction => {
+          const transactionName = transaction.data?.transaction || 'Unknown';
+          const timestamp = transaction.data?.timestamp || transaction.createdAt;
+          const startTimestamp = transaction.data?.start_timestamp;
+          
+          if (!grouped[transactionName]) {
+            grouped[transactionName] = [];
+          }
+          
+          // Calculate duration
+          let duration = 0;
+          if (timestamp && startTimestamp) {
+            duration = timestamp - startTimestamp;
+          }
+          
+          // Extract memory
+          const memory = transaction.data?.contexts?.device?.app_memory || 
+                        transaction.data?.contexts?.app?.app_memory || 0;
+          
+          // Extract CPU and event loop lag from breadcrumbs
+          let cpu = 0;
+          let eventLoopLag = 0;
+          const breadcrumbs = Array.isArray(transaction.data?.breadcrumbs) 
+            ? transaction.data.breadcrumbs 
+            : transaction.data?.breadcrumbs?.values || [];
+          
+          // Find CPU breadcrumb
+          const cpuBreadcrumb = breadcrumbs.find(b => 
+            b.message && b.message.includes('CPU usage')
+          );
+          if (cpuBreadcrumb) {
+            const cpuMatch = cpuBreadcrumb.message.match(/([\d.]+)%/);
+            if (cpuMatch) {
+              cpu = parseFloat(cpuMatch[1]);
+            }
+          }
+          
+          // Find event loop lag breadcrumb
+          const eventLoopBreadcrumb = breadcrumbs.find(b => 
+            b.message && b.message.includes('event loop lag')
+          );
+          if (eventLoopBreadcrumb) {
+            const lagMatch = eventLoopBreadcrumb.message.match(/([\d.]+)\s*ms/);
+            if (lagMatch) {
+              eventLoopLag = parseFloat(lagMatch[1]);
+            }
+          }
+          
+          grouped[transactionName].push({
+            date: new Date(transaction.createdAt).toISOString().split('T')[0],
+            timestamp: transaction.createdAt,
+            duration: duration,
+            memory: memory,
+            cpu: cpu,
+            eventLoopLag: eventLoopLag
+          });
+        });
+        
+        // Sort each group by timestamp and convert to time series
+        const series = Object.entries(grouped).map(([name, points]) => ({
+          name,
+          data: points.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+        }));
+        
+        setPerformanceSeries(series);
+        
+        // Extract available endpoints for filter
+        const endpoints = Object.keys(grouped).sort();
+        setAvailableEndpoints(endpoints);
+      } else {
+        setPerformanceSeries([]);
+      }
     } catch (error) {
       console.error('Error fetching transactions:', error);
     } finally {
@@ -252,6 +343,246 @@ export default function PerformancePage() {
     );
   };
 
+  // Render line chart for performance data grouped by transaction type
+  const renderLineChart = (performanceSeries, metric = 'duration') => {
+    if (!performanceSeries || performanceSeries.length === 0) {
+      return (
+        <div style={{ 
+          background: 'var(--bg-primary)', 
+          border: '1px solid var(--border-primary)', 
+          borderRadius: 'var(--radius-md)',
+          padding: 'var(--space-4)',
+          marginBottom: 'var(--space-4)',
+          textAlign: 'center',
+          color: 'var(--text-secondary)'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 var(--space-3) 0', 
+            fontSize: 'var(--font-base)', 
+            fontWeight: 'var(--weight-semibold)',
+            color: 'var(--text-primary)'
+          }}>
+            ⚡ Performance by Transaction Type
+          </h3>
+          <p>No performance data available. Send some transaction events to see performance metrics.</p>
+        </div>
+      );
+    }
+    
+    const chartHeight = 200;
+    const svgWidth = 800;
+    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+    const chartAreaHeight = chartHeight - padding.top - padding.bottom;
+    const chartAreaWidth = svgWidth - padding.left - padding.right;
+    
+    // Get all unique timestamps and sort them
+    const allTimestamps = new Set();
+    performanceSeries.forEach(series => {
+      series.data.forEach(point => {
+        allTimestamps.add(point.timestamp);
+      });
+    });
+    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(a) - new Date(b));
+    
+    // Get metric value based on selected metric
+    const getMetricValue = (point) => {
+      switch(metric) {
+        case 'memory':
+          return point.memory || 0;
+        case 'cpu':
+          return point.cpu || 0;
+        default:
+          return point.duration || 0;
+      }
+    };
+
+    // Get max value for scaling based on selected metric
+    const maxValue = Math.max(
+      ...performanceSeries.flatMap(series => 
+        series.data.map(point => getMetricValue(point))
+      ),
+      1
+    );
+
+    // Format value based on metric
+    const formatValue = (value) => {
+      if (metric === 'memory') {
+        return (value / 1024 / 1024).toFixed(2) + 'MB';
+      } else if (metric === 'cpu') {
+        return value.toFixed(2) + '%';
+      } else {
+        return value.toFixed(2) + 's';
+      }
+    };
+
+    const metricLabel = metric === 'memory' ? 'Memory (MB)' : metric === 'cpu' ? 'CPU (%)' : 'Duration (s)';
+    
+    // Format dates for labels
+    const formatDate = (timestamp) => {
+      const date = new Date(timestamp);
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+    
+    // Generate colors for each transaction type
+    const colors = [
+      'var(--accent-primary)',
+      'var(--error)',
+      '#f59e0b',
+      'var(--info)',
+      '#9333ea',
+      '#10b981',
+      '#3b82f6'
+    ];
+    
+    // Calculate points for each series
+    const getPoints = (series) => {
+      return sortedTimestamps.map((timestamp, index) => {
+        const point = series.data.find(p => p.timestamp === timestamp);
+        const value = getMetricValue(point || {});
+        const x = padding.left + (index / (sortedTimestamps.length - 1 || 1)) * chartAreaWidth;
+        const y = padding.top + chartAreaHeight - (value / maxValue) * chartAreaHeight;
+        return { x, y, value, hasData: !!point };
+      });
+    };
+    
+    const seriesPoints = performanceSeries.map(series => ({
+      name: series.name,
+      points: getPoints(series),
+      color: colors[performanceSeries.indexOf(series) % colors.length]
+    }));
+    
+    // Create SVG path for line
+    const createPath = (points) => {
+      if (points.length === 0) return '';
+      let path = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        path += ` L ${points[i].x} ${points[i].y}`;
+      }
+      return path;
+    };
+    
+    return (
+      <div style={{ 
+        background: 'var(--bg-primary)', 
+        border: '1px solid var(--border-primary)', 
+        borderRadius: 'var(--radius-md)',
+        padding: 'var(--space-4)',
+        marginBottom: 'var(--space-4)'
+      }}>
+        <h3 style={{ 
+          margin: '0 0 var(--space-3) 0', 
+          fontSize: 'var(--font-base)', 
+          fontWeight: 'var(--weight-semibold)',
+          color: 'var(--text-primary)'
+        }}>
+          ⚡ Performance by Transaction Type - {metricLabel}
+        </h3>
+        <div style={{ position: 'relative', width: '100%', height: chartHeight, overflowX: 'auto' }}>
+          <svg width={svgWidth} height={chartHeight} style={{ minWidth: '100%' }} viewBox={`0 0 ${svgWidth} ${chartHeight}`} preserveAspectRatio="none">
+            {/* Grid lines */}
+            {[0, 25, 50, 75, 100].map((percent) => (
+              <line
+                key={percent}
+                x1={padding.left}
+                y1={padding.top + (percent / 100) * chartAreaHeight}
+                x2={svgWidth - padding.right}
+                y2={padding.top + (percent / 100) * chartAreaHeight}
+                stroke="var(--border-primary)"
+                strokeWidth="1"
+                strokeDasharray="2,2"
+                opacity="0.3"
+              />
+            ))}
+            
+            {/* Lines for each transaction type */}
+            {seriesPoints.map((series, seriesIndex) => (
+              <path
+                key={seriesIndex}
+                d={createPath(series.points)}
+                fill="none"
+                stroke={series.color}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
+            
+            {/* Data points */}
+            {seriesPoints.map((series, seriesIndex) => (
+              <g key={`points-${seriesIndex}`}>
+                {series.points.filter(p => p.hasData).map((point, i) => (
+                  <circle
+                    key={i}
+                    cx={point.x}
+                    cy={point.y}
+                    r="3"
+                    fill={series.color}
+                  />
+                ))}
+              </g>
+            ))}
+            
+            {/* X-axis labels */}
+            {sortedTimestamps.map((timestamp, i) => {
+              const x = padding.left + (i / (sortedTimestamps.length - 1 || 1)) * chartAreaWidth;
+              return (
+                <text
+                  key={i}
+                  x={x}
+                  y={chartHeight - 10}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="var(--text-secondary)"
+                >
+                  {formatDate(timestamp)}
+                </text>
+              );
+            })}
+            
+            {/* Y-axis labels */}
+            {[0, 1, 2, 3, 4].map((i) => {
+              const value = (maxValue / 4) * i;
+              const y = padding.top + chartAreaHeight - (i / 4) * chartAreaHeight;
+              return (
+                <text
+                  key={i}
+                  x={padding.left - 10}
+                  y={y + 4}
+                  textAnchor="end"
+                  fontSize="10"
+                  fill="var(--text-secondary)"
+                >
+                  {formatValue(value)}
+                </text>
+              );
+            })}
+          </svg>
+        </div>
+        
+        {/* Legend */}
+        <div style={{ 
+          display: 'flex', 
+          gap: 'var(--space-4)', 
+          marginTop: 'var(--space-3)',
+          flexWrap: 'wrap',
+          fontSize: 'var(--font-xs)'
+        }}>
+          {seriesPoints.map((series, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: '12px', height: '2px', background: series.color }}></div>
+              <span style={{ color: 'var(--text-secondary)' }}>{series.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Filter performance series based on selected endpoint
+  const filteredPerformanceSeries = selectedEndpoint === 'all' 
+    ? performanceSeries 
+    : performanceSeries.filter(series => series.name === selectedEndpoint);
+
   if (loading && !analytics && !timeSeriesData) {
     return (
       <div className={styles.container}>
@@ -268,23 +599,135 @@ export default function PerformancePage() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>📊 Performance Analytics</h1>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <select
-            value={selectedProject || ''}
-            onChange={(e) => setSelectedProject(Number(e.target.value))}
-            style={{
-              padding: '8px 12px',
-              borderRadius: '4px',
-              border: '1px solid #ddd',
-              fontSize: '14px'
-            }}
+        <div className={styles.headerContent}>
+          <h1 className={styles.logo}>
+            <span className={styles.logoIcon}>⚡</span>
+            Performance Analytics
+          </h1>
+          <div className={styles.headerActions}>
+            <Link href="/dashboard">
+              <button className={styles.headerButton}>
+                📊 Dashboard
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className={styles.main}>
+        {!sidebarCollapsed && (
+          <aside className={styles.sidebar}>
+            <div className={styles.sidebarSection}>
+              <div className={styles.sidebarHeader}>
+                <div className={styles.sidebarTitleContainer}>
+                  <button
+                    onClick={() => setProjectsCollapsed(!projectsCollapsed)}
+                    className={styles.collapseButton}
+                    title={projectsCollapsed ? 'Expand projects' : 'Collapse projects'}
+                  >
+                    <span 
+                      className={styles.collapseIcon}
+                      style={{
+                        transform: projectsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'
+                      }}
+                    >
+                      ▼
+                    </span>
+                  </button>
+                  <h3 className={styles.sidebarTitle}>Projects</h3>
+                </div>
+              </div>
+              {!projectsCollapsed && (
+                <div className={styles.projectsList}>
+                  <button
+                    onClick={() => setSelectedProject(null)}
+                    className={`${styles.projectItem} ${selectedProject === null ? styles.projectItemActive : ''}`}
+                  >
+                    <span>All Projects</span>
+                  </button>
+                  {projects.map(project => (
+                    <div key={project.id} className={styles.projectItemContainer}>
+                      <button
+                        onClick={() => setSelectedProject(project.id)}
+                        className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
+                      >
+                        <span>{project.name}</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Filters Section */}
+            <div className={styles.sidebarSection} style={{ marginTop: 'var(--space-4)' }}>
+              <div className={styles.sidebarHeader}>
+                <h3 className={styles.sidebarTitle}>Filters</h3>
+              </div>
+              <div className={styles.projectsList}>
+                <div style={{ padding: 'var(--space-2)' }}>
+                  <label style={{ 
+                    fontSize: 'var(--font-xs)', 
+                    color: 'var(--text-secondary)', 
+                    marginBottom: 'var(--space-1)',
+                    display: 'block'
+                  }}>
+                    Endpoint
+                  </label>
+                  <select
+                    value={selectedEndpoint}
+                    onChange={(e) => setSelectedEndpoint(e.target.value)}
+                    className={styles.filterSelect}
+                    style={{ width: '100%', marginBottom: 'var(--space-3)' }}
+                  >
+                    <option value="all">All Endpoints</option>
+                    {availableEndpoints.map(endpoint => (
+                      <option key={endpoint} value={endpoint}>{endpoint}</option>
+                    ))}
+                  </select>
+
+                  <label style={{ 
+                    fontSize: 'var(--font-xs)', 
+                    color: 'var(--text-secondary)', 
+                    marginBottom: 'var(--space-1)',
+                    display: 'block'
+                  }}>
+                    Metric
+                  </label>
+                  <select
+                    value={selectedMetric}
+                    onChange={(e) => setSelectedMetric(e.target.value)}
+                    className={styles.filterSelect}
+                    style={{ width: '100%' }}
+                  >
+                    <option value="duration">Duration</option>
+                    <option value="memory">Memory</option>
+                    <option value="cpu">CPU</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </aside>
+        )}
+
+        <div className={styles.contentWrapper}>
+          {/* Sidebar toggle button */}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={styles.sidebarToggle}
+            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
           >
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-            
+            <span style={{
+              transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+              display: 'inline-block',
+              transition: 'transform 0.3s ease'
+            }}>
+              ◀
+            </span>
+          </button>
+
+          <div className={styles.content}>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
             {/* View Mode Toggle */}
             <div style={{ display: 'flex', gap: '5px', background: '#f0f0f0', borderRadius: '4px', padding: '2px' }}>
               <button
@@ -549,6 +992,9 @@ export default function PerformancePage() {
 
       {viewMode === 'detailed' && analytics && (
         <>
+          {/* Performance Line Chart by Transaction Type */}
+          {renderLineChart(filteredPerformanceSeries, selectedMetric)}
+          
           {/* Summary Cards */}
           <div style={{
             display: 'grid',
@@ -760,6 +1206,9 @@ export default function PerformancePage() {
           <p style={{ color: '#999' }}>Send some transaction events to see performance analytics.</p>
         </div>
       )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
