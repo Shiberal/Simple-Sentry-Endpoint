@@ -142,6 +142,7 @@ export default function PerformancePage() {
         setAvailableEndpoints(endpoints);
       } else {
         setPerformanceSeries([]);
+        setAvailableEndpoints([]);
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -345,7 +346,7 @@ export default function PerformancePage() {
 
   // Render line chart for performance data grouped by transaction type
   const renderLineChart = (performanceSeries, metric = 'duration') => {
-    if (!performanceSeries || performanceSeries.length === 0) {
+    if (!Array.isArray(performanceSeries) || performanceSeries.length === 0) {
       return (
         <div style={{ 
           background: 'var(--bg-primary)', 
@@ -586,9 +587,11 @@ export default function PerformancePage() {
   };
 
   // Filter performance series based on selected endpoint
-  const filteredPerformanceSeries = selectedEndpoint === 'all' 
-    ? performanceSeries 
-    : performanceSeries.filter(series => series.name === selectedEndpoint);
+  const filteredPerformanceSeries = Array.isArray(performanceSeries) 
+    ? (selectedEndpoint === 'all' 
+        ? performanceSeries 
+        : performanceSeries.filter(series => series && series.name === selectedEndpoint))
+    : [];
 
   if (loading && !analytics && !timeSeriesData) {
     return (
@@ -999,7 +1002,7 @@ export default function PerformancePage() {
             {viewMode === 'detailed' && analytics && (
               <>
                 {/* Performance Line Chart by Transaction Type */}
-                {renderLineChart(filteredPerformanceSeries, selectedMetric)}
+                {Array.isArray(filteredPerformanceSeries) && renderLineChart(filteredPerformanceSeries, selectedMetric)}
                 
                 {/* Summary Cards */}
                 <div style={{
