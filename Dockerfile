@@ -15,11 +15,17 @@ RUN npm ci
 # Rebuild the source code only when needed
 FROM base AS builder
 WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
-# Copy prisma schema and generate client
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy package files for build scripts
+COPY package.json package-lock.json* ./
+
+# Copy Prisma schema first (changes less frequently than source code)
 COPY prisma ./prisma/
+
+# Generate Prisma client before copying source code
 RUN npx prisma generate
 
 # Next.js collects completely anonymous telemetry data about general usage.
@@ -27,7 +33,10 @@ RUN npx prisma generate
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Build Next.js application
+# Copy source code last (changes most frequently)
+COPY . .
+
+# Build Next.js application (prisma generate already done, so build script won't duplicate)
 RUN npm run build
 
 # Production image, copy all the files and run next
@@ -38,15 +47,15 @@ ENV NODE_ENV=production
 # Uncomment the following line in case you want to disable telemetry during runtime.
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Create user and group in a single layer
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
 # Copy public assets
 COPY --from=builder /app/public ./public
 
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
+# Create .next directory with correct permissions in a single layer
+RUN mkdir .next && chown nextjs:nodejs .next
 
 # Automatically leverage output traces to reduce image size
 # https://nextjs.org/docs/advanced-features/output-file-tracing
@@ -55,14 +64,18 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy Prisma files for migrations
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/src/generated ./src/generated
 
-# Copy node_modules for prisma CLI
-COPY --from=builder /app/node_modules ./node_modules
+# Copy only Prisma runtime files needed for production
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 
-# Copy entrypoint script
+# Copy Prisma CLI package (needed for npx prisma db push in entrypoint)
+# The prisma package is self-contained for CLI usage
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.bin ./node_modules/.bin
+
+# Copy entrypoint script and set permissions in one layer
 COPY --chown=nextjs:nodejs docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
