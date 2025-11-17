@@ -6,6 +6,7 @@ const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   skipTrailingSlashRedirect: true,
+  productionBrowserSourceMaps: true
 };
 
 export default withSentryConfig(nextConfig, {
@@ -34,7 +35,7 @@ export default withSentryConfig(nextConfig, {
   hideSourceMaps: false,
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
-  disableLogger: true,
+  disableLogger: false,
 
   // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
   // See the following for more information:
