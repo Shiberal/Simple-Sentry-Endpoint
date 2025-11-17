@@ -240,9 +240,9 @@ export default function PerformancePage() {
   };
 
   const renderTimeSeriesChart = (series, metricKey, label, color, unit = '', formatFn = (v) => v.toFixed(2)) => {
-    if (!series || series.length === 0) return null;
+    if (!series || !Array.isArray(series) || series.length === 0) return null;
     
-    const values = series.map(s => s.metrics[metricKey] || 0);
+    const values = series.map(s => s.metrics?.[metricKey] || 0);
     const labels = series.map(s => {
       const date = new Date(s.timestamp);
       if (interval === 'hour') {
@@ -329,7 +329,7 @@ export default function PerformancePage() {
           </div>
           {/* X-axis labels */}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px', fontSize: '11px', color: '#666', padding: `0 ${padding.left}px 0 ${padding.left}px`, width: `${chartWidth}px`, maxWidth: '100%' }}>
-            {labels.filter((_, i) => i % Math.ceil(labels.length / 5) === 0 || i === labels.length - 1).map((label, i) => (
+            {Array.isArray(labels) && labels.filter((unused, i) => i % Math.ceil(labels.length / 5) === 0 || i === labels.length - 1).map((label, i) => (
               <span key={i}>{label}</span>
             ))}
           </div>
@@ -851,7 +851,7 @@ export default function PerformancePage() {
             {viewMode === 'timeseries' && timeSeriesData && (
         <>
           {/* Time Series View */}
-          {timeSeriesData.series && timeSeriesData.series.length > 0 ? (
+          {timeSeriesData.series && Array.isArray(timeSeriesData.series) && timeSeriesData.series.length > 0 ? (
             <div style={{ marginBottom: '30px' }}>
               {/* Summary Cards */}
               <div style={{
@@ -1073,7 +1073,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0 }}>Transaction Duration Over Time</h2>
                       {renderBarChart(
                         analytics.transactionDurations,
-                        analytics.transactionDurations.map((_, i) => `Transaction ${i + 1}`),
+                        analytics.transactionDurations.map((unused, i) => `Transaction ${i + 1}`),
                         'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
                         's'
                       )}
@@ -1094,7 +1094,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>Heap Used (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.heapUsed / 1024 / 1024),
-                            analytics.memoryTimeline.map((_, i) => `T${i + 1}`),
+                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             '#00E396',
                             ' MB'
                           )}
@@ -1103,7 +1103,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>Heap Total (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.heapTotal / 1024 / 1024),
-                            analytics.memoryTimeline.map((_, i) => `T${i + 1}`),
+                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             '#008FFB',
                             ' MB'
                           )}
@@ -1112,7 +1112,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>RSS (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.rss / 1024 / 1024),
-                            analytics.memoryTimeline.map((_, i) => `T${i + 1}`),
+                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             '#FEB019',
                             ' MB'
                           )}
@@ -1132,7 +1132,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0 }}>CPU Usage Over Time</h2>
                       {renderBarChart(
                         analytics.cpuTimeline,
-                        analytics.cpuTimeline.map((_, i) => `Transaction ${i + 1}`),
+                        analytics.cpuTimeline.map((unused, i) => `Transaction ${i + 1}`),
                         'linear-gradient(90deg, #FF4560 0%, #FF6B6B 100%)',
                         '%'
                       )}
@@ -1149,7 +1149,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0 }}>Event Loop Lag</h2>
                       {renderBarChart(
                         analytics.eventLoopTimeline,
-                        analytics.eventLoopTimeline.map((_, i) => `Transaction ${i + 1}`),
+                        analytics.eventLoopTimeline.map((unused, i) => `Transaction ${i + 1}`),
                         'linear-gradient(90deg, #775DD0 0%, #9B7FE8 100%)',
                         ' ms'
                       )}
