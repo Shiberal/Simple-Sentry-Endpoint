@@ -377,11 +377,17 @@ export default function PerformancePage() {
     
     // Get all unique timestamps and sort them
     const allTimestamps = new Set();
-    performanceSeries.forEach(series => {
-      series.data.forEach(point => {
-        allTimestamps.add(point.timestamp);
+    if (Array.isArray(performanceSeries)) {
+      performanceSeries.forEach(series => {
+        if (series && Array.isArray(series.data)) {
+          series.data.forEach(point => {
+            if (point && point.timestamp) {
+              allTimestamps.add(point.timestamp);
+            }
+          });
+        }
       });
-    });
+    }
     const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(a) - new Date(b));
     
     // Get metric value based on selected metric
@@ -398,9 +404,9 @@ export default function PerformancePage() {
 
     // Get max value for scaling based on selected metric
     const maxValue = Math.max(
-      ...performanceSeries.flatMap(series => 
-        series.data.map(point => getMetricValue(point))
-      ),
+      ...(Array.isArray(performanceSeries) ? performanceSeries.flatMap(series => 
+        (Array.isArray(series?.data) ? series.data.map(point => getMetricValue(point)) : [])
+      ) : []),
       1
     );
 
@@ -436,8 +442,9 @@ export default function PerformancePage() {
     
     // Calculate points for each series
     const getPoints = (series) => {
+      if (!series || !Array.isArray(series.data)) return [];
       return sortedTimestamps.map((timestamp, index) => {
-        const point = series.data.find(p => p.timestamp === timestamp);
+        const point = series.data.find(p => p && p.timestamp === timestamp);
         const value = getMetricValue(point || {});
         const x = padding.left + (index / (sortedTimestamps.length - 1 || 1)) * chartAreaWidth;
         const y = padding.top + chartAreaHeight - (value / maxValue) * chartAreaHeight;
@@ -445,11 +452,11 @@ export default function PerformancePage() {
       });
     };
     
-    const seriesPoints = performanceSeries.map(series => ({
-      name: series.name,
+    const seriesPoints = Array.isArray(performanceSeries) ? performanceSeries.map(series => ({
+      name: series?.name || 'Unknown',
       points: getPoints(series),
       color: colors[performanceSeries.indexOf(series) % colors.length]
-    }));
+    })) : [];
     
     // Create SVG path for line
     const createPath = (points) => {
@@ -681,7 +688,7 @@ export default function PerformancePage() {
                     style={{ width: '100%', marginBottom: 'var(--space-3)' }}
                   >
                     <option value="all">All Endpoints</option>
-                    {availableEndpoints.map(endpoint => (
+                    {Array.isArray(availableEndpoints) && availableEndpoints.map(endpoint => (
                       <option key={endpoint} value={endpoint}>{endpoint}</option>
                     ))}
                   </select>
