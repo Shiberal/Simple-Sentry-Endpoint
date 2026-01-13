@@ -22,6 +22,7 @@ export default function PerformancePage() {
   const [selectedEndpoint, setSelectedEndpoint] = useState('all'); // Filter by endpoint/transaction name
   const [selectedMetric, setSelectedMetric] = useState('duration'); // duration, memory, cpu
   const [availableEndpoints, setAvailableEndpoints] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchProjects();
@@ -63,8 +64,13 @@ export default function PerformancePage() {
     }
     
     setLoading(true);
+    setError(null);
     try {
       const response = await fetch(`/api/analytics/performance?projectId=${selectedProject}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to fetch: ${response.statusText}`);
+      }
       const data = await response.json();
       setTransactions(data.transactions || []);
       setAnalytics(data.analytics || null);
@@ -155,6 +161,11 @@ export default function PerformancePage() {
       }
     } catch (error) {
       console.error('Error fetching transactions:', error);
+      setError(error.message || 'Failed to load performance data');
+      setTransactions([]);
+      setAnalytics(null);
+      setPerformanceSeries([]);
+      setAvailableEndpoints([]);
     } finally {
       setLoading(false);
     }
@@ -658,22 +669,22 @@ export default function PerformancePage() {
               </div>
               {!projectsCollapsed && (
                 <div className={styles.projectsList}>
-                  <button
-                    onClick={() => setSelectedProject(null)}
-                    className={`${styles.projectItem} ${selectedProject === null ? styles.projectItemActive : ''}`}
-                  >
-                    <span>All Projects</span>
-                  </button>
-                  {projects.map(project => (
-                    <div key={project.id} className={styles.projectItemContainer}>
-                      <button
-                        onClick={() => setSelectedProject(project.id)}
-                        className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
-                      >
-                        <span>{project.name}</span>
-                      </button>
+                  {projects.length === 0 ? (
+                    <div style={{ padding: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>
+                      No projects available. Create a project first.
                     </div>
-                  ))}
+                  ) : (
+                    projects.map(project => (
+                      <div key={project.id} className={styles.projectItemContainer}>
+                        <button
+                          onClick={() => setSelectedProject(project.id)}
+                          className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
+                        >
+                          <span>{project.name}</span>
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
@@ -1290,7 +1301,40 @@ export default function PerformancePage() {
             </>
             )}
 
-            {viewMode === 'detailed' && !analytics && !loading && (
+            {error && (
+              <div style={{
+                background: 'var(--bg-primary)',
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                textAlign: 'center',
+                border: '1px solid var(--error)',
+                boxShadow: 'var(--shadow-sm)',
+                marginBottom: 'var(--space-4)'
+              }}>
+                <p style={{ fontSize: 'var(--font-base)', color: 'var(--error)' }}>Error: {error}</p>
+                <button
+                  onClick={() => {
+                    setError(null);
+                    if (selectedProject) {
+                      fetchTransactions();
+                    }
+                  }}
+                  style={{
+                    marginTop: 'var(--space-2)',
+                    padding: 'var(--space-2) var(--space-4)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: 'var(--accent-primary)',
+                    color: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {viewMode === 'detailed' && !analytics && !loading && !error && (
               <div style={{
                 background: 'var(--bg-primary)',
                 padding: 'var(--space-12)',
@@ -1299,8 +1343,17 @@ export default function PerformancePage() {
                 border: '1px solid var(--border-primary)',
                 boxShadow: 'var(--shadow-sm)'
               }}>
-                <p style={{ fontSize: 'var(--font-lg)', color: 'var(--text-secondary)' }}>No transaction data available yet.</p>
-                <p style={{ color: 'var(--text-tertiary)', marginTop: 'var(--space-2)' }}>Send some transaction events to see performance analytics.</p>
+                {selectedProject === null || selectedProject === undefined ? (
+                  <>
+                    <p style={{ fontSize: 'var(--font-lg)', color: 'var(--text-secondary)' }}>Please select a project to view performance data.</p>
+                    <p style={{ color: 'var(--text-tertiary)', marginTop: 'var(--space-2)' }}>Choose a project from the sidebar to get started.</p>
+                  </>
+                ) : (
+                  <>
+                    <p style={{ fontSize: 'var(--font-lg)', color: 'var(--text-secondary)' }}>No transaction data available yet.</p>
+                    <p style={{ color: 'var(--text-tertiary)', marginTop: 'var(--space-2)' }}>Send some transaction events to see performance analytics.</p>
+                  </>
+                )}
               </div>
             )}
           </div>
