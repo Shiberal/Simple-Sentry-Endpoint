@@ -80,10 +80,17 @@ export default function PerformancePage() {
             grouped[transactionName] = [];
           }
           
-          // Calculate duration
+          // Calculate duration - handle both seconds and milliseconds
           let duration = 0;
           if (timestamp && startTimestamp) {
-            duration = timestamp - startTimestamp;
+            // Check if timestamps are in seconds (Sentry format) or milliseconds
+            const timestampMs = typeof timestamp === 'number' && timestamp < 1e12 
+              ? timestamp * 1000 
+              : new Date(timestamp).getTime();
+            const startTimestampMs = typeof startTimestamp === 'number' && startTimestamp < 1e12 
+              ? startTimestamp * 1000 
+              : new Date(startTimestamp).getTime();
+            duration = (timestampMs - startTimestampMs) / 1000; // Convert to seconds
           }
           
           // Extract memory
@@ -720,7 +727,7 @@ export default function PerformancePage() {
           </aside>
         )}
 
-        <div className={styles.contentWrapper}>
+        <div className={styles.contentWrapper} style={{ position: 'relative' }}>
           {/* Sidebar toggle button */}
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -736,41 +743,64 @@ export default function PerformancePage() {
             </span>
           </button>
 
-          <div className={styles.content}>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
+          <div style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            padding: 'var(--space-4)',
+            height: 'calc(100vh - 36px)'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              gap: '10px', 
+              alignItems: 'center', 
+              flexWrap: 'wrap', 
+              marginBottom: 'var(--space-4)',
+              padding: 'var(--space-2)',
+              background: 'var(--bg-secondary)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-primary)'
+            }}>
               {/* View Mode Toggle */}
-            <div style={{ display: 'flex', gap: '5px', background: '#f0f0f0', borderRadius: '4px', padding: '2px' }}>
-              <button
-                onClick={() => setViewMode('detailed')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '3px',
-                  border: 'none',
-                  background: viewMode === 'detailed' ? '#0070f3' : 'transparent',
-                  color: viewMode === 'detailed' ? 'white' : '#666',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: viewMode === 'detailed' ? '600' : '400'
-                }}
-              >
-                Detailed
-              </button>
-              <button
-                onClick={() => setViewMode('timeseries')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '3px',
-                  border: 'none',
-                  background: viewMode === 'timeseries' ? '#0070f3' : 'transparent',
-                  color: viewMode === 'timeseries' ? 'white' : '#666',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: viewMode === 'timeseries' ? '600' : '400'
-                }}
-              >
-                Time Series
-              </button>
-            </div>
+              <div style={{ 
+                display: 'flex', 
+                gap: '5px', 
+                background: 'var(--bg-tertiary)', 
+                borderRadius: 'var(--radius-sm)', 
+                padding: '2px' 
+              }}>
+                <button
+                  onClick={() => setViewMode('detailed')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: viewMode === 'detailed' ? 'var(--accent-primary)' : 'transparent',
+                    color: viewMode === 'detailed' ? 'white' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: 'var(--font-sm)',
+                    fontWeight: viewMode === 'detailed' ? 'var(--weight-semibold)' : 'var(--weight-normal)',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  Detailed
+                </button>
+                <button
+                  onClick={() => setViewMode('timeseries')}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: viewMode === 'timeseries' ? 'var(--accent-primary)' : 'transparent',
+                    color: viewMode === 'timeseries' ? 'white' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontSize: 'var(--font-sm)',
+                    fontWeight: viewMode === 'timeseries' ? 'var(--weight-semibold)' : 'var(--weight-normal)',
+                    transition: 'all var(--transition-fast)'
+                  }}
+                >
+                  Time Series
+                </button>
+              </div>
 
             {/* Time Series Controls */}
             {viewMode === 'timeseries' && (
@@ -779,10 +809,13 @@ export default function PerformancePage() {
                   value={timeRange}
                   onChange={(e) => setTimeRange(e.target.value)}
                   style={{
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    border: '1px solid #ddd',
-                    fontSize: '14px'
+                    padding: 'var(--space-2) var(--space-3)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-primary)',
+                    fontSize: 'var(--font-sm)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer'
                   }}
                 >
                   <option value="7d">Last 7 days</option>
@@ -797,10 +830,12 @@ export default function PerformancePage() {
                       value={customStartDate}
                       onChange={(e) => setCustomStartDate(e.target.value)}
                       style={{
-                        padding: '8px 12px',
-                        borderRadius: '4px',
-                        border: '1px solid #ddd',
-                        fontSize: '14px'
+                        padding: 'var(--space-2) var(--space-3)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-primary)',
+                        fontSize: 'var(--font-sm)',
+                        background: 'var(--bg-primary)',
+                        color: 'var(--text-primary)'
                       }}
                     />
                     <input
@@ -808,10 +843,12 @@ export default function PerformancePage() {
                       value={customEndDate}
                       onChange={(e) => setCustomEndDate(e.target.value)}
                       style={{
-                        padding: '8px 12px',
-                        borderRadius: '4px',
-                        border: '1px solid #ddd',
-                        fontSize: '14px'
+                        padding: 'var(--space-2) var(--space-3)',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-primary)',
+                        fontSize: 'var(--font-sm)',
+                        background: 'var(--bg-primary)',
+                        color: 'var(--text-primary)'
                       }}
                     />
                   </>
@@ -821,10 +858,13 @@ export default function PerformancePage() {
                   value={interval}
                   onChange={(e) => setInterval(e.target.value)}
                   style={{
-                    padding: '8px 12px',
-                    borderRadius: '4px',
-                    border: '1px solid #ddd',
-                    fontSize: '14px'
+                    padding: 'var(--space-2) var(--space-3)',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-primary)',
+                    fontSize: 'var(--font-sm)',
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    cursor: 'pointer'
                   }}
                 >
                   <option value="hour">Hourly</option>
@@ -833,19 +873,24 @@ export default function PerformancePage() {
               </>
             )}
             
-          <button
+            <button
               onClick={viewMode === 'timeseries' ? fetchTimeSeries : fetchTransactions}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '4px',
-              border: 'none',
-              background: '#0070f3',
-              color: 'white',
-              cursor: 'pointer'
-            }}
-          >
-            Refresh
-          </button>
+              style={{
+                padding: 'var(--space-2) var(--space-4)',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                background: 'var(--accent-primary)',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: 'var(--font-sm)',
+                fontWeight: 'var(--weight-medium)',
+                transition: 'all var(--transition-fast)'
+              }}
+              onMouseEnter={(e) => e.target.style.background = 'var(--accent-hover)'}
+              onMouseLeave={(e) => e.target.style.background = 'var(--accent-primary)'}
+            >
+              Refresh
+            </button>
             </div>
 
             {viewMode === 'timeseries' && timeSeriesData && (
@@ -857,28 +902,30 @@ export default function PerformancePage() {
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '20px',
-                marginBottom: '30px'
+                gap: 'var(--space-4)',
+                marginBottom: 'var(--space-6)'
               }}>
                 <div style={{
-                  background: 'white',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)'
                 }}>
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Total Intervals</h3>
-                  <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', color: '#0070f3' }}>
+                  <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Total Intervals</h3>
+                  <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--accent-primary)' }}>
                     {timeSeriesData.series.length}
                   </p>
                 </div>
                 <div style={{
-                  background: 'white',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)'
                 }}>
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Total Transactions</h3>
-                  <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', color: '#00E396' }}>
+                  <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Total Transactions</h3>
+                  <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--success)' }}>
                     {timeSeriesData.series.reduce((sum, s) => sum + s.count, 0)}
                   </p>
                 </div>
@@ -886,13 +933,14 @@ export default function PerformancePage() {
 
               {/* Time Series Charts */}
               <div style={{
-                background: 'white',
-                padding: '20px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                marginBottom: '20px'
+                background: 'var(--bg-primary)',
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                boxShadow: 'var(--shadow-sm)',
+                marginBottom: 'var(--space-4)'
               }}>
-                <h2 style={{ marginTop: 0 }}>Transaction Duration Over Time</h2>
+                <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Transaction Duration Over Time</h2>
                 {renderTimeSeriesChart(
                   timeSeriesData.series,
                   'avgDuration',
@@ -904,13 +952,14 @@ export default function PerformancePage() {
               </div>
 
               <div style={{
-                background: 'white',
-                padding: '20px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                marginBottom: '20px'
+                background: 'var(--bg-primary)',
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                boxShadow: 'var(--shadow-sm)',
+                marginBottom: 'var(--space-4)'
               }}>
-                <h2 style={{ marginTop: 0 }}>Memory Usage Over Time</h2>
+                <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Memory Usage Over Time</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                   {renderTimeSeriesChart(
                     timeSeriesData.series,
@@ -932,13 +981,14 @@ export default function PerformancePage() {
               </div>
 
               <div style={{
-                background: 'white',
-                padding: '20px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                marginBottom: '20px'
+                background: 'var(--bg-primary)',
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                boxShadow: 'var(--shadow-sm)',
+                marginBottom: 'var(--space-4)'
               }}>
-                <h2 style={{ marginTop: 0 }}>CPU Usage Over Time</h2>
+                <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>CPU Usage Over Time</h2>
                 {renderTimeSeriesChart(
                   timeSeriesData.series,
                   'avgCpu',
@@ -950,13 +1000,14 @@ export default function PerformancePage() {
               </div>
 
               <div style={{
-                background: 'white',
-                padding: '20px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                marginBottom: '20px'
+                background: 'var(--bg-primary)',
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                boxShadow: 'var(--shadow-sm)',
+                marginBottom: 'var(--space-4)'
               }}>
-                <h2 style={{ marginTop: 0 }}>Event Loop Lag Over Time</h2>
+                <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Event Loop Lag Over Time</h2>
                 {renderTimeSeriesChart(
                   timeSeriesData.series,
                   'avgEventLoopLag',
@@ -968,12 +1019,13 @@ export default function PerformancePage() {
               </div>
 
               <div style={{
-                background: 'white',
-                padding: '20px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                background: 'var(--bg-primary)',
+                padding: 'var(--space-4)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                boxShadow: 'var(--shadow-sm)'
               }}>
-                <h2 style={{ marginTop: 0 }}>Transaction Count Over Time</h2>
+                <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Transaction Count Over Time</h2>
                 {renderTimeSeriesChart(
                   timeSeriesData.series,
                   'count',
@@ -986,14 +1038,15 @@ export default function PerformancePage() {
             </div>
           ) : (
             <div style={{
-              background: 'white',
-              padding: '40px',
-              borderRadius: '8px',
+              background: 'var(--bg-primary)',
+              padding: 'var(--space-12)',
+              borderRadius: 'var(--radius-md)',
               textAlign: 'center',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              border: '1px solid var(--border-primary)',
+              boxShadow: 'var(--shadow-sm)'
             }}>
-              <p style={{ fontSize: '18px', color: '#666' }}>No time series data available for the selected range.</p>
-              <p style={{ color: '#999' }}>Try adjusting the time range or interval.</p>
+              <p style={{ fontSize: 'var(--font-lg)', color: 'var(--text-secondary)' }}>No time series data available for the selected range.</p>
+              <p style={{ color: 'var(--text-tertiary)', marginTop: 'var(--space-2)' }}>Try adjusting the time range or interval.</p>
             </div>
           )}
         </>
@@ -1011,53 +1064,57 @@ export default function PerformancePage() {
                   gap: '20px',
                   marginBottom: '30px'
                 }}>
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}>
-                    <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Total Transactions</h3>
-                    <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', color: '#0070f3' }}>
-                      {analytics.totalTransactions}
-                    </p>
-                  </div>
+                <div style={{
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Total Transactions</h3>
+                  <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--accent-primary)' }}>
+                    {analytics.totalTransactions}
+                  </p>
+                </div>
 
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}>
-                    <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Avg Duration</h3>
-                    <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', color: '#00E396' }}>
-                      {formatDuration(analytics.avgDuration)}
-                    </p>
-                  </div>
+                <div style={{
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Avg Duration</h3>
+                  <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--success)' }}>
+                    {formatDuration(analytics.avgDuration)}
+                  </p>
+                </div>
 
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}>
-                    <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Avg Memory (Heap)</h3>
-                    <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', color: '#FEB019' }}>
-                      {formatBytes(analytics.avgMemoryHeap)}
-                    </p>
-                  </div>
+                <div style={{
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Avg Memory (Heap)</h3>
+                  <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--warning)' }}>
+                    {formatBytes(analytics.avgMemoryHeap)}
+                  </p>
+                </div>
 
-                  <div style={{
-                    background: 'white',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}>
-                    <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666' }}>Avg CPU Usage</h3>
-                    <p style={{ margin: 0, fontSize: '32px', fontWeight: 'bold', color: '#FF4560' }}>
-                      {analytics.avgCpu ? analytics.avgCpu.toFixed(2) : '0'}%
-                    </p>
-                  </div>
+                <div style={{
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Avg CPU Usage</h3>
+                  <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--error)' }}>
+                    {analytics.avgCpu ? analytics.avgCpu.toFixed(2) : '0'}%
+                  </p>
+                </div>
                 </div>
 
                 {/* Charts */}
@@ -1082,13 +1139,14 @@ export default function PerformancePage() {
 
                   {Array.isArray(analytics.memoryTimeline) && analytics.memoryTimeline.length > 0 && (
                     <div style={{
-                      background: 'white',
-                      padding: '20px',
-                      borderRadius: '8px',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      marginBottom: '20px'
+                      background: 'var(--bg-primary)',
+                      padding: 'var(--space-4)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-primary)',
+                      boxShadow: 'var(--shadow-sm)',
+                      marginBottom: 'var(--space-4)'
                     }}>
-                      <h2 style={{ marginTop: 0 }}>Memory Usage Timeline</h2>
+                      <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Memory Usage Timeline</h2>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                         <div>
                           <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>Heap Used (MB)</h3>
@@ -1123,13 +1181,14 @@ export default function PerformancePage() {
 
                   {Array.isArray(analytics.cpuTimeline) && analytics.cpuTimeline.length > 0 && (
                     <div style={{
-                      background: 'white',
-                      padding: '20px',
-                      borderRadius: '8px',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      marginBottom: '20px'
+                      background: 'var(--bg-primary)',
+                      padding: 'var(--space-4)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-primary)',
+                      boxShadow: 'var(--shadow-sm)',
+                      marginBottom: 'var(--space-4)'
                     }}>
-                      <h2 style={{ marginTop: 0 }}>CPU Usage Over Time</h2>
+                      <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>CPU Usage Over Time</h2>
                       {renderBarChart(
                         analytics.cpuTimeline,
                         analytics.cpuTimeline.map((unused, i) => `Transaction ${i + 1}`),
@@ -1141,12 +1200,13 @@ export default function PerformancePage() {
 
                   {Array.isArray(analytics.eventLoopTimeline) && analytics.eventLoopTimeline.length > 0 && (
                     <div style={{
-                      background: 'white',
-                      padding: '20px',
-                      borderRadius: '8px',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                      background: 'var(--bg-primary)',
+                      padding: 'var(--space-4)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-primary)',
+                      boxShadow: 'var(--shadow-sm)'
                     }}>
-                      <h2 style={{ marginTop: 0 }}>Event Loop Lag</h2>
+                      <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Event Loop Lag</h2>
                       {renderBarChart(
                         analytics.eventLoopTimeline,
                         analytics.eventLoopTimeline.map((unused, i) => `Transaction ${i + 1}`),
@@ -1159,39 +1219,64 @@ export default function PerformancePage() {
 
                 {/* Transaction List */}
                 <div style={{
-                  background: 'white',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)'
                 }}>
-                  <h2 style={{ marginTop: 0 }}>Recent Transactions</h2>
+                  <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Recent Transactions</h2>
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                       <thead>
-                        <tr style={{ borderBottom: '2px solid #eee' }}>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Transaction</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Duration</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Memory</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>CPU</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Timestamp</th>
+                        <tr style={{ borderBottom: '2px solid var(--border-primary)' }}>
+                          <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Transaction</th>
+                          <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Duration</th>
+                          <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Memory</th>
+                          <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>CPU</th>
+                          <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Timestamp</th>
                         </tr>
                       </thead>
                       <tbody>
                         {transactions.map((transaction, index) => {
                           const data = transaction.data;
-                          const duration = data.timestamp - data.start_timestamp;
-                          const memory = data.contexts?.device?.app_memory || 0;
+                          // Handle timestamp - could be in seconds or milliseconds
+                          const timestamp = data.timestamp || transaction.createdAt;
+                          const startTimestamp = data.start_timestamp;
+                          
+                          // Calculate duration - timestamps are typically in seconds for Sentry
+                          let duration = 0;
+                          if (timestamp && startTimestamp) {
+                            // If timestamp is in seconds (Sentry format), convert to milliseconds for Date
+                            const timestampMs = typeof timestamp === 'number' && timestamp < 1e12 
+                              ? timestamp * 1000 
+                              : timestamp;
+                            const startTimestampMs = typeof startTimestamp === 'number' && startTimestamp < 1e12 
+                              ? startTimestamp * 1000 
+                              : startTimestamp;
+                            duration = (timestampMs - startTimestampMs) / 1000; // Convert to seconds
+                          }
+                          
+                          const memory = data.contexts?.device?.app_memory || data.contexts?.app?.app_memory || 0;
                           const breadcrumbs = Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs?.values || [];
-                          const cpu = breadcrumbs.find(b => b.message?.includes('CPU usage'))?.message?.match(/[\d.]+/)?.[0] || 'N/A';
+                          const cpuBreadcrumb = breadcrumbs.find(b => b.message?.includes('CPU usage'));
+                          const cpu = cpuBreadcrumb?.message?.match(/[\d.]+/)?.[0] || 'N/A';
+                          
+                          // Format timestamp for display
+                          const displayTimestamp = timestamp 
+                            ? (typeof timestamp === 'number' && timestamp < 1e12 
+                                ? new Date(timestamp * 1000) 
+                                : new Date(timestamp))
+                            : new Date(transaction.createdAt);
                           
                           return (
-                            <tr key={transaction.id} style={{ borderBottom: '1px solid #eee' }}>
-                              <td style={{ padding: '12px' }}>{data.transaction || 'Unnamed'}</td>
-                              <td style={{ padding: '12px' }}>{formatDuration(duration)}</td>
-                              <td style={{ padding: '12px' }}>{formatBytes(memory)}</td>
-                              <td style={{ padding: '12px' }}>{cpu}%</td>
-                              <td style={{ padding: '12px' }}>
-                                {new Date(data.timestamp * 1000).toLocaleString()}
+                            <tr key={transaction.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                              <td style={{ padding: 'var(--space-3)', color: 'var(--text-primary)' }}>{data.transaction || 'Unnamed'}</td>
+                              <td style={{ padding: 'var(--space-3)', color: 'var(--text-primary)' }}>{formatDuration(duration)}</td>
+                              <td style={{ padding: 'var(--space-3)', color: 'var(--text-primary)' }}>{formatBytes(memory)}</td>
+                              <td style={{ padding: 'var(--space-3)', color: 'var(--text-primary)' }}>{cpu}%</td>
+                              <td style={{ padding: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)' }}>
+                                {displayTimestamp.toLocaleString()}
                               </td>
                             </tr>
                           );
@@ -1205,14 +1290,15 @@ export default function PerformancePage() {
 
             {viewMode === 'detailed' && !analytics && !loading && (
               <div style={{
-                background: 'white',
-                padding: '40px',
-                borderRadius: '8px',
+                background: 'var(--bg-primary)',
+                padding: 'var(--space-12)',
+                borderRadius: 'var(--radius-md)',
                 textAlign: 'center',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                border: '1px solid var(--border-primary)',
+                boxShadow: 'var(--shadow-sm)'
               }}>
-                <p style={{ fontSize: '18px', color: '#666' }}>No transaction data available yet.</p>
-                <p style={{ color: '#999' }}>Send some transaction events to see performance analytics.</p>
+                <p style={{ fontSize: 'var(--font-lg)', color: 'var(--text-secondary)' }}>No transaction data available yet.</p>
+                <p style={{ color: 'var(--text-tertiary)', marginTop: 'var(--space-2)' }}>Send some transaction events to see performance analytics.</p>
               </div>
             )}
           </div>
