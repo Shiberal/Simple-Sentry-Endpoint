@@ -1,6 +1,11 @@
-import { PrismaClient } from '@/generated/prisma';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
+import {
+  extractDuration,
+  extractMeasurements,
+  extractMemoryMetrics,
+  extractCpuUsage,
+  extractEventLoopLag
+} from '@/lib/sentry-transaction';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -117,64 +122,52 @@ function calculateIntervalMetrics(transactions) {
   const memoryRSS = [];
   const cpuValues = [];
   const eventLoopLagValues = [];
+  const webVitals = {
+    fcp: [],
+    lcp: [],
+    fid: [],
+    cls: [],
+    ttfb: []
+  };
 
   transactions.forEach(transaction => {
-    const data = transaction.data;
-    
-    // Calculate duration
-    if (data.timestamp && data.start_timestamp) {
-      const duration = data.timestamp - data.start_timestamp;
+    // Extract duration using Sentry parser
+    const duration = extractDuration(transaction);
+    if (duration > 0) {
       durations.push(duration);
     }
 
-    // Get breadcrumbs array
-    const breadcrumbs = Array.isArray(data.breadcrumbs) 
-      ? data.breadcrumbs 
-      : data.breadcrumbs?.values || [];
-
-    // Extract memory data from breadcrumbs
-    const heapUsedMatch = breadcrumbs.find(b => b.message?.includes('Heap Used:'))?.message?.match(/([\d.]+)\s*MB/);
-    const heapTotalMatch = breadcrumbs.find(b => b.message?.includes('Heap Total:'))?.message?.match(/([\d.]+)\s*MB/);
-    const rssMatch = breadcrumbs.find(b => b.message?.includes('RSS:'))?.message?.match(/([\d.]+)\s*MB/);
-    
-    if (heapUsedMatch) {
-      const heapUsed = parseFloat(heapUsedMatch[1]) * 1024 * 1024;
-      memoryHeapUsed.push(heapUsed);
+    // Extract memory metrics using Sentry parser
+    const memory = extractMemoryMetrics(transaction);
+    if (memory.heapUsed) {
+      memoryHeapUsed.push(memory.heapUsed);
     }
-    
-    if (heapTotalMatch) {
-      const heapTotal = parseFloat(heapTotalMatch[1]) * 1024 * 1024;
-      memoryHeapTotal.push(heapTotal);
+    if (memory.heapTotal) {
+      memoryHeapTotal.push(memory.heapTotal);
     }
-    
-    if (rssMatch) {
-      const rss = parseFloat(rssMatch[1]) * 1024 * 1024;
-      memoryRSS.push(rss);
+    if (memory.rss) {
+      memoryRSS.push(memory.rss);
     }
 
-    // Extract CPU data
-    const cpuBreadcrumb = breadcrumbs.find(b => 
-      b.message && b.message.includes('CPU usage')
-    );
-    
-    if (cpuBreadcrumb) {
-      const cpuMatch = cpuBreadcrumb.message.match(/([\d.]+)%/);
-      if (cpuMatch) {
-        cpuValues.push(parseFloat(cpuMatch[1]));
-      }
+    // Extract CPU usage using Sentry parser
+    const cpu = extractCpuUsage(transaction);
+    if (cpu !== null) {
+      cpuValues.push(cpu);
     }
 
-    // Extract event loop lag
-    const eventLoopBreadcrumb = breadcrumbs.find(b => 
-      b.message && b.message.includes('event loop lag')
-    );
-    
-    if (eventLoopBreadcrumb) {
-      const lagMatch = eventLoopBreadcrumb.message.match(/([\d.]+)\s*ms/);
-      if (lagMatch) {
-        eventLoopLagValues.push(parseFloat(lagMatch[1]));
-      }
+    // Extract event loop lag using Sentry parser
+    const eventLoopLag = extractEventLoopLag(transaction);
+    if (eventLoopLag !== null) {
+      eventLoopLagValues.push(eventLoopLag);
     }
+
+    // Extract Web Vitals measurements
+    const measurements = extractMeasurements(transaction);
+    if (measurements.fcp !== null) webVitals.fcp.push(measurements.fcp);
+    if (measurements.lcp !== null) webVitals.lcp.push(measurements.lcp);
+    if (measurements.fid !== null) webVitals.fid.push(measurements.fid);
+    if (measurements.cls !== null) webVitals.cls.push(measurements.cls);
+    if (measurements.ttfb !== null) webVitals.ttfb.push(measurements.ttfb);
   });
 
   // Calculate aggregated metrics
@@ -194,6 +187,13 @@ function calculateIntervalMetrics(transactions) {
   const cpuStats = calculateStats(cpuValues);
   const eventLoopLagStats = calculateStats(eventLoopLagValues);
 
+  // Calculate Web Vitals stats
+  const fcpStats = calculateStats(webVitals.fcp);
+  const lcpStats = calculateStats(webVitals.lcp);
+  const fidStats = calculateStats(webVitals.fid);
+  const clsStats = calculateStats(webVitals.cls);
+  const ttfbStats = calculateStats(webVitals.ttfb);
+
   return {
     avgDuration: durationStats.avg,
     minDuration: durationStats.min,
@@ -210,7 +210,23 @@ function calculateIntervalMetrics(transactions) {
     maxCpu: cpuStats.max,
     avgEventLoopLag: eventLoopLagStats.avg,
     minEventLoopLag: eventLoopLagStats.min,
-    maxEventLoopLag: eventLoopLagStats.max
+    maxEventLoopLag: eventLoopLagStats.max,
+    // Web Vitals
+    avgFcp: fcpStats.avg,
+    minFcp: fcpStats.min,
+    maxFcp: fcpStats.max,
+    avgLcp: lcpStats.avg,
+    minLcp: lcpStats.min,
+    maxLcp: lcpStats.max,
+    avgFid: fidStats.avg,
+    minFid: fidStats.min,
+    maxFid: fidStats.max,
+    avgCls: clsStats.avg,
+    minCls: clsStats.min,
+    maxCls: clsStats.max,
+    avgTtfb: ttfbStats.avg,
+    minTtfb: ttfbStats.min,
+    maxTtfb: ttfbStats.max
   };
 }
 

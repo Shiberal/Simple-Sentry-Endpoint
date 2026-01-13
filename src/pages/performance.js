@@ -88,42 +88,53 @@ export default function PerformancePage() {
             grouped[transactionName] = [];
           }
           
-          // Calculate duration - handle both seconds and milliseconds
+          // Calculate duration - Sentry timestamps are in seconds
           let duration = 0;
-          if (timestamp && startTimestamp) {
-            // Check if timestamps are in seconds (Sentry format) or milliseconds
-            const timestampMs = typeof timestamp === 'number' && timestamp < 1e12 
-              ? timestamp * 1000 
-              : new Date(timestamp).getTime();
-            const startTimestampMs = typeof startTimestamp === 'number' && startTimestamp < 1e12 
-              ? startTimestamp * 1000 
-              : new Date(startTimestamp).getTime();
-            duration = (timestampMs - startTimestampMs) / 1000; // Convert to seconds
+          if (timestamp && startTimestamp && typeof timestamp === 'number' && typeof startTimestamp === 'number') {
+            // Sentry uses Unix timestamps in seconds
+            duration = timestamp - startTimestamp;
           }
           
-          // Extract memory
-          const memory = transaction.data?.contexts?.device?.app_memory || 
-                        transaction.data?.contexts?.app?.app_memory || 0;
+          // Extract memory from Sentry contexts (preferred)
+          let memory = 0;
+          if (transaction.data?.contexts?.app?.app_memory) {
+            const appMemory = transaction.data.contexts.app.app_memory;
+            // If it's a large number (> 1GB), assume bytes, otherwise assume MB
+            memory = appMemory > 1024 * 1024 * 1024 ? appMemory : appMemory * 1024 * 1024;
+          } else if (transaction.data?.contexts?.device?.memory_size) {
+            memory = transaction.data.contexts.device.memory_size * 1024 * 1024;
+          } else {
+            // Fallback to old method
+            memory = transaction.data?.contexts?.device?.app_memory || 0;
+          }
           
-          // Extract CPU and event loop lag from breadcrumbs
+          // Extract CPU from contexts (preferred) or breadcrumbs
           let cpu = 0;
+          if (transaction.data?.contexts?.device?.cpu_percent !== undefined) {
+            cpu = transaction.data.contexts.device.cpu_percent;
+          } else if (transaction.data?.contexts?.runtime?.cpu_percent !== undefined) {
+            cpu = transaction.data.contexts.runtime.cpu_percent;
+          } else {
+            // Fallback to breadcrumbs
+            const breadcrumbs = Array.isArray(transaction.data?.breadcrumbs) 
+              ? transaction.data.breadcrumbs 
+              : transaction.data?.breadcrumbs?.values || [];
+            const cpuBreadcrumb = breadcrumbs.find(b => 
+              b.message && b.message.includes('CPU usage')
+            );
+            if (cpuBreadcrumb) {
+              const cpuMatch = cpuBreadcrumb.message.match(/([\d.]+)%/);
+              if (cpuMatch) {
+                cpu = parseFloat(cpuMatch[1]);
+              }
+            }
+          }
+          
+          // Extract event loop lag from breadcrumbs
           let eventLoopLag = 0;
           const breadcrumbs = Array.isArray(transaction.data?.breadcrumbs) 
             ? transaction.data.breadcrumbs 
             : transaction.data?.breadcrumbs?.values || [];
-          
-          // Find CPU breadcrumb
-          const cpuBreadcrumb = breadcrumbs.find(b => 
-            b.message && b.message.includes('CPU usage')
-          );
-          if (cpuBreadcrumb) {
-            const cpuMatch = cpuBreadcrumb.message.match(/([\d.]+)%/);
-            if (cpuMatch) {
-              cpu = parseFloat(cpuMatch[1]);
-            }
-          }
-          
-          // Find event loop lag breadcrumb
           const eventLoopBreadcrumb = breadcrumbs.find(b => 
             b.message && b.message.includes('event loop lag')
           );
@@ -1036,7 +1047,8 @@ export default function PerformancePage() {
                 padding: 'var(--space-4)',
                 borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--border-primary)',
-                boxShadow: 'var(--shadow-sm)'
+                boxShadow: 'var(--shadow-sm)',
+                marginBottom: 'var(--space-4)'
               }}>
                 <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Transaction Count Over Time</h2>
                 {renderTimeSeriesChart(
@@ -1048,6 +1060,86 @@ export default function PerformancePage() {
                   (v) => Math.round(v)
                 )}
               </div>
+
+              {/* Web Vitals Charts */}
+              {(timeSeriesData.series.some(s => s.metrics?.avgFcp !== undefined) ||
+                timeSeriesData.series.some(s => s.metrics?.avgLcp !== undefined) ||
+                timeSeriesData.series.some(s => s.metrics?.avgFid !== undefined) ||
+                timeSeriesData.series.some(s => s.metrics?.avgCls !== undefined) ||
+                timeSeriesData.series.some(s => s.metrics?.avgTtfb !== undefined)) && (
+                <div style={{
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)',
+                  marginBottom: 'var(--space-4)'
+                }}>
+                  <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Core Web Vitals</h2>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                    {timeSeriesData.series.some(s => s.metrics?.avgFcp !== undefined) && (
+                      <div>
+                        {renderTimeSeriesChart(
+                          timeSeriesData.series,
+                          'avgFcp',
+                          'First Contentful Paint (FCP)',
+                          '#667eea',
+                          'ms',
+                          (v) => Math.round(v)
+                        )}
+                      </div>
+                    )}
+                    {timeSeriesData.series.some(s => s.metrics?.avgLcp !== undefined) && (
+                      <div>
+                        {renderTimeSeriesChart(
+                          timeSeriesData.series,
+                          'avgLcp',
+                          'Largest Contentful Paint (LCP)',
+                          '#00E396',
+                          'ms',
+                          (v) => Math.round(v)
+                        )}
+                      </div>
+                    )}
+                    {timeSeriesData.series.some(s => s.metrics?.avgFid !== undefined) && (
+                      <div>
+                        {renderTimeSeriesChart(
+                          timeSeriesData.series,
+                          'avgFid',
+                          'First Input Delay (FID)',
+                          '#FF4560',
+                          'ms',
+                          (v) => Math.round(v)
+                        )}
+                      </div>
+                    )}
+                    {timeSeriesData.series.some(s => s.metrics?.avgCls !== undefined) && (
+                      <div>
+                        {renderTimeSeriesChart(
+                          timeSeriesData.series,
+                          'avgCls',
+                          'Cumulative Layout Shift (CLS)',
+                          '#775DD0',
+                          '',
+                          (v) => v.toFixed(3)
+                        )}
+                      </div>
+                    )}
+                    {timeSeriesData.series.some(s => s.metrics?.avgTtfb !== undefined) && (
+                      <div>
+                        {renderTimeSeriesChart(
+                          timeSeriesData.series,
+                          'avgTtfb',
+                          'Time to First Byte (TTFB)',
+                          '#FEB019',
+                          'ms',
+                          (v) => Math.round(v)
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{
@@ -1129,6 +1221,92 @@ export default function PerformancePage() {
                   </p>
                 </div>
                 </div>
+
+                {/* Web Vitals Cards */}
+                {analytics.webVitals && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '20px',
+                    marginBottom: '30px'
+                  }}>
+                    {analytics.webVitals.avgFcp !== null && (
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>FCP</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-xl)', fontWeight: 'var(--weight-bold)', color: 'var(--accent-primary)' }}>
+                          {analytics.webVitals.avgFcp.toFixed(0)}ms
+                        </p>
+                        <p style={{ margin: 'var(--space-1) 0 0 0', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>First Contentful Paint</p>
+                      </div>
+                    )}
+                    {analytics.webVitals.avgLcp !== null && (
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>LCP</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-xl)', fontWeight: 'var(--weight-bold)', color: 'var(--accent-primary)' }}>
+                          {analytics.webVitals.avgLcp.toFixed(0)}ms
+                        </p>
+                        <p style={{ margin: 'var(--space-1) 0 0 0', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>Largest Contentful Paint</p>
+                      </div>
+                    )}
+                    {analytics.webVitals.avgFid !== null && (
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>FID</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-xl)', fontWeight: 'var(--weight-bold)', color: 'var(--accent-primary)' }}>
+                          {analytics.webVitals.avgFid.toFixed(0)}ms
+                        </p>
+                        <p style={{ margin: 'var(--space-1) 0 0 0', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>First Input Delay</p>
+                      </div>
+                    )}
+                    {analytics.webVitals.avgCls !== null && (
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>CLS</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-xl)', fontWeight: 'var(--weight-bold)', color: 'var(--accent-primary)' }}>
+                          {analytics.webVitals.avgCls.toFixed(3)}
+                        </p>
+                        <p style={{ margin: 'var(--space-1) 0 0 0', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>Cumulative Layout Shift</p>
+                      </div>
+                    )}
+                    {analytics.webVitals.avgTtfb !== null && (
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>TTFB</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-xl)', fontWeight: 'var(--weight-bold)', color: 'var(--accent-primary)' }}>
+                          {analytics.webVitals.avgTtfb.toFixed(0)}ms
+                        </p>
+                        <p style={{ margin: 'var(--space-1) 0 0 0', fontSize: 'var(--font-xs)', color: 'var(--text-tertiary)' }}>Time to First Byte</p>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Charts */}
                 <div style={{ marginBottom: '30px' }}>
@@ -1253,34 +1431,56 @@ export default function PerformancePage() {
                       <tbody>
                         {transactions.map((transaction, index) => {
                           const data = transaction.data;
-                          // Handle timestamp - could be in seconds or milliseconds
-                          const timestamp = data.timestamp || transaction.createdAt;
+                          
+                          // Sentry timestamps are in seconds (Unix timestamp)
+                          const timestamp = data.timestamp;
                           const startTimestamp = data.start_timestamp;
                           
-                          // Calculate duration - timestamps are typically in seconds for Sentry
+                          // Calculate duration in seconds (Sentry format)
                           let duration = 0;
-                          if (timestamp && startTimestamp) {
-                            // If timestamp is in seconds (Sentry format), convert to milliseconds for Date
-                            const timestampMs = typeof timestamp === 'number' && timestamp < 1e12 
-                              ? timestamp * 1000 
-                              : timestamp;
-                            const startTimestampMs = typeof startTimestamp === 'number' && startTimestamp < 1e12 
-                              ? startTimestamp * 1000 
-                              : startTimestamp;
-                            duration = (timestampMs - startTimestampMs) / 1000; // Convert to seconds
+                          if (timestamp && startTimestamp && typeof timestamp === 'number' && typeof startTimestamp === 'number') {
+                            duration = timestamp - startTimestamp;
                           }
                           
-                          const memory = data.contexts?.device?.app_memory || data.contexts?.app?.app_memory || 0;
-                          const breadcrumbs = Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs?.values || [];
-                          const cpuBreadcrumb = breadcrumbs.find(b => b.message?.includes('CPU usage'));
-                          const cpu = cpuBreadcrumb?.message?.match(/[\d.]+/)?.[0] || 'N/A';
+                          // Extract memory from Sentry contexts (preferred) or fallback
+                          let memory = 0;
+                          if (data.contexts?.app?.app_memory) {
+                            const appMemory = data.contexts.app.app_memory;
+                            // If it's a large number (> 1GB), assume bytes, otherwise assume MB
+                            memory = appMemory > 1024 * 1024 * 1024 ? appMemory : appMemory * 1024 * 1024;
+                          } else if (data.contexts?.device?.memory_size) {
+                            memory = data.contexts.device.memory_size * 1024 * 1024;
+                          } else {
+                            // Fallback to old method
+                            memory = data.contexts?.device?.app_memory || 0;
+                          }
                           
-                          // Format timestamp for display
-                          const displayTimestamp = timestamp 
-                            ? (typeof timestamp === 'number' && timestamp < 1e12 
-                                ? new Date(timestamp * 1000) 
-                                : new Date(timestamp))
-                            : new Date(transaction.createdAt);
+                          // Extract CPU from contexts or breadcrumbs
+                          let cpu = 'N/A';
+                          if (data.contexts?.device?.cpu_percent !== undefined) {
+                            cpu = data.contexts.device.cpu_percent.toFixed(1);
+                          } else if (data.contexts?.runtime?.cpu_percent !== undefined) {
+                            cpu = data.contexts.runtime.cpu_percent.toFixed(1);
+                          } else {
+                            // Fallback to breadcrumbs
+                            const breadcrumbs = Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs?.values || [];
+                            const cpuBreadcrumb = breadcrumbs.find(b => b.message?.includes('CPU usage'));
+                            if (cpuBreadcrumb) {
+                              const cpuMatch = cpuBreadcrumb.message.match(/([\d.]+)%/);
+                              if (cpuMatch) {
+                                cpu = parseFloat(cpuMatch[1]).toFixed(1);
+                              }
+                            }
+                          }
+                          
+                          // Format timestamp for display - Sentry uses seconds
+                          let displayTimestamp;
+                          if (timestamp && typeof timestamp === 'number') {
+                            // Sentry timestamp is in seconds, convert to Date
+                            displayTimestamp = new Date(timestamp * 1000);
+                          } else {
+                            displayTimestamp = new Date(transaction.createdAt);
+                          }
                           
                           return (
                             <tr key={transaction.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
