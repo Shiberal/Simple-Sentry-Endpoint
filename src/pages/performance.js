@@ -41,12 +41,14 @@ export default function PerformancePage() {
     try {
       const response = await fetch('/api/projects');
       const data = await response.json();
-      setProjects(data);
-      if (data.length > 0) {
-        setSelectedProject(data[0].id);
+      const projectsList = data.projects || [];
+      setProjects(projectsList);
+      if (projectsList.length > 0) {
+        setSelectedProject(projectsList[0].id);
       }
     } catch (error) {
       console.error('Error fetching projects:', error);
+      setProjects([]);
     }
   };
 
