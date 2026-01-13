@@ -24,6 +24,14 @@ export default function PerformancePage() {
   const [availableEndpoints, setAvailableEndpoints] = useState([]);
   const [error, setError] = useState(null);
 
+  // Helper to get CSS variable value for SVG (some browsers need computed values)
+  const getCSSVariable = (varName) => {
+    if (typeof window !== 'undefined') {
+      return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    }
+    return '';
+  };
+
   useEffect(() => {
     fetchProjects();
   }, []);
@@ -246,14 +254,14 @@ export default function PerformancePage() {
           return (
             <div key={index} style={{ marginBottom: '15px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                <span style={{ fontWeight: '500' }}>{labels[index]}</span>
-                <span style={{ color: '#666' }}>{value.toFixed(2)}{unit}</span>
+                <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{labels[index]}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>{value.toFixed(2)}{unit}</span>
               </div>
               <div style={{ 
                 width: '100%', 
                 height: '24px', 
-                background: '#f0f0f0', 
-                borderRadius: '4px',
+                background: 'var(--bg-tertiary)', 
+                borderRadius: 'var(--radius-sm)',
                 overflow: 'hidden'
               }}>
                 <div style={{ 
@@ -308,9 +316,9 @@ export default function PerformancePage() {
     }).join(' ');
     
     return (
-      <div style={{ padding: '20px 0' }}>
-        <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#333' }}>{label}</h3>
-        <div style={{ position: 'relative', width: '100%', background: '#f9f9f9', borderRadius: '4px', padding: '10px', overflowX: 'auto' }}>
+      <div style={{ padding: 'var(--space-5) 0' }}>
+        <h3 style={{ fontSize: 'var(--font-base)', marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>{label}</h3>
+        <div style={{ position: 'relative', width: '100%', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)', overflowX: 'auto' }}>
           <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ maxWidth: '100%', height: 'auto' }}>
             {/* Grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
@@ -322,8 +330,9 @@ export default function PerformancePage() {
                   y1={y}
                   x2={chartWidth - padding.right}
                   y2={y}
-                  stroke="#e0e0e0"
+                  stroke="var(--border-primary)"
                   strokeWidth="1"
+                  opacity="0.5"
                 />
               );
             })}
@@ -353,20 +362,20 @@ export default function PerformancePage() {
             })}
           </svg>
           {/* Y-axis labels */}
-          <div style={{ position: 'absolute', left: '15px', top: '30px', bottom: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '11px', color: '#666', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', left: '15px', top: '30px', bottom: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', pointerEvents: 'none' }}>
             <span>{formatFn(max)}{unit}</span>
             <span>{formatFn((max + min) / 2)}{unit}</span>
             <span>{formatFn(min)}{unit}</span>
           </div>
           {/* X-axis labels */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px', fontSize: '11px', color: '#666', padding: `0 ${padding.left}px 0 ${padding.left}px`, width: `${chartWidth}px`, maxWidth: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-2)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', padding: `0 ${padding.left}px 0 ${padding.left}px`, width: `${chartWidth}px`, maxWidth: '100%' }}>
             {Array.isArray(labels) && labels.filter((unused, i) => i % Math.ceil(labels.length / 5) === 0 || i === labels.length - 1).map((label, i) => (
               <span key={i}>{label}</span>
             ))}
           </div>
         </div>
         {/* Stats */}
-        <div style={{ display: 'flex', gap: '20px', marginTop: '15px', fontSize: '12px', color: '#666' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-5)', marginTop: 'var(--space-4)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
           <span>Avg: <strong>{formatFn(values.reduce((a, b) => a + b, 0) / values.length)}{unit}</strong></span>
           <span>Min: <strong>{formatFn(min)}{unit}</strong></span>
           <span>Max: <strong>{formatFn(max)}{unit}</strong></span>
@@ -401,9 +410,9 @@ export default function PerformancePage() {
       );
     }
     
-    const chartHeight = 200;
-    const svgWidth = 800;
-    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+    const chartHeight = 350;
+    const svgWidth = 1000;
+    const padding = { top: 30, right: 40, bottom: 60, left: 70 };
     const chartAreaHeight = chartHeight - padding.top - padding.bottom;
     const chartAreaWidth = svgWidth - padding.left - padding.right;
     
@@ -445,11 +454,26 @@ export default function PerformancePage() {
     // Format value based on metric
     const formatValue = (value) => {
       if (metric === 'memory') {
-        return (value / 1024 / 1024).toFixed(2) + 'MB';
+        const mb = value / 1024 / 1024;
+        if (mb >= 1024) {
+          return (mb / 1024).toFixed(1) + 'GB';
+        }
+        return mb.toFixed(1) + 'MB';
       } else if (metric === 'cpu') {
-        return value.toFixed(2) + '%';
+        return value.toFixed(1) + '%';
       } else {
-        return value.toFixed(2) + 's';
+        // For duration, show more readable format
+        if (value < 0.001) {
+          return (value * 1000).toFixed(0) + 'ms';
+        } else if (value < 1) {
+          return (value * 1000).toFixed(0) + 'ms';
+        } else if (value < 60) {
+          return value.toFixed(2) + 's';
+        } else {
+          const mins = Math.floor(value / 60);
+          const secs = (value % 60).toFixed(1);
+          return `${mins}m ${secs}s`;
+        }
       }
     };
 
@@ -461,15 +485,15 @@ export default function PerformancePage() {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
     
-    // Generate colors for each transaction type
+    // Generate colors for each transaction type - theme-aware
     const colors = [
       'var(--accent-primary)',
       'var(--error)',
-      '#f59e0b',
+      'var(--warning)',
       'var(--info)',
-      '#9333ea',
-      '#10b981',
-      '#3b82f6'
+      'var(--success)',
+      'var(--accent-primary)',
+      'var(--info)'
     ];
     
     // Calculate points for each series
@@ -526,10 +550,10 @@ export default function PerformancePage() {
                 y1={padding.top + (percent / 100) * chartAreaHeight}
                 x2={svgWidth - padding.right}
                 y2={padding.top + (percent / 100) * chartAreaHeight}
-                stroke="var(--border-primary)"
+                stroke={getCSSVariable('--border-primary') || '#e5e5e5'}
                 strokeWidth="1"
-                strokeDasharray="2,2"
-                opacity="0.3"
+                strokeDasharray="4,4"
+                opacity="0.4"
               />
             ))}
             
@@ -540,9 +564,10 @@ export default function PerformancePage() {
                 d={createPath(series.points)}
                 fill="none"
                 stroke={series.color}
-                strokeWidth="2"
+                strokeWidth="3"
                 strokeLinecap="round"
                 strokeLinejoin="round"
+                opacity="0.9"
               />
             ))}
             
@@ -554,24 +579,32 @@ export default function PerformancePage() {
                     key={i}
                     cx={point.x}
                     cy={point.y}
-                    r="3"
+                    r="4"
                     fill={series.color}
+                    stroke={getCSSVariable('--bg-primary') || '#ffffff'}
+                    strokeWidth="2"
                   />
                 ))}
               </g>
             ))}
             
-            {/* X-axis labels */}
+            {/* X-axis labels - limit to avoid overlap */}
             {sortedTimestamps.map((timestamp, i) => {
+              // Only show every Nth label to avoid crowding
+              const labelInterval = Math.max(1, Math.floor(sortedTimestamps.length / 8));
+              if (i % labelInterval !== 0 && i !== sortedTimestamps.length - 1) {
+                return null;
+              }
               const x = padding.left + (i / (sortedTimestamps.length - 1 || 1)) * chartAreaWidth;
               return (
                 <text
                   key={i}
                   x={x}
-                  y={chartHeight - 10}
+                  y={chartHeight - 15}
                   textAnchor="middle"
-                  fontSize="10"
-                  fill="var(--text-secondary)"
+                  fontSize="12"
+                  fill={getCSSVariable('--text-primary') || '#111111'}
+                  fontWeight="500"
                 >
                   {formatDate(timestamp)}
                 </text>
@@ -585,16 +618,37 @@ export default function PerformancePage() {
               return (
                 <text
                   key={i}
-                  x={padding.left - 10}
-                  y={y + 4}
+                  x={padding.left - 15}
+                  y={y + 5}
                   textAnchor="end"
-                  fontSize="10"
-                  fill="var(--text-secondary)"
+                  fontSize="12"
+                  fill={getCSSVariable('--text-primary') || '#111111'}
+                  fontWeight="500"
                 >
                   {formatValue(value)}
                 </text>
               );
             })}
+            
+            {/* Y-axis line */}
+            <line
+              x1={padding.left}
+              y1={padding.top}
+              x2={padding.left}
+              y2={chartHeight - padding.bottom}
+              stroke={getCSSVariable('--border-primary') || '#e5e5e5'}
+              strokeWidth="2"
+            />
+            
+            {/* X-axis line */}
+            <line
+              x1={padding.left}
+              y1={chartHeight - padding.bottom}
+              x2={svgWidth - padding.right}
+              y2={chartHeight - padding.bottom}
+              stroke={getCSSVariable('--border-primary') || '#e5e5e5'}
+              strokeWidth="2"
+            />
           </svg>
         </div>
         
@@ -602,14 +656,34 @@ export default function PerformancePage() {
         <div style={{ 
           display: 'flex', 
           gap: 'var(--space-4)', 
-          marginTop: 'var(--space-3)',
+          marginTop: 'var(--space-4)',
           flexWrap: 'wrap',
-          fontSize: 'var(--font-xs)'
+          fontSize: 'var(--font-sm)',
+          padding: 'var(--space-3)',
+          background: 'var(--bg-secondary)',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--border-primary)'
         }}>
           {seriesPoints.map((series, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: '12px', height: '2px', background: series.color }}></div>
-              <span style={{ color: 'var(--text-secondary)' }}>{series.name}</span>
+            <div key={i} style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              padding: '4px 8px',
+              background: 'var(--bg-primary)',
+              borderRadius: 'var(--radius-sm)',
+              border: '1px solid var(--border-primary)'
+            }}>
+              <div style={{ 
+                width: '16px', 
+                height: '3px', 
+                background: series.color,
+                borderRadius: '2px'
+              }}></div>
+              <span style={{ 
+                color: 'var(--text-primary)',
+                fontWeight: '500'
+              }}>{series.name}</span>
             </div>
           ))}
         </div>
@@ -969,7 +1043,7 @@ export default function PerformancePage() {
                   timeSeriesData.series,
                   'avgDuration',
                   'Average Duration',
-                  '#667eea',
+                  'var(--accent-primary)',
                   's',
                   (v) => formatDuration(v)
                 )}
@@ -989,7 +1063,7 @@ export default function PerformancePage() {
                     timeSeriesData.series,
                     'avgMemoryHeap',
                     'Average Heap Used',
-                    '#00E396',
+                    'var(--success)',
                     ' MB',
                     (v) => (v / 1024 / 1024).toFixed(2)
                   )}
@@ -997,7 +1071,7 @@ export default function PerformancePage() {
                     timeSeriesData.series,
                     'avgMemoryRSS',
                     'Average RSS',
-                    '#008FFB',
+                    'var(--info)',
                     ' MB',
                     (v) => (v / 1024 / 1024).toFixed(2)
                   )}
@@ -1017,7 +1091,7 @@ export default function PerformancePage() {
                   timeSeriesData.series,
                   'avgCpu',
                   'Average CPU Usage',
-                  '#FF4560',
+                  'var(--error)',
                   '%',
                   (v) => v.toFixed(2)
                 )}
@@ -1036,7 +1110,7 @@ export default function PerformancePage() {
                   timeSeriesData.series,
                   'avgEventLoopLag',
                   'Average Event Loop Lag',
-                  '#775DD0',
+                  'var(--info)',
                   ' ms',
                   (v) => v.toFixed(2)
                 )}
@@ -1055,7 +1129,7 @@ export default function PerformancePage() {
                   timeSeriesData.series,
                   'count',
                   'Transaction Count',
-                  '#FEB019',
+                  'var(--warning)',
                   '',
                   (v) => Math.round(v)
                 )}
@@ -1083,7 +1157,7 @@ export default function PerformancePage() {
                           timeSeriesData.series,
                           'avgFcp',
                           'First Contentful Paint (FCP)',
-                          '#667eea',
+                          'var(--accent-primary)',
                           'ms',
                           (v) => Math.round(v)
                         )}
@@ -1095,7 +1169,7 @@ export default function PerformancePage() {
                           timeSeriesData.series,
                           'avgLcp',
                           'Largest Contentful Paint (LCP)',
-                          '#00E396',
+                          'var(--success)',
                           'ms',
                           (v) => Math.round(v)
                         )}
@@ -1107,7 +1181,7 @@ export default function PerformancePage() {
                           timeSeriesData.series,
                           'avgFid',
                           'First Input Delay (FID)',
-                          '#FF4560',
+                          'var(--error)',
                           'ms',
                           (v) => Math.round(v)
                         )}
@@ -1119,7 +1193,7 @@ export default function PerformancePage() {
                           timeSeriesData.series,
                           'avgCls',
                           'Cumulative Layout Shift (CLS)',
-                          '#775DD0',
+                          'var(--info)',
                           '',
                           (v) => v.toFixed(3)
                         )}
@@ -1131,7 +1205,7 @@ export default function PerformancePage() {
                           timeSeriesData.series,
                           'avgTtfb',
                           'Time to First Byte (TTFB)',
-                          '#FEB019',
+                          'var(--warning)',
                           'ms',
                           (v) => Math.round(v)
                         )}
@@ -1312,17 +1386,18 @@ export default function PerformancePage() {
                 <div style={{ marginBottom: '30px' }}>
                   {Array.isArray(analytics.transactionDurations) && analytics.transactionDurations.length > 0 && (
                     <div style={{
-                      background: 'white',
-                      padding: '20px',
-                      borderRadius: '8px',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      marginBottom: '20px'
+                      background: 'var(--bg-primary)',
+                      padding: 'var(--space-5)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-primary)',
+                      boxShadow: 'var(--shadow-sm)',
+                      marginBottom: 'var(--space-5)'
                     }}>
-                      <h2 style={{ marginTop: 0 }}>Transaction Duration Over Time</h2>
+                      <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Transaction Duration Over Time</h2>
                       {renderBarChart(
                         analytics.transactionDurations,
                         analytics.transactionDurations.map((unused, i) => `Transaction ${i + 1}`),
-                        'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+                        'var(--accent-primary)',
                         's'
                       )}
                     </div>
@@ -1340,29 +1415,29 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Memory Usage Timeline</h2>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                         <div>
-                          <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>Heap Used (MB)</h3>
+                          <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>Heap Used (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.heapUsed / 1024 / 1024),
                             analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
-                            '#00E396',
+                            'var(--success)',
                             ' MB'
                           )}
                         </div>
                         <div>
-                          <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>Heap Total (MB)</h3>
+                          <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>Heap Total (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.heapTotal / 1024 / 1024),
                             analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
-                            '#008FFB',
+                            'var(--info)',
                             ' MB'
                           )}
                         </div>
                         <div>
-                          <h3 style={{ fontSize: '14px', color: '#666', marginBottom: '10px' }}>RSS (MB)</h3>
+                          <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>RSS (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.rss / 1024 / 1024),
                             analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
-                            '#FEB019',
+                            'var(--warning)',
                             ' MB'
                           )}
                         </div>
@@ -1383,7 +1458,7 @@ export default function PerformancePage() {
                       {renderBarChart(
                         analytics.cpuTimeline,
                         analytics.cpuTimeline.map((unused, i) => `Transaction ${i + 1}`),
-                        'linear-gradient(90deg, #FF4560 0%, #FF6B6B 100%)',
+                        'var(--error)',
                         '%'
                       )}
                     </div>
@@ -1401,7 +1476,7 @@ export default function PerformancePage() {
                       {renderBarChart(
                         analytics.eventLoopTimeline,
                         analytics.eventLoopTimeline.map((unused, i) => `Transaction ${i + 1}`),
-                        'linear-gradient(90deg, #775DD0 0%, #9B7FE8 100%)',
+                        'var(--info)',
                         ' ms'
                       )}
                     </div>
