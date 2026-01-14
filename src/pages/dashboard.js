@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -40,6 +40,11 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]); // Notification system
   const [prettifiedError, setPrettifiedError] = useState(false); // Track if error message is prettified
   const [prettifiedMessage, setPrettifiedMessage] = useState(false); // Track if message is prettified
+  const [copiedError, setCopiedError] = useState(false); // Track if error was copied
+  const [copiedCode, setCopiedCode] = useState(false); // Track if code snippet was copied
+  const [previousIssues, setPreviousIssues] = useState([]); // Track previous issues to detect new errors
+  const [unreadErrorCount, setUnreadErrorCount] = useState(0); // Track unread errors for tab notification
+  const originalTitleRef = useRef(null); // Store original document title
 
   useEffect(() => {
     checkAuth();
@@ -49,7 +54,49 @@ export default function Dashboard() {
   useEffect(() => {
     setPrettifiedError(false);
     setPrettifiedMessage(false);
+    setCopiedError(false);
+    setCopiedCode(false);
   }, [selectedEvent]);
+
+  // Store original title on mount
+  useEffect(() => {
+    if (!originalTitleRef.current) {
+      // Extract original title by removing any existing notification prefix
+      const currentTitle = document.title;
+      originalTitleRef.current = currentTitle.replace(/^\(\d+\)\s*⚠️\s*New\s*Errors?\s*-\s*/, '');
+    }
+  }, []);
+
+  // Update browser tab title when there are unread errors
+  useEffect(() => {
+    const originalTitle = originalTitleRef.current || document.title.replace(/^\(\d+\)\s*⚠️\s*New\s*Errors?\s*-\s*/, '');
+    if (unreadErrorCount > 0) {
+      document.title = `(${unreadErrorCount}) ⚠️ New Error${unreadErrorCount > 1 ? 's' : ''} - ${originalTitle}`;
+    } else {
+      // Restore original title
+      document.title = originalTitle;
+    }
+    
+    // Cleanup: restore original title on unmount
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [unreadErrorCount]);
+
+  // Clear unread errors when tab becomes visible (user is viewing the page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setUnreadErrorCount(0);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Notification system
   const showNotification = (message, type = 'info') => {
@@ -67,6 +114,38 @@ export default function Dashboard() {
   const removeNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
+
+  // Play error sound when new error is received
+  const playErrorSound = () => {
+    try {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Create a simple error sound (single beep)
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Configure the sound
+      oscillator.frequency.value = 400; // Frequency in Hz
+      oscillator.type = 'sine';
+      
+      // Set volume envelope for a single short beep
+      const beepDuration = 0.1; // 100ms for a quick beep
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + beepDuration);
+      
+      // Play the sound
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + beepDuration);
+    } catch (error) {
+      console.error('Error playing sound:', error);
+      // Silently fail if audio context is not available
+    }
+  };
+
 
   // Prettify function to format JSON or text (loosely)
   const prettifyContent = (content) => {
@@ -202,7 +281,26 @@ export default function Dashboard() {
       const eventsData = await eventsRes.json();
       
       if (issuesData.success) {
-        setIssues(issuesData.issues);
+        const newIssues = issuesData.issues;
+        
+        // Detect new errors (only if we have previous issues to compare)
+        if (previousIssues.length > 0 && autoRefresh) {
+          // Find new error issues (level === 'error' and not in previous issues)
+          const previousIssueIds = new Set(previousIssues.map(issue => issue.id));
+          const newErrorIssues = newIssues.filter(issue => 
+            issue.level === 'error' && !previousIssueIds.has(issue.id)
+          );
+          
+          // Play sound and update tab notification for new errors
+          if (newErrorIssues.length > 0) {
+            playErrorSound();
+            // Increment unread error count (will be cleared when user views the tab)
+            setUnreadErrorCount(prev => prev + newErrorIssues.length);
+          }
+        }
+        
+        setIssues(newIssues);
+        setPreviousIssues(newIssues);
       }
       if (projectsData.success) setProjects(projectsData.projects);
       if (eventsData.success) {
@@ -1023,8 +1121,19 @@ export default function Dashboard() {
     return `${diffDays}d ago`;
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text, setCopiedState) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (setCopiedState) {
+        setCopiedState(true);
+        setTimeout(() => {
+          setCopiedState(false);
+        }, 2000); // Reset after 2 seconds
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      showNotification('Failed to copy to clipboard', 'error');
+    }
   };
 
   // Combine issues and standalone events for filtering and display
@@ -1616,13 +1725,31 @@ export default function Dashboard() {
                 <div className={styles.detailSection}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
                     <h4 className={styles.detailSectionTitle}>Exception</h4>
-                    <button
-                      className={styles.prettifyButton}
-                      onClick={() => setPrettifiedError(!prettifiedError)}
-                      title={prettifiedError ? 'Show original' : 'Prettify'}
-                    >
-                      {prettifiedError ? '📄 Original' : '✨ Prettify'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                      <button
+                        className={styles.prettifyButton}
+                        onClick={() => {
+                          const errorText = prettifiedError 
+                            ? prettifyContent(data.exception.values?.[0]?.value || 'No message')
+                            : (data.exception.values?.[0]?.value || 'No message');
+                          copyToClipboard(errorText, setCopiedError);
+                        }}
+                        title={copiedError ? 'Copied!' : 'Copy error'}
+                        style={{ 
+                          opacity: copiedError ? 0.7 : 1,
+                          transition: 'opacity 0.2s'
+                        }}
+                      >
+                        {copiedError ? '✓ Copied' : '📋 Copy'}
+                      </button>
+                      <button
+                        className={styles.prettifyButton}
+                        onClick={() => setPrettifiedError(!prettifiedError)}
+                        title={prettifiedError ? 'Show original' : 'Prettify'}
+                      >
+                        {prettifiedError ? '📄 Original' : '✨ Prettify'}
+                      </button>
+                    </div>
                   </div>
                   <div className={styles.exceptionBox}>
                     <div className={styles.exceptionType}>
@@ -1683,9 +1810,34 @@ export default function Dashboard() {
                       });
                     }
                     
+                    // Format code snippet for copying
+                    const formatCodeForCopy = () => {
+                      let formatted = '';
+                      if (errorFrame.filename) {
+                        formatted += `${errorFrame.filename}:${errorFrame.lineno}\n`;
+                      }
+                      lines.forEach(line => {
+                        formatted += `${line.number}: ${line.content}\n`;
+                      });
+                      return formatted.trim();
+                    };
+
                     return (
                       <div style={{ marginTop: 'var(--space-3)' }}>
-                        <h4 className={styles.detailSectionTitle}>📄 Code Snippet</h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+                          <h4 className={styles.detailSectionTitle}>📄 Code Snippet</h4>
+                          <button
+                            className={styles.prettifyButton}
+                            onClick={() => copyToClipboard(formatCodeForCopy(), setCopiedCode)}
+                            title={copiedCode ? 'Copied!' : 'Copy code'}
+                            style={{ 
+                              opacity: copiedCode ? 0.7 : 1,
+                              transition: 'opacity 0.2s'
+                            }}
+                          >
+                            {copiedCode ? '✓ Copied' : '📋 Copy'}
+                          </button>
+                        </div>
                         {errorFrame.filename && (
                           <div style={{ 
                             fontSize: '11px', 
