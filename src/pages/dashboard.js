@@ -40,6 +40,8 @@ export default function Dashboard() {
   const [notifications, setNotifications] = useState([]); // Notification system
   const [prettifiedError, setPrettifiedError] = useState(false); // Track if error message is prettified
   const [prettifiedMessage, setPrettifiedMessage] = useState(false); // Track if message is prettified
+  const [copiedError, setCopiedError] = useState(false); // Track if error was copied
+  const [copiedCode, setCopiedCode] = useState(false); // Track if code snippet was copied
 
   useEffect(() => {
     checkAuth();
@@ -49,6 +51,8 @@ export default function Dashboard() {
   useEffect(() => {
     setPrettifiedError(false);
     setPrettifiedMessage(false);
+    setCopiedError(false);
+    setCopiedCode(false);
   }, [selectedEvent]);
 
   // Notification system
@@ -66,6 +70,20 @@ export default function Dashboard() {
 
   const removeNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  // Copy to clipboard helper function
+  const copyToClipboard = async (text, setCopiedState) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedState(true);
+      setTimeout(() => {
+        setCopiedState(false);
+      }, 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      showNotification('Failed to copy to clipboard', 'error');
+    }
   };
 
   // Prettify function to format JSON or text (loosely)
@@ -1616,13 +1634,31 @@ export default function Dashboard() {
                 <div className={styles.detailSection}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
                     <h4 className={styles.detailSectionTitle}>Exception</h4>
-                    <button
-                      className={styles.prettifyButton}
-                      onClick={() => setPrettifiedError(!prettifiedError)}
-                      title={prettifiedError ? 'Show original' : 'Prettify'}
-                    >
-                      {prettifiedError ? '📄 Original' : '✨ Prettify'}
-                    </button>
+                    <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+                      <button
+                        className={styles.prettifyButton}
+                        onClick={() => {
+                          const errorText = prettifiedError 
+                            ? prettifyContent(data.exception.values?.[0]?.value || 'No message')
+                            : (data.exception.values?.[0]?.value || 'No message');
+                          copyToClipboard(errorText, setCopiedError);
+                        }}
+                        title={copiedError ? 'Copied!' : 'Copy error'}
+                        style={{ 
+                          opacity: copiedError ? 0.7 : 1,
+                          transition: 'opacity 0.2s'
+                        }}
+                      >
+                        {copiedError ? '✓ Copied' : '📋 Copy'}
+                      </button>
+                      <button
+                        className={styles.prettifyButton}
+                        onClick={() => setPrettifiedError(!prettifiedError)}
+                        title={prettifiedError ? 'Show original' : 'Prettify'}
+                      >
+                        {prettifiedError ? '📄 Original' : '✨ Prettify'}
+                      </button>
+                    </div>
                   </div>
                   <div className={styles.exceptionBox}>
                     <div className={styles.exceptionType}>
@@ -1683,9 +1719,34 @@ export default function Dashboard() {
                       });
                     }
                     
+                    // Format code snippet for copying
+                    const formatCodeForCopy = () => {
+                      let formatted = '';
+                      if (errorFrame.filename) {
+                        formatted += `${errorFrame.filename}:${errorFrame.lineno}\n`;
+                      }
+                      lines.forEach(line => {
+                        formatted += `${line.number}: ${line.content}\n`;
+                      });
+                      return formatted.trim();
+                    };
+
                     return (
                       <div style={{ marginTop: 'var(--space-3)' }}>
-                        <h4 className={styles.detailSectionTitle}>📄 Code Snippet</h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
+                          <h4 className={styles.detailSectionTitle}>📄 Code Snippet</h4>
+                          <button
+                            className={styles.prettifyButton}
+                            onClick={() => copyToClipboard(formatCodeForCopy(), setCopiedCode)}
+                            title={copiedCode ? 'Copied!' : 'Copy code'}
+                            style={{ 
+                              opacity: copiedCode ? 0.7 : 1,
+                              transition: 'opacity 0.2s'
+                            }}
+                          >
+                            {copiedCode ? '✓ Copied' : '📋 Copy'}
+                          </button>
+                        </div>
                         {errorFrame.filename && (
                           <div style={{ 
                             fontSize: '11px', 

@@ -1,6 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer
+} from 'recharts';
 import styles from '@/styles/Dashboard.module.css';
 
 export default function PerformancePage() {
@@ -245,35 +257,45 @@ export default function PerformancePage() {
 
   const renderBarChart = (data, labels, color, unit = '') => {
     if (!data || data.length === 0) return null;
-    const max = Math.max(...data);
+    
+    // Transform data for Recharts
+    const chartData = data.map((value, index) => ({
+      name: labels[index],
+      value: value
+    }));
     
     return (
-      <div style={{ padding: '20px 0' }}>
-        {data.map((value, index) => {
-          const percentage = max > 0 ? (value / max) * 100 : 0;
-          return (
-            <div key={index} style={{ marginBottom: '15px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                <span style={{ fontWeight: '500', color: 'var(--text-primary)' }}>{labels[index]}</span>
-                <span style={{ color: 'var(--text-secondary)' }}>{value.toFixed(2)}{unit}</span>
-              </div>
-              <div style={{ 
-                width: '100%', 
-                height: '24px', 
-                background: 'var(--bg-tertiary)', 
-                borderRadius: 'var(--radius-sm)',
-                overflow: 'hidden'
-              }}>
-                <div style={{ 
-                  width: `${percentage}%`, 
-                  height: '100%', 
-                  background: color,
-                  transition: 'width 0.3s ease'
-                }}></div>
-              </div>
-            </div>
-          );
-        })}
+      <div style={{ padding: '20px 0', width: '100%', height: '300px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
+            <XAxis 
+              dataKey="name" 
+              tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 12 }}
+              stroke={getCSSVariable('--border-primary')}
+            />
+            <YAxis 
+              tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 12 }}
+              stroke={getCSSVariable('--border-primary')}
+              tickFormatter={(value) => `${value.toFixed(2)}${unit}`}
+            />
+            <Tooltip 
+              contentStyle={{
+                backgroundColor: getCSSVariable('--bg-primary'),
+                border: `1px solid ${getCSSVariable('--border-primary')}`,
+                borderRadius: getCSSVariable('--radius-sm'),
+                color: getCSSVariable('--text-primary')
+              }}
+              labelStyle={{ color: getCSSVariable('--text-primary') }}
+              formatter={(value) => [`${value.toFixed(2)}${unit}`, 'Value']}
+            />
+            <Bar 
+              dataKey="value" 
+              fill={color}
+              radius={[4, 4, 0, 0]}
+            />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     );
   };
@@ -281,102 +303,71 @@ export default function PerformancePage() {
   const renderTimeSeriesChart = (series, metricKey, label, color, unit = '', formatFn = (v) => v.toFixed(2)) => {
     if (!series || !Array.isArray(series) || series.length === 0) return null;
     
-    const values = series.map(s => s.metrics?.[metricKey] || 0);
-    const labels = series.map(s => {
+    // Transform data for Recharts
+    const chartData = series.map(s => {
       const date = new Date(s.timestamp);
+      let dateLabel;
       if (interval === 'hour') {
-        return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit' });
+        dateLabel = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit' });
       } else {
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        dateLabel = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       }
+      return {
+        timestamp: s.timestamp,
+        date: dateLabel,
+        value: s.metrics?.[metricKey] || 0
+      };
     });
     
+    const values = chartData.map(d => d.value);
     const max = Math.max(...values, 1);
     const min = Math.min(...values);
-    const range = max - min || 1;
-    
-    // Simple line chart using SVG
-    const chartHeight = 200;
-    const padding = { top: 20, right: 20, bottom: 40, left: 60 };
-    const chartWidth = 800; // Will be scaled to 100%
-    
-    // Calculate points in pixel coordinates
-    const getX = (index) => {
-      const availableWidth = chartWidth - padding.left - padding.right;
-      return padding.left + (index / (values.length - 1 || 1)) * availableWidth;
-    };
-    
-    const getY = (value) => {
-      const availableHeight = chartHeight - padding.top - padding.bottom;
-      return padding.top + availableHeight - ((value - min) / range) * availableHeight;
-    };
-    
-    const points = values.map((value, index) => {
-      return `${getX(index)},${getY(value)}`;
-    }).join(' ');
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
     
     return (
       <div style={{ padding: 'var(--space-5) 0' }}>
         <h3 style={{ fontSize: 'var(--font-base)', marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>{label}</h3>
-        <div style={{ position: 'relative', width: '100%', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)', overflowX: 'auto' }}>
-          <svg width={chartWidth} height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} style={{ maxWidth: '100%', height: 'auto' }}>
-            {/* Grid lines */}
-            {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
-              const y = padding.top + (chartHeight - padding.top - padding.bottom) * (1 - ratio);
-              return (
-                <line
-                  key={ratio}
-                  x1={padding.left}
-                  y1={y}
-                  x2={chartWidth - padding.right}
-                  y2={y}
-                  stroke="var(--border-primary)"
-                  strokeWidth="1"
-                  opacity="0.5"
-                />
-              );
-            })}
-            {/* Line chart */}
-            <polyline
-              points={points}
-              fill="none"
-              stroke={color}
-              strokeWidth="2"
-            />
-            {/* Data points */}
-            {values.map((value, index) => {
-              const x = getX(index);
-              const y = getY(value);
-              return (
-                <circle
-                  key={index}
-                  cx={x}
-                  cy={y}
-                  r="4"
-                  fill={color}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <title>{`${labels[index]}: ${formatFn(value)}${unit}`}</title>
-                </circle>
-              );
-            })}
-          </svg>
-          {/* Y-axis labels */}
-          <div style={{ position: 'absolute', left: '15px', top: '30px', bottom: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', pointerEvents: 'none' }}>
-            <span>{formatFn(max)}{unit}</span>
-            <span>{formatFn((max + min) / 2)}{unit}</span>
-            <span>{formatFn(min)}{unit}</span>
-          </div>
-          {/* X-axis labels */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 'var(--space-2)', fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', padding: `0 ${padding.left}px 0 ${padding.left}px`, width: `${chartWidth}px`, maxWidth: '100%' }}>
-            {Array.isArray(labels) && labels.filter((unused, i) => i % Math.ceil(labels.length / 5) === 0 || i === labels.length - 1).map((label, i) => (
-              <span key={i}>{label}</span>
-            ))}
-          </div>
+        <div style={{ width: '100%', height: '250px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
+              <XAxis 
+                dataKey="date" 
+                tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 11 }}
+                stroke={getCSSVariable('--border-primary')}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis 
+                tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 12 }}
+                stroke={getCSSVariable('--border-primary')}
+                tickFormatter={(value) => `${formatFn(value)}${unit}`}
+              />
+              <Tooltip 
+                contentStyle={{
+                  backgroundColor: getCSSVariable('--bg-primary'),
+                  border: `1px solid ${getCSSVariable('--border-primary')}`,
+                  borderRadius: getCSSVariable('--radius-sm'),
+                  color: getCSSVariable('--text-primary')
+                }}
+                labelStyle={{ color: getCSSVariable('--text-primary') }}
+                formatter={(value) => [`${formatFn(value)}${unit}`, label]}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="value" 
+                stroke={color}
+                strokeWidth={2}
+                dot={{ fill: color, r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
         {/* Stats */}
         <div style={{ display: 'flex', gap: 'var(--space-5)', marginTop: 'var(--space-4)', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>
-          <span>Avg: <strong>{formatFn(values.reduce((a, b) => a + b, 0) / values.length)}{unit}</strong></span>
+          <span>Avg: <strong>{formatFn(avg)}{unit}</strong></span>
           <span>Min: <strong>{formatFn(min)}{unit}</strong></span>
           <span>Max: <strong>{formatFn(max)}{unit}</strong></span>
         </div>
@@ -410,27 +401,6 @@ export default function PerformancePage() {
       );
     }
     
-    const chartHeight = 350;
-    const svgWidth = 1000;
-    const padding = { top: 30, right: 40, bottom: 60, left: 70 };
-    const chartAreaHeight = chartHeight - padding.top - padding.bottom;
-    const chartAreaWidth = svgWidth - padding.left - padding.right;
-    
-    // Get all unique timestamps and sort them
-    const allTimestamps = new Set();
-    if (Array.isArray(performanceSeries)) {
-      performanceSeries.forEach(series => {
-        if (series && Array.isArray(series.data)) {
-          series.data.forEach(point => {
-            if (point && point.timestamp) {
-              allTimestamps.add(point.timestamp);
-            }
-          });
-        }
-      });
-    }
-    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(a) - new Date(b));
-    
     // Get metric value based on selected metric
     const getMetricValue = (point) => {
       switch(metric) {
@@ -442,14 +412,6 @@ export default function PerformancePage() {
           return point.duration || 0;
       }
     };
-
-    // Get max value for scaling based on selected metric
-    const maxValue = Math.max(
-      ...(Array.isArray(performanceSeries) ? performanceSeries.flatMap(series => 
-        (Array.isArray(series?.data) ? series.data.map(point => getMetricValue(point)) : [])
-      ) : []),
-      1
-    );
 
     // Format value based on metric
     const formatValue = (value) => {
@@ -485,44 +447,42 @@ export default function PerformancePage() {
       return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
     
+    // Get all unique timestamps and sort them
+    const allTimestamps = new Set();
+    performanceSeries.forEach(series => {
+      if (series && Array.isArray(series.data)) {
+        series.data.forEach(point => {
+          if (point && point.timestamp) {
+            allTimestamps.add(point.timestamp);
+          }
+        });
+      }
+    });
+    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(a) - new Date(b));
+    
+    // Transform data for Recharts - create unified dataset
+    const chartData = sortedTimestamps.map(timestamp => {
+      const dataPoint = { date: formatDate(timestamp), timestamp };
+      performanceSeries.forEach(series => {
+        if (series && Array.isArray(series.data)) {
+          const point = series.data.find(p => p && p.timestamp === timestamp);
+          const seriesName = series.name || 'Unknown';
+          dataPoint[seriesName] = point ? getMetricValue(point) : null;
+        }
+      });
+      return dataPoint;
+    });
+    
     // Generate colors for each transaction type - theme-aware
     const colors = [
-      'var(--accent-primary)',
-      'var(--error)',
-      'var(--warning)',
-      'var(--info)',
-      'var(--success)',
-      'var(--accent-primary)',
-      'var(--info)'
+      getCSSVariable('--accent-primary') || '#3b82f6',
+      getCSSVariable('--error') || '#ef4444',
+      getCSSVariable('--warning') || '#f59e0b',
+      getCSSVariable('--info') || '#06b6d4',
+      getCSSVariable('--success') || '#10b981',
+      getCSSVariable('--accent-primary') || '#3b82f6',
+      getCSSVariable('--info') || '#06b6d4'
     ];
-    
-    // Calculate points for each series
-    const getPoints = (series) => {
-      if (!series || !Array.isArray(series.data)) return [];
-      return sortedTimestamps.map((timestamp, index) => {
-        const point = series.data.find(p => p && p.timestamp === timestamp);
-        const value = getMetricValue(point || {});
-        const x = padding.left + (index / (sortedTimestamps.length - 1 || 1)) * chartAreaWidth;
-        const y = padding.top + chartAreaHeight - (value / maxValue) * chartAreaHeight;
-        return { x, y, value, hasData: !!point };
-      });
-    };
-    
-    const seriesPoints = Array.isArray(performanceSeries) ? performanceSeries.map(series => ({
-      name: series?.name || 'Unknown',
-      points: getPoints(series),
-      color: colors[performanceSeries.indexOf(series) % colors.length]
-    })) : [];
-    
-    // Create SVG path for line
-    const createPath = (points) => {
-      if (points.length === 0) return '';
-      let path = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 1; i < points.length; i++) {
-        path += ` L ${points[i].x} ${points[i].y}`;
-      }
-      return path;
-    };
     
     return (
       <div style={{ 
@@ -540,152 +500,54 @@ export default function PerformancePage() {
         }}>
           ⚡ Performance by Transaction Type - {metricLabel}
         </h3>
-        <div style={{ position: 'relative', width: '100%', height: chartHeight, overflowX: 'auto' }}>
-          <svg width={svgWidth} height={chartHeight} style={{ minWidth: '100%' }} viewBox={`0 0 ${svgWidth} ${chartHeight}`} preserveAspectRatio="none">
-            {/* Grid lines */}
-            {[0, 25, 50, 75, 100].map((percent) => (
-              <line
-                key={percent}
-                x1={padding.left}
-                y1={padding.top + (percent / 100) * chartAreaHeight}
-                x2={svgWidth - padding.right}
-                y2={padding.top + (percent / 100) * chartAreaHeight}
-                stroke={getCSSVariable('--border-primary') || '#e5e5e5'}
-                strokeWidth="1"
-                strokeDasharray="4,4"
-                opacity="0.4"
+        <div style={{ width: '100%', height: '400px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
+              <XAxis 
+                dataKey="date" 
+                tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 11 }}
+                stroke={getCSSVariable('--border-primary')}
+                angle={-45}
+                textAnchor="end"
+                height={60}
               />
-            ))}
-            
-            {/* Lines for each transaction type */}
-            {seriesPoints.map((series, seriesIndex) => (
-              <path
-                key={seriesIndex}
-                d={createPath(series.points)}
-                fill="none"
-                stroke={series.color}
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                opacity="0.9"
+              <YAxis 
+                tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 12 }}
+                stroke={getCSSVariable('--border-primary')}
+                tickFormatter={formatValue}
               />
-            ))}
-            
-            {/* Data points */}
-            {seriesPoints.map((series, seriesIndex) => (
-              <g key={`points-${seriesIndex}`}>
-                {series.points.filter(p => p.hasData).map((point, i) => (
-                  <circle
-                    key={i}
-                    cx={point.x}
-                    cy={point.y}
-                    r="4"
-                    fill={series.color}
-                    stroke={getCSSVariable('--bg-primary') || '#ffffff'}
-                    strokeWidth="2"
+              <Tooltip 
+                contentStyle={{
+                  backgroundColor: getCSSVariable('--bg-primary'),
+                  border: `1px solid ${getCSSVariable('--border-primary')}`,
+                  borderRadius: getCSSVariable('--radius-sm'),
+                  color: getCSSVariable('--text-primary')
+                }}
+                labelStyle={{ color: getCSSVariable('--text-primary') }}
+                formatter={(value) => [value !== null ? formatValue(value) : 'N/A', '']}
+              />
+              <Legend 
+                wrapperStyle={{ paddingTop: '20px' }}
+                iconType="line"
+              />
+              {performanceSeries.map((series, index) => {
+                const seriesName = series?.name || 'Unknown';
+                return (
+                  <Line
+                    key={seriesName}
+                    type="monotone"
+                    dataKey={seriesName}
+                    stroke={colors[index % colors.length]}
+                    strokeWidth={3}
+                    dot={{ fill: colors[index % colors.length], r: 4 }}
+                    activeDot={{ r: 6 }}
+                    connectNulls={false}
                   />
-                ))}
-              </g>
-            ))}
-            
-            {/* X-axis labels - limit to avoid overlap */}
-            {sortedTimestamps.map((timestamp, i) => {
-              // Only show every Nth label to avoid crowding
-              const labelInterval = Math.max(1, Math.floor(sortedTimestamps.length / 8));
-              if (i % labelInterval !== 0 && i !== sortedTimestamps.length - 1) {
-                return null;
-              }
-              const x = padding.left + (i / (sortedTimestamps.length - 1 || 1)) * chartAreaWidth;
-              return (
-                <text
-                  key={i}
-                  x={x}
-                  y={chartHeight - 15}
-                  textAnchor="middle"
-                  fontSize="12"
-                  fill={getCSSVariable('--text-primary') || '#111111'}
-                  fontWeight="500"
-                >
-                  {formatDate(timestamp)}
-                </text>
-              );
-            })}
-            
-            {/* Y-axis labels */}
-            {[0, 1, 2, 3, 4].map((i) => {
-              const value = (maxValue / 4) * i;
-              const y = padding.top + chartAreaHeight - (i / 4) * chartAreaHeight;
-              return (
-                <text
-                  key={i}
-                  x={padding.left - 15}
-                  y={y + 5}
-                  textAnchor="end"
-                  fontSize="12"
-                  fill={getCSSVariable('--text-primary') || '#111111'}
-                  fontWeight="500"
-                >
-                  {formatValue(value)}
-                </text>
-              );
-            })}
-            
-            {/* Y-axis line */}
-            <line
-              x1={padding.left}
-              y1={padding.top}
-              x2={padding.left}
-              y2={chartHeight - padding.bottom}
-              stroke={getCSSVariable('--border-primary') || '#e5e5e5'}
-              strokeWidth="2"
-            />
-            
-            {/* X-axis line */}
-            <line
-              x1={padding.left}
-              y1={chartHeight - padding.bottom}
-              x2={svgWidth - padding.right}
-              y2={chartHeight - padding.bottom}
-              stroke={getCSSVariable('--border-primary') || '#e5e5e5'}
-              strokeWidth="2"
-            />
-          </svg>
-        </div>
-        
-        {/* Legend */}
-        <div style={{ 
-          display: 'flex', 
-          gap: 'var(--space-4)', 
-          marginTop: 'var(--space-4)',
-          flexWrap: 'wrap',
-          fontSize: 'var(--font-sm)',
-          padding: 'var(--space-3)',
-          background: 'var(--bg-secondary)',
-          borderRadius: 'var(--radius-sm)',
-          border: '1px solid var(--border-primary)'
-        }}>
-          {seriesPoints.map((series, i) => (
-            <div key={i} style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '8px',
-              padding: '4px 8px',
-              background: 'var(--bg-primary)',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-primary)'
-            }}>
-              <div style={{ 
-                width: '16px', 
-                height: '3px', 
-                background: series.color,
-                borderRadius: '2px'
-              }}></div>
-              <span style={{ 
-                color: 'var(--text-primary)',
-                fontWeight: '500'
-              }}>{series.name}</span>
-            </div>
-          ))}
+                );
+              })}
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
     );
