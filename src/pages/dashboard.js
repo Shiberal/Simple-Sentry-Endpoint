@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -43,6 +43,8 @@ export default function Dashboard() {
   const [copiedError, setCopiedError] = useState(false); // Track if error was copied
   const [copiedCode, setCopiedCode] = useState(false); // Track if code snippet was copied
   const [previousIssues, setPreviousIssues] = useState([]); // Track previous issues to detect new errors
+  const [unreadErrorCount, setUnreadErrorCount] = useState(0); // Track unread errors for tab notification
+  const originalTitleRef = useRef(null); // Store original document title
 
   useEffect(() => {
     checkAuth();
@@ -55,6 +57,46 @@ export default function Dashboard() {
     setCopiedError(false);
     setCopiedCode(false);
   }, [selectedEvent]);
+
+  // Store original title on mount
+  useEffect(() => {
+    if (!originalTitleRef.current) {
+      // Extract original title by removing any existing notification prefix
+      const currentTitle = document.title;
+      originalTitleRef.current = currentTitle.replace(/^\(\d+\)\s*⚠️\s*New\s*Errors?\s*-\s*/, '');
+    }
+  }, []);
+
+  // Update browser tab title when there are unread errors
+  useEffect(() => {
+    const originalTitle = originalTitleRef.current || document.title.replace(/^\(\d+\)\s*⚠️\s*New\s*Errors?\s*-\s*/, '');
+    if (unreadErrorCount > 0) {
+      document.title = `(${unreadErrorCount}) ⚠️ New Error${unreadErrorCount > 1 ? 's' : ''} - ${originalTitle}`;
+    } else {
+      // Restore original title
+      document.title = originalTitle;
+    }
+    
+    // Cleanup: restore original title on unmount
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [unreadErrorCount]);
+
+  // Clear unread errors when tab becomes visible (user is viewing the page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        setUnreadErrorCount(0);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Notification system
   const showNotification = (message, type = 'info') => {
@@ -78,7 +120,7 @@ export default function Dashboard() {
     try {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
       
-      // Create a simple error sound (low frequency beep)
+      // Create a simple error sound (single beep)
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -89,14 +131,15 @@ export default function Dashboard() {
       oscillator.frequency.value = 400; // Frequency in Hz
       oscillator.type = 'sine';
       
-      // Set volume envelope (fade in/out)
+      // Set volume envelope for a single short beep
+      const beepDuration = 0.1; // 100ms for a quick beep
       gainNode.gain.setValueAtTime(0, audioContext.currentTime);
       gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + beepDuration);
       
       // Play the sound
       oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
+      oscillator.stop(audioContext.currentTime + beepDuration);
     } catch (error) {
       console.error('Error playing sound:', error);
       // Silently fail if audio context is not available
@@ -248,9 +291,11 @@ export default function Dashboard() {
             issue.level === 'error' && !previousIssueIds.has(issue.id)
           );
           
-          // Play sound for each new error
+          // Play sound and update tab notification for new errors
           if (newErrorIssues.length > 0) {
             playErrorSound();
+            // Increment unread error count (will be cleared when user views the tab)
+            setUnreadErrorCount(prev => prev + newErrorIssues.length);
           }
         }
         
