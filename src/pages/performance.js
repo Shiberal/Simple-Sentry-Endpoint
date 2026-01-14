@@ -317,7 +317,7 @@ export default function PerformancePage() {
         date: dateLabel,
         value: s.metrics?.[metricKey] || 0
       };
-    });
+    }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Sort chronologically
     
     const values = chartData.map(d => d.value);
     const max = Math.max(...values, 1);
