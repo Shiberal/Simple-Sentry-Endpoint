@@ -24,6 +24,7 @@ export default async function handler(req, res) {
         id: true,
         email: true,
         name: true,
+        isAdmin: true,
         createdAt: true
       }
     });

@@ -25,12 +25,26 @@ export default function ProjectSettings() {
   const [savedTelegram, setSavedTelegram] = useState(false);
   const [showClearDataConfirm, setShowClearDataConfirm] = useState(false);
   const [clearingData, setClearingData] = useState(false);
+  // Team management state
+  const [newUsername, setNewUsername] = useState('');
+  const [addingUser, setAddingUser] = useState(false);
+  const [projectMembers, setProjectMembers] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [removingUsers, setRemovingUsers] = useState(false);
+  const [isProjectOwner, setIsProjectOwner] = useState(false);
 
   useEffect(() => {
     if (id) {
       checkAuth();
     }
   }, [id]);
+
+  // Check project ownership when both user and project are available
+  useEffect(() => {
+    if (user && project && project.projectOwners) {
+      setIsProjectOwner(project.projectOwners.some(owner => owner.id === user.id));
+    }
+  }, [user, project]);
 
   const checkAuth = async () => {
     try {
@@ -65,6 +79,9 @@ export default function ProjectSettings() {
       const filters = data.project.autoGithubReportFilters || {};
       setFilterLevels(filters.levels || ['error']);
       setFilterEnvironments(filters.environments ? filters.environments.join(', ') : '');
+      
+      // Fetch project members
+      fetchProjectMembers();
       
       // Fetch ignored issues for this project
       fetchIgnoredIssues();
@@ -201,6 +218,140 @@ export default function ProjectSettings() {
     }
   };
 
+  const fetchProjectMembers = async () => {
+    try {
+      const response = await fetch(`/api/projects/${id}/users`);
+      if (response.ok) {
+        const data = await response.json();
+        setProjectMembers(data.members || []);
+      }
+    } catch (error) {
+      console.error('Error fetching project members:', error);
+    }
+  };
+
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    if (!newUsername.trim()) return;
+
+    setAddingUser(true);
+    try {
+      const response = await fetch(`/api/projects/${id}/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: newUsername.trim(), isAdmin: false })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setNewUsername('');
+        await fetchProjectMembers();
+        await fetchProject(); // Refresh project data
+        alert(data.message || 'User added successfully');
+      } else {
+        alert(data.error || data.message || 'Failed to add user');
+      }
+    } catch (error) {
+      console.error('Error adding user:', error);
+      alert('Error adding user');
+    } finally {
+      setAddingUser(false);
+    }
+  };
+
+  const handleToggleAdmin = async (userId, currentAdminStatus) => {
+    try {
+      const response = await fetch(`/api/projects/${id}/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAdmin: !currentAdminStatus })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        await fetchProjectMembers();
+        await fetchProject(); // Refresh project data
+      } else {
+        alert(data.error || data.message || 'Failed to update admin status');
+      }
+    } catch (error) {
+      console.error('Error updating admin status:', error);
+      alert('Error updating admin status');
+    }
+  };
+
+  const handleRemoveUser = async (userId) => {
+    if (!confirm('Are you sure you want to remove this user from the project?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/projects/${id}/users/${userId}`, {
+        method: 'DELETE'
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        await fetchProjectMembers();
+        await fetchProject(); // Refresh project data
+        alert('User removed successfully');
+      } else {
+        alert(data.error || data.message || 'Failed to remove user');
+      }
+    } catch (error) {
+      console.error('Error removing user:', error);
+      alert('Error removing user');
+    }
+  };
+
+  const handleBulkRemoveUsers = async () => {
+    if (selectedUsers.length === 0) return;
+    
+    if (!confirm(`Are you sure you want to remove ${selectedUsers.length} user(s) from the project?`)) {
+      return;
+    }
+
+    setRemovingUsers(true);
+    try {
+      const response = await fetch(`/api/projects/${id}/users`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: selectedUsers })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setSelectedUsers([]);
+        await fetchProjectMembers();
+        await fetchProject(); // Refresh project data
+        alert(data.message || 'Users removed successfully');
+      } else {
+        alert(data.error || data.message || 'Failed to remove users');
+      }
+    } catch (error) {
+      console.error('Error removing users:', error);
+      alert('Error removing users');
+    } finally {
+      setRemovingUsers(false);
+    }
+  };
+
+  const handleSelectUser = (userId) => {
+    setSelectedUsers(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    if (selectedUsers.length === projectMembers.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(projectMembers.map(m => m.id));
+    }
+  };
+
   const handleDelete = async () => {
     try {
       const response = await fetch(`/api/projects/${id}`, {
@@ -209,9 +360,13 @@ export default function ProjectSettings() {
 
       if (response.ok) {
         router.push('/dashboard');
+      } else {
+        const data = await response.json();
+        alert(data.error || data.message || 'Failed to delete project');
       }
     } catch (error) {
       console.error('Error deleting project:', error);
+      alert('Error deleting project');
     }
   };
 
@@ -568,6 +723,147 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
             </div>
           </section>
 
+          {/* Team Management */}
+          {isProjectOwner && (
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>👥 Team Management</h2>
+              <p className={styles.sectionDescription}>
+                Add users to this project and manage their admin status. Only project owners can manage team members.
+              </p>
+
+              {/* Add User Form */}
+              <form onSubmit={handleAddUser} className={styles.form} style={{ marginBottom: 'var(--space-6)' }}>
+                <div className={styles.formGroup} style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <label className={styles.label}>Add User by Username</label>
+                    <input
+                      type="text"
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      placeholder="Enter username"
+                      className={styles.input}
+                      disabled={addingUser}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={addingUser || !newUsername.trim()}
+                    className={styles.saveButton}
+                    style={{
+                      opacity: (addingUser || !newUsername.trim()) ? 0.6 : 1,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {addingUser ? 'Adding...' : 'Add User'}
+                  </button>
+                </div>
+              </form>
+
+              {/* Bulk Actions */}
+              {projectMembers.length > 0 && (
+                <div style={{ 
+                  display: 'flex', 
+                  gap: 'var(--space-2)', 
+                  alignItems: 'center',
+                  marginBottom: 'var(--space-4'),
+                  padding: 'var(--space-3)',
+                  backgroundColor: 'var(--color-surface-secondary, #f5f5f5)',
+                  borderRadius: 'var(--radius-md, 6px)'
+                }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.length === projectMembers.length && projectMembers.length > 0}
+                      onChange={handleSelectAll}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <span>Select All</span>
+                  </label>
+                  {selectedUsers.length > 0 && (
+                    <>
+                      <span style={{ color: 'var(--color-text-secondary, #666)' }}>
+                        {selectedUsers.length} selected
+                      </span>
+                      <button
+                        onClick={handleBulkRemoveUsers}
+                        disabled={removingUsers}
+                        className={styles.dangerButton}
+                        style={{
+                          marginLeft: 'auto',
+                          opacity: removingUsers ? 0.6 : 1,
+                          padding: 'var(--space-2) var(--space-3)',
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        {removingUsers ? 'Removing...' : `Remove Selected (${selectedUsers.length})`}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Members List */}
+              {projectMembers.length === 0 ? (
+                <div className={styles.emptyState}>
+                  <p className={styles.emptyText}>No team members yet. Add users to get started.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
+                  {projectMembers.map(member => (
+                    <div
+                      key={member.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 'var(--space-3)',
+                        padding: 'var(--space-3)',
+                        border: '1px solid var(--color-border, #e0e0e0)',
+                        borderRadius: 'var(--radius-md, 6px)',
+                        backgroundColor: selectedUsers.includes(member.id) 
+                          ? 'var(--color-surface-secondary, #f5f5f5)' 
+                          : 'transparent'
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(member.id)}
+                        onChange={() => handleSelectUser(member.id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 500 }}>
+                          {member.name || member.email || member.username}
+                        </div>
+                        <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary, #666)' }}>
+                          {member.email} {member.username && `(@${member.username})`}
+                        </div>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={member.isAdmin}
+                          onChange={() => handleToggleAdmin(member.id, member.isAdmin)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '0.875rem' }}>Admin</span>
+                      </label>
+                      <button
+                        onClick={() => handleRemoveUser(member.id)}
+                        className={styles.dangerButton}
+                        style={{
+                          padding: 'var(--space-2) var(--space-3)',
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* GitHub Integration */}
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>🐙 GitHub Integration</h2>
@@ -844,6 +1140,11 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
             <h2 className={styles.sectionTitle} style={{color: '#dc2626'}}>Danger Zone</h2>
             <p className={styles.sectionDescription}>
               Delete this project and all associated events. This action cannot be undone.
+              {project.users && project.users.length > 1 && (
+                <span style={{ display: 'block', marginTop: 'var(--space-2)', color: '#dc2626', fontWeight: 500 }}>
+                  ⚠️ Projects can only be deleted when there is exactly one user remaining. Please remove all other users first.
+                </span>
+              )}
             </p>
             {showDeleteConfirm ? (
               <div className={styles.deleteConfirm}>
@@ -869,6 +1170,11 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
               <button 
                 onClick={() => setShowDeleteConfirm(true)}
                 className={styles.dangerButton}
+                disabled={project.users && project.users.length > 1}
+                style={{
+                  opacity: (project.users && project.users.length > 1) ? 0.5 : 1,
+                  cursor: (project.users && project.users.length > 1) ? 'not-allowed' : 'pointer'
+                }}
               >
                 Delete Project
               </button>
