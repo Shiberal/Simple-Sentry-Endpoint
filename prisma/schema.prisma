@@ -29,8 +29,8 @@ enum EventType {
 model User {
   id             Int       @id @default(autoincrement())
   email          String    @unique
-  username       String    @unique
-  name           String?
+  username       String    @unique @default(uuid())
+  name           String?  
   password       String
   isAdmin        Boolean   @default(false)
   createdAt      DateTime  @default(now())
