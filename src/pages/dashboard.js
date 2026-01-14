@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [prettifiedMessage, setPrettifiedMessage] = useState(false); // Track if message is prettified
   const [copiedError, setCopiedError] = useState(false); // Track if error was copied
   const [copiedCode, setCopiedCode] = useState(false); // Track if code snippet was copied
+  const [previousIssues, setPreviousIssues] = useState([]); // Track previous issues to detect new errors
 
   useEffect(() => {
     checkAuth();
@@ -72,19 +73,36 @@ export default function Dashboard() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  // Copy to clipboard helper function
-  const copyToClipboard = async (text, setCopiedState) => {
+  // Play error sound when new error is received
+  const playErrorSound = () => {
     try {
-      await navigator.clipboard.writeText(text);
-      setCopiedState(true);
-      setTimeout(() => {
-        setCopiedState(false);
-      }, 2000); // Reset after 2 seconds
-    } catch (err) {
-      console.error('Failed to copy:', err);
-      showNotification('Failed to copy to clipboard', 'error');
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Create a simple error sound (low frequency beep)
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Configure the sound
+      oscillator.frequency.value = 400; // Frequency in Hz
+      oscillator.type = 'sine';
+      
+      // Set volume envelope (fade in/out)
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      // Play the sound
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+      console.error('Error playing sound:', error);
+      // Silently fail if audio context is not available
     }
   };
+
 
   // Prettify function to format JSON or text (loosely)
   const prettifyContent = (content) => {
@@ -220,7 +238,24 @@ export default function Dashboard() {
       const eventsData = await eventsRes.json();
       
       if (issuesData.success) {
-        setIssues(issuesData.issues);
+        const newIssues = issuesData.issues;
+        
+        // Detect new errors (only if we have previous issues to compare)
+        if (previousIssues.length > 0 && autoRefresh) {
+          // Find new error issues (level === 'error' and not in previous issues)
+          const previousIssueIds = new Set(previousIssues.map(issue => issue.id));
+          const newErrorIssues = newIssues.filter(issue => 
+            issue.level === 'error' && !previousIssueIds.has(issue.id)
+          );
+          
+          // Play sound for each new error
+          if (newErrorIssues.length > 0) {
+            playErrorSound();
+          }
+        }
+        
+        setIssues(newIssues);
+        setPreviousIssues(newIssues);
       }
       if (projectsData.success) setProjects(projectsData.projects);
       if (eventsData.success) {
@@ -1041,8 +1076,19 @@ export default function Dashboard() {
     return `${diffDays}d ago`;
   };
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text, setCopiedState) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (setCopiedState) {
+        setCopiedState(true);
+        setTimeout(() => {
+          setCopiedState(false);
+        }, 2000); // Reset after 2 seconds
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      showNotification('Failed to copy to clipboard', 'error');
+    }
   };
 
   // Combine issues and standalone events for filtering and display
