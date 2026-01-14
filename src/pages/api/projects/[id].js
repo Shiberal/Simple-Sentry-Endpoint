@@ -31,7 +31,7 @@ export default async function handler(req, res) {
               }
             },
             _count: {
-              select: { events: true }
+              select: { events: true, issues: true }
             }
           }
         });

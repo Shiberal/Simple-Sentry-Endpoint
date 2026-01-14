@@ -1,6 +1,13 @@
-import { PrismaClient } from '@/generated/prisma';
-
-const prisma = new PrismaClient();
+import prisma from '@/lib/prisma';
+import {
+  extractDuration,
+  extractMeasurements,
+  extractMemoryMetrics,
+  extractCpuUsage,
+  extractEventLoopLag,
+  extractSpans,
+  extractTransactionInfo
+} from '@/lib/sentry-transaction';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -51,6 +58,13 @@ function analyzeTransactions(transactions) {
   const memoryTimeline = [];
   const cpuTimeline = [];
   const eventLoopTimeline = [];
+  const webVitals = {
+    fcp: [],
+    lcp: [],
+    fid: [],
+    cls: [],
+    ttfb: []
+  };
   
   let totalDuration = 0;
   let totalMemoryHeap = 0;
@@ -60,69 +74,57 @@ function analyzeTransactions(transactions) {
   let eventLoopCount = 0;
 
   transactions.forEach(transaction => {
-    const data = transaction.data;
-    
-    // Calculate duration
-    if (data.timestamp && data.start_timestamp) {
-      const duration = data.timestamp - data.start_timestamp;
+    // Extract duration using Sentry parser
+    const duration = extractDuration(transaction);
+    if (duration > 0) {
       durations.push(duration);
       totalDuration += duration;
     }
 
-    // Get breadcrumbs array (handle both formats: array directly or object with values)
-    const breadcrumbs = Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs?.values || [];
-
-    // Extract memory data from breadcrumbs
-    const memoryBreadcrumb = breadcrumbs.find(b => 
-      b.message && (b.message.includes('Heap Used') || b.message.includes('memory metrics'))
-    );
-    
-    if (memoryBreadcrumb) {
-      // Parse memory from breadcrumb message or use context data
-      const heapUsedMatch = breadcrumbs.find(b => b.message?.includes('Heap Used:'))?.message?.match(/([\d.]+)\s*MB/);
-      const heapTotalMatch = breadcrumbs.find(b => b.message?.includes('Heap Total:'))?.message?.match(/([\d.]+)\s*MB/);
-      const rssMatch = breadcrumbs.find(b => b.message?.includes('RSS:'))?.message?.match(/([\d.]+)\s*MB/);
-      
-      const heapUsed = heapUsedMatch ? parseFloat(heapUsedMatch[1]) * 1024 * 1024 : 0;
-      const heapTotal = heapTotalMatch ? parseFloat(heapTotalMatch[1]) * 1024 * 1024 : 0;
-      const rss = rssMatch ? parseFloat(rssMatch[1]) * 1024 * 1024 : 0;
-      
-      if (heapUsed || heapTotal || rss) {
-        memoryTimeline.push({ heapUsed, heapTotal, rss });
-        totalMemoryHeap += heapUsed;
-        totalMemoryRSS += rss;
+    // Extract memory metrics using Sentry parser
+    const memory = extractMemoryMetrics(transaction);
+    if (memory.heapUsed || memory.heapTotal || memory.rss) {
+      memoryTimeline.push({
+        heapUsed: memory.heapUsed || 0,
+        heapTotal: memory.heapTotal || 0,
+        rss: memory.rss || 0
+      });
+      if (memory.heapUsed) {
+        totalMemoryHeap += memory.heapUsed;
+      }
+      if (memory.rss) {
+        totalMemoryRSS += memory.rss;
       }
     }
 
-    // Extract CPU data
-    const cpuBreadcrumb = breadcrumbs.find(b => 
-      b.message && b.message.includes('CPU usage')
-    );
-    
-    if (cpuBreadcrumb) {
-      const cpuMatch = cpuBreadcrumb.message.match(/([\d.]+)%/);
-      if (cpuMatch) {
-        const cpu = parseFloat(cpuMatch[1]);
-        cpuTimeline.push(cpu);
-        totalCpu += cpu;
-        cpuCount++;
-      }
+    // Extract CPU usage using Sentry parser
+    const cpu = extractCpuUsage(transaction);
+    if (cpu !== null) {
+      cpuTimeline.push(cpu);
+      totalCpu += cpu;
+      cpuCount++;
     }
 
-    // Extract event loop lag
-    const eventLoopBreadcrumb = breadcrumbs.find(b => 
-      b.message && b.message.includes('event loop lag')
-    );
-    
-    if (eventLoopBreadcrumb) {
-      const lagMatch = eventLoopBreadcrumb.message.match(/([\d.]+)\s*ms/);
-      if (lagMatch) {
-        const lag = parseFloat(lagMatch[1]);
-        eventLoopTimeline.push(lag);
-        eventLoopCount++;
-      }
+    // Extract event loop lag using Sentry parser
+    const eventLoopLag = extractEventLoopLag(transaction);
+    if (eventLoopLag !== null) {
+      eventLoopTimeline.push(eventLoopLag);
+      eventLoopCount++;
     }
+
+    // Extract Web Vitals measurements
+    const measurements = extractMeasurements(transaction);
+    if (measurements.fcp !== null) webVitals.fcp.push(measurements.fcp);
+    if (measurements.lcp !== null) webVitals.lcp.push(measurements.lcp);
+    if (measurements.fid !== null) webVitals.fid.push(measurements.fid);
+    if (measurements.cls !== null) webVitals.cls.push(measurements.cls);
+    if (measurements.ttfb !== null) webVitals.ttfb.push(measurements.ttfb);
   });
+
+  // Calculate Web Vitals averages
+  const calculateAvg = (arr) => arr.length > 0 
+    ? arr.reduce((a, b) => a + b, 0) / arr.length 
+    : null;
 
   return {
     totalTransactions: transactions.length,
@@ -134,7 +136,20 @@ function analyzeTransactions(transactions) {
     transactionDurations: durations,
     memoryTimeline,
     cpuTimeline,
-    eventLoopTimeline
+    eventLoopTimeline,
+    // Web Vitals
+    webVitals: {
+      avgFcp: calculateAvg(webVitals.fcp),
+      avgLcp: calculateAvg(webVitals.lcp),
+      avgFid: calculateAvg(webVitals.fid),
+      avgCls: calculateAvg(webVitals.cls),
+      avgTtfb: calculateAvg(webVitals.ttfb),
+      fcp: webVitals.fcp,
+      lcp: webVitals.lcp,
+      fid: webVitals.fid,
+      cls: webVitals.cls,
+      ttfb: webVitals.ttfb
+    }
   };
 }
 
