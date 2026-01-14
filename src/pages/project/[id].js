@@ -765,7 +765,7 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
                   display: 'flex', 
                   gap: 'var(--space-2)', 
                   alignItems: 'center',
-                  marginBottom: 'var(--space-4'),
+                  marginBottom: 'var(--space-4)',
                   padding: 'var(--space-3)',
                   backgroundColor: 'var(--color-surface-secondary, #f5f5f5)',
                   borderRadius: 'var(--radius-md, 6px)'
