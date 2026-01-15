@@ -2583,66 +2583,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-                <div className={styles.eventsHeaderTop}>
-                  <h2 className={styles.eventsTitle}>
-                    Issues & Events ({filteredIssues.length})
-                  </h2>
-                  {!isSelectionMode && (
-                    <div className={styles.filterToolbar}>
-                      <div className={styles.filterGroup}>
-                        <select 
-                          value={filterLevel} 
-                          onChange={(e) => setFilterLevel(e.target.value)}
-                          className={styles.filterSelect}
-                        >
-                          <option value="all">All Levels</option>
-                          <option value="error">🔴 Errors</option>
-                          <option value="warning">🟡 Warnings</option>
-                          <option value="info">🔵 Info</option>
-                        </select>
-                        <select 
-                          value={filterStatus} 
-                          onChange={(e) => setFilterStatus(e.target.value)}
-                          className={styles.filterSelect}
-                        >
-                          <option value="active">⚡ Active</option>
-                          <option value="unresolved">⭕ Unresolved</option>
-                          <option value="resolved">✅ Resolved</option>
-                          <option value="ignored">🔕 Ignored</option>
-                          <option value="all">All Statuses</option>
-                        </select>
-                        <select 
-                          value={filterEventType} 
-                          onChange={(e) => setFilterEventType(e.target.value)}
-                          className={styles.filterSelect}
-                        >
-                          <option value="all">All Types</option>
-                          <option value="ERROR">🔴 Errors</option>
-                          <option value="CSP">🛡️ CSP Violations</option>
-                          <option value="MINIDUMP">💥 Crashes</option>
-                          <option value="TRANSACTION">⚡ Performance</option>
-                          <option value="MESSAGE">💬 Messages</option>
-                        </select>
-                      </div>
-                      <div className={styles.toolbarActions}>
-                        <button
-                          onClick={() => setIsSelectionMode(true)}
-                          className={styles.selectButton}
-                        >
-                          ☑️ Select
-                        </button>
-                        {selectedProject && (
-                          <Link 
-                            href={`/project/${selectedProject}`}
-                            className={styles.projectSettingsButton}
-                          >
-                            ⚙️ Project Settings
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
                 <input
                   type="text"
                   placeholder="Search issues..."
