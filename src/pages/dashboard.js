@@ -2484,6 +2484,17 @@ export default function Dashboard() {
                       {selectedProject ? projects.find(p => p.id === selectedProject)?.name : 'All Projects'}
                     </div>
                   </div>
+                  {selectedProject && (
+                    <div style={{ padding: '0 var(--space-4) var(--space-2)' }}>
+                      <Link 
+                        href={`/project/${selectedProject}`}
+                        className={styles.projectSettingsButton}
+                        style={{ width: '100%', justifyContent: 'center' }}
+                      >
+                        ⚙️ Project Settings
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 <div className={styles.sidebarSection}>
