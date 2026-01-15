@@ -2400,72 +2400,91 @@ export default function Dashboard() {
       </Head>
       
       <div className={styles.container}>
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>⚡</span>
-              Sentry Monitor
-            </h1>
-            <div className={styles.headerActions}>
-              <span className={styles.userEmail}>{user.email}</span>
-              <Link href="/profile">
-                <button className={styles.headerButton}>
-                  👤 Profile
-                </button>
-              </Link>
-              {user.isAdmin && (
-                <Link href="/admin">
-                  <button className={styles.headerButton}>
-                    ⚙️ Admin
-                  </button>
-                </Link>
-              )}
-              <Link href="/performance">
-                <button className={styles.headerButton}>
-                  ⚡ Performance
-                </button>
-              </Link>
-              <ThemeToggle />
+        {/* Left Navigation Sidebar */}
+        <nav className={styles.navSidebar}>
+          <Link href="/dashboard">
+            <button 
+              className={`${styles.navItem} ${router.pathname === '/dashboard' ? styles.navItemActive : ''}`}
+              title="Dashboard"
+            >
+              📊
+            </button>
+          </Link>
+          <Link href="/performance">
+            <button 
+              className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
+              title="Performance"
+            >
+              ⚡
+            </button>
+          </Link>
+          {user.isAdmin && (
+            <Link href="/admin">
               <button 
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className={styles.headerButton}
-                style={{
-                  backgroundColor: autoRefresh ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-                  color: autoRefresh ? 'white' : 'var(--text-primary)',
-                  borderColor: autoRefresh ? 'var(--accent-primary)' : 'var(--border-primary)'
-                }}
+                className={`${styles.navItem} ${router.pathname === '/admin' ? styles.navItemActive : ''}`}
+                title="Admin"
               >
-                {autoRefresh ? '● Live' : '○ Paused'}
+                ⚙️
               </button>
-              <button 
-                onClick={handleDeduplicate}
-                className={styles.headerButton}
-                disabled={isDeduplicating}
-                title="Merge duplicate issues"
-                style={{
-                  opacity: isDeduplicating ? 0.6 : 1,
-                  cursor: isDeduplicating ? 'wait' : 'pointer'
-                }}
-              >
-                {isDeduplicating ? '🔄 Merging...' : '🔀 Deduplicate'}
-              </button>
-              <button onClick={fetchData} className={styles.headerButton}>
-                Refresh
-              </button>
-              <button 
-                onClick={handleLogout} 
-                className={styles.headerButton}
-                style={{ backgroundColor: 'var(--error)', color: 'white', borderColor: 'var(--error)' }}
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </header>
+            </Link>
+          )}
+          <div className={styles.navDivider}></div>
+          <Link href="/profile">
+            <button 
+              className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
+              title="Profile"
+            >
+              👤
+            </button>
+          </Link>
+          <button 
+            className={styles.navItem}
+            onClick={handleLogout}
+            title="Logout"
+          >
+            🚪
+          </button>
+        </nav>
 
         <div className={styles.main}>
-          {!sidebarCollapsed && (
-            <aside className={styles.sidebar}>
+          <header className={styles.header}>
+            <div className={styles.headerContent}>
+              <h1 className={styles.logo}>
+                <span className={styles.logoIcon}>⚡</span>
+                Sentry Monitor
+              </h1>
+              <div className={styles.headerActions}>
+                <button 
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className={styles.headerButton}
+                  title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
+                >
+                  {autoRefresh ? '●' : '○'} {autoRefresh ? 'Live' : 'Paused'}
+                </button>
+                <button 
+                  onClick={handleDeduplicate}
+                  className={styles.headerButton}
+                  disabled={isDeduplicating}
+                  title="Merge duplicate issues"
+                >
+                  {isDeduplicating ? '🔄' : '🔀'}
+                </button>
+                <button 
+                  onClick={fetchData} 
+                  className={styles.headerButton}
+                  title="Refresh data"
+                >
+                  🔄
+                </button>
+                <ThemeToggle />
+                <span className={styles.userEmail}>{user.email}</span>
+              </div>
+            </div>
+          </header>
+
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            {!sidebarCollapsed && (
+              <aside className={styles.sidebar}>
               <div className={styles.sidebarSection}>
                 <div className={styles.sidebarHeader}>
                   <div className={styles.sidebarTitleContainer}>
@@ -2518,10 +2537,10 @@ export default function Dashboard() {
                 </div>
               )}
               </div>
-            </aside>
-          )}
+              </aside>
+            )}
 
-          <div className={styles.contentWrapper}>
+            <div className={styles.contentWrapper}>
             {/* Sidebar toggle button */}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
