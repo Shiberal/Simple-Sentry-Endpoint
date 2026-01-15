@@ -12,38 +12,52 @@
 /* Left Navigation Sidebar (Discord-like) */
 .navSidebar {
   width: 72px;
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-darkest);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-2) 0;
+  padding: var(--space-3) 0;
   gap: var(--space-2);
   flex-shrink: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  border-right: none;
 }
 
 .navItem {
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-lg);
-  background-color: var(--bg-secondary);
+  border-radius: 50%;
+  background-color: var(--bg-tertiary);
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: var(--font-xl);
+  font-size: var(--font-lg);
   transition: all var(--transition-fast);
   position: relative;
   flex-shrink: 0;
+  text-decoration: none;
 }
 
 .navItem:hover {
   background-color: var(--accent-primary);
   color: white;
   border-radius: var(--radius-lg);
+}
+
+.navItem:hover::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  background-color: white;
+  border-radius: 0 4px 4px 0;
 }
 
 .navItemActive {
@@ -55,13 +69,82 @@
 .navItemActive::before {
   content: '';
   position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 36px;
+  background-color: white;
+  border-radius: 0 4px 4px 0;
+}
+
+.navProjectItem {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--bg-tertiary);
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-base);
+  font-weight: var(--weight-bold);
+  transition: all var(--transition-fast);
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.navProjectItem:hover {
+  background-color: var(--accent-primary);
+  color: white;
+  border-radius: var(--radius-lg);
+}
+
+.navProjectItem:hover::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 20px;
+  background-color: white;
+  border-radius: 0 4px 4px 0;
+}
+
+.navProjectItemActive {
+  background-color: var(--accent-primary);
+  color: white;
+  border-radius: var(--radius-lg);
+}
+
+.navProjectItemActive::before {
+  content: '';
+  position: absolute;
   left: -12px;
   top: 50%;
   transform: translateY(-50%);
   width: 4px;
-  height: 24px;
-  background-color: var(--accent-primary);
+  height: 36px;
+  background-color: var(--text-primary);
   border-radius: 0 4px 4px 0;
+}
+
+.projectBadge {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  background-color: var(--error);
+  color: white;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 10px;
+  border: 2px solid var(--bg-primary);
+  min-width: 16px;
+  text-align: center;
 }
 
 .navItemTooltip {
@@ -175,15 +258,14 @@
 /* Projects Sidebar - Discord-like */
 .sidebar {
   width: 240px;
-  background-color: var(--bg-tertiary);
+  background-color: var(--bg-primary);
   border-right: 1px solid var(--border-primary);
-  padding: var(--space-2) var(--space-1);
+  padding: 0;
   overflow-y: auto;
   overflow-x: hidden;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
 }
 
 .sidebarSection {
@@ -1709,6 +1791,13 @@
   text-align: center;
   line-height: 1.4;
   transition: all 0.15s ease;
+}
+
+.levelDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--space-2);
 }
 
 .projectItem:hover .badge,
