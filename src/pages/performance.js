@@ -592,8 +592,7 @@ export default function PerformancePage() {
       </div>
 
       <div className={styles.main}>
-        {!sidebarCollapsed && (
-          <aside className={styles.sidebar}>
+        <aside className={styles.sidebar}>
             <div className={styles.sidebarSection}>
               <div className={styles.sidebarHeader}>
                 <div className={styles.sidebarTitleContainer}>
@@ -685,23 +684,8 @@ export default function PerformancePage() {
               </div>
             </div>
           </aside>
-        )}
 
         <div className={styles.contentWrapper} style={{ position: 'relative' }}>
-          {/* Sidebar toggle button */}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={styles.sidebarToggle}
-            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          >
-            <span style={{
-              transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
-              display: 'inline-block',
-              transition: 'transform 0.3s ease'
-            }}>
-              ◀
-            </span>
-          </button>
 
           <div style={{ 
             flex: 1, 
@@ -1495,8 +1479,9 @@ export default function PerformancePage() {
             )}
           </div>
         </div>
+        </div>
       </div>
-    </div>
+
   );
 }
 
