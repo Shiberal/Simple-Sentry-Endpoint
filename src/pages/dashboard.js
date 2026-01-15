@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -42,9 +42,6 @@ export default function Dashboard() {
   const [prettifiedMessage, setPrettifiedMessage] = useState(false); // Track if message is prettified
   const [copiedError, setCopiedError] = useState(false); // Track if error was copied
   const [copiedCode, setCopiedCode] = useState(false); // Track if code snippet was copied
-  const [previousIssues, setPreviousIssues] = useState([]); // Track previous issues to detect new errors
-  const [unreadErrorCount, setUnreadErrorCount] = useState(0); // Track unread errors for tab notification
-  const originalTitleRef = useRef(null); // Store original document title
 
   useEffect(() => {
     checkAuth();
@@ -57,46 +54,6 @@ export default function Dashboard() {
     setCopiedError(false);
     setCopiedCode(false);
   }, [selectedEvent]);
-
-  // Store original title on mount
-  useEffect(() => {
-    if (!originalTitleRef.current) {
-      // Extract original title by removing any existing notification prefix
-      const currentTitle = document.title;
-      originalTitleRef.current = currentTitle.replace(/^\(\d+\)\s*⚠️\s*New\s*Errors?\s*-\s*/, '');
-    }
-  }, []);
-
-  // Update browser tab title when there are unread errors
-  useEffect(() => {
-    const originalTitle = originalTitleRef.current || document.title.replace(/^\(\d+\)\s*⚠️\s*New\s*Errors?\s*-\s*/, '');
-    if (unreadErrorCount > 0) {
-      document.title = `(${unreadErrorCount}) ⚠️ New Error${unreadErrorCount > 1 ? 's' : ''} - ${originalTitle}`;
-    } else {
-      // Restore original title
-      document.title = originalTitle;
-    }
-    
-    // Cleanup: restore original title on unmount
-    return () => {
-      document.title = originalTitle;
-    };
-  }, [unreadErrorCount]);
-
-  // Clear unread errors when tab becomes visible (user is viewing the page)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        setUnreadErrorCount(0);
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
 
   // Notification system
   const showNotification = (message, type = 'info') => {
@@ -113,37 +70,6 @@ export default function Dashboard() {
 
   const removeNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  // Play error sound when new error is received
-  const playErrorSound = () => {
-    try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
-      // Create a simple error sound (single beep)
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      // Configure the sound
-      oscillator.frequency.value = 400; // Frequency in Hz
-      oscillator.type = 'sine';
-      
-      // Set volume envelope for a single short beep
-      const beepDuration = 0.1; // 100ms for a quick beep
-      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + beepDuration);
-      
-      // Play the sound
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + beepDuration);
-    } catch (error) {
-      console.error('Error playing sound:', error);
-      // Silently fail if audio context is not available
-    }
   };
 
 
@@ -281,26 +207,7 @@ export default function Dashboard() {
       const eventsData = await eventsRes.json();
       
       if (issuesData.success) {
-        const newIssues = issuesData.issues;
-        
-        // Detect new errors (only if we have previous issues to compare)
-        if (previousIssues.length > 0 && autoRefresh) {
-          // Find new error issues (level === 'error' and not in previous issues)
-          const previousIssueIds = new Set(previousIssues.map(issue => issue.id));
-          const newErrorIssues = newIssues.filter(issue => 
-            issue.level === 'error' && !previousIssueIds.has(issue.id)
-          );
-          
-          // Play sound and update tab notification for new errors
-          if (newErrorIssues.length > 0) {
-            playErrorSound();
-            // Increment unread error count (will be cleared when user views the tab)
-            setUnreadErrorCount(prev => prev + newErrorIssues.length);
-          }
-        }
-        
-        setIssues(newIssues);
-        setPreviousIssues(newIssues);
+        setIssues(issuesData.issues);
       }
       if (projectsData.success) setProjects(projectsData.projects);
       if (eventsData.success) {
@@ -1720,6 +1627,32 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {/* Server Performance Information */}
+              {data._serverPerformance && (
+                <div className={styles.detailSection}>
+                  <h4 className={styles.detailSectionTitle}>🚀 Server Performance</h4>
+                  <div className={styles.infoCard}>
+                    <div className={styles.infoGrid}>
+                      <div className={styles.infoItem}>
+                        <span className={styles.infoLabel}>Total Processing Time</span>
+                        <span className={`${styles.infoValue} ${data._serverPerformance.totalTime > 500 ? styles.valueWarning : styles.valueSuccess}`}>
+                          {data._serverPerformance.totalTime}ms
+                        </span>
+                      </div>
+                      {Object.entries(data._serverPerformance).map(([key, value]) => {
+                        if (key === 'totalTime' || key === '_start') return null;
+                        return (
+                          <div key={key} className={styles.infoItem}>
+                            <span className={styles.infoLabel}>{key.replace(/_/g, ' ')}</span>
+                            <span className={styles.infoValue}>{value}ms</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Message or Exception */}
               {data.exception ? (
                 <div className={styles.detailSection}>
@@ -2400,116 +2333,229 @@ export default function Dashboard() {
       </Head>
       
       <div className={styles.container}>
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>⚡</span>
-              Sentry Monitor
-            </h1>
-            <div className={styles.headerActions}>
-              <span className={styles.userEmail}>{user.email}</span>
-              <Link href="/performance">
-                <button className={styles.headerButton}>
-                  ⚡ Performance
-                </button>
-              </Link>
-              <ThemeToggle />
-              <button 
-                onClick={() => setAutoRefresh(!autoRefresh)}
-                className={styles.headerButton}
-                style={{
-                  backgroundColor: autoRefresh ? 'var(--accent-primary)' : 'var(--bg-secondary)',
-                  color: autoRefresh ? 'white' : 'var(--text-primary)',
-                  borderColor: autoRefresh ? 'var(--accent-primary)' : 'var(--border-primary)'
-                }}
-              >
-                {autoRefresh ? '● Live' : '○ Paused'}
-              </button>
-              <button 
-                onClick={handleDeduplicate}
-                className={styles.headerButton}
-                disabled={isDeduplicating}
-                title="Merge duplicate issues"
-                style={{
-                  opacity: isDeduplicating ? 0.6 : 1,
-                  cursor: isDeduplicating ? 'wait' : 'pointer'
-                }}
-              >
-                {isDeduplicating ? '🔄 Merging...' : '🔀 Deduplicate'}
-              </button>
-              <button onClick={fetchData} className={styles.headerButton}>
-                Refresh
-              </button>
-              <button 
-                onClick={handleLogout} 
-                className={styles.headerButton}
-                style={{ backgroundColor: 'var(--error)', color: 'white', borderColor: 'var(--error)' }}
-              >
-                Logout
-              </button>
+        {/* Left Navigation Sidebar */}
+        <nav className={styles.navSidebar}>
+          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+            <div 
+              className={`${styles.navItem} ${router.pathname === '/dashboard' && !selectedProject ? styles.navItemActive : ''}`}
+              title="Global Dashboard"
+            >
+              📊
+              <div className={styles.navItemTooltip}>Global Dashboard</div>
             </div>
+          </Link>
+          <Link href="/performance" style={{ textDecoration: 'none' }}>
+            <div 
+              className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
+              title="Performance"
+            >
+              ⚡
+              <div className={styles.navItemTooltip}>Performance</div>
+            </div>
+          </Link>
+          
+          <div className={styles.navDivider}></div>
+
+          {/* Project Selector (Discord-like) */}
+          <div 
+            className={`${styles.navProjectItem} ${selectedProject === null ? styles.navProjectItemActive : ''}`}
+            onClick={() => setSelectedProject(null)}
+            title="All Projects"
+          >
+            ALL
+            <div className={styles.navItemTooltip}>All Projects</div>
           </div>
-        </header>
+
+          {projects.map(project => (
+            <div 
+              key={project.id}
+              className={`${styles.navProjectItem} ${selectedProject === project.id ? styles.navProjectItemActive : ''}`}
+              onClick={() => setSelectedProject(project.id)}
+              title={project.name}
+            >
+              {project.name.substring(0, 2).toUpperCase()}
+              {project._count.issues > 0 && (
+                <span className={styles.projectBadge}>{project._count.issues}</span>
+              )}
+              <div className={styles.navItemTooltip}>{project.name}</div>
+            </div>
+          ))}
+
+          <button 
+            className={styles.navProjectItem}
+            onClick={() => setShowNewProjectModal(true)}
+            title="Create New Project"
+            style={{ color: 'var(--success)', fontSize: '24px' }}
+          >
+            +
+            <div className={styles.navItemTooltip}>Create New Project</div>
+          </button>
+
+          <div className={styles.navDivider}></div>
+
+          {user.isAdmin && (
+            <Link href="/admin" style={{ textDecoration: 'none' }}>
+              <div 
+                className={`${styles.navItem} ${router.pathname === '/admin' ? styles.navItemActive : ''}`}
+                title="Admin"
+              >
+                ⚙️
+                <div className={styles.navItemTooltip}>Admin Settings</div>
+              </div>
+            </Link>
+          )}
+          
+          <Link href="/profile" style={{ textDecoration: 'none' }}>
+            <div 
+              className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
+              title="Profile"
+            >
+              👤
+              <div className={styles.navItemTooltip}>Your Profile</div>
+            </div>
+          </Link>
+          
+          <button 
+            className={styles.navItem}
+            onClick={handleLogout}
+            title="Logout"
+          >
+            🚪
+            <div className={styles.navItemTooltip}>Logout</div>
+          </button>
+        </nav>
 
         <div className={styles.main}>
-          {!sidebarCollapsed && (
-            <aside className={styles.sidebar}>
-              <div className={styles.sidebarSection}>
-                <div className={styles.sidebarHeader}>
-                  <div className={styles.sidebarTitleContainer}>
-                    <button
-                      onClick={() => setProjectsCollapsed(!projectsCollapsed)}
-                      className={styles.collapseButton}
-                      title={projectsCollapsed ? 'Expand projects' : 'Collapse projects'}
-                    >
-                      <span 
-                        className={styles.collapseIcon}
-                        style={{
-                          transform: projectsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'
-                        }}
-                      >
-                        ▼
-                      </span>
-                    </button>
-                    <h3 className={styles.sidebarTitle}>Projects</h3>
-                  </div>
-                  <button 
-                    onClick={() => setShowNewProjectModal(true)}
-                    className={styles.addButton}
-                    title="Create new project"
-                  >
-                    +
-                  </button>
-                </div>
-              {!projectsCollapsed && (
-                <div className={styles.projectsList}>
-                  <button
-                    onClick={() => setSelectedProject(null)}
-                    className={`${styles.projectItem} ${selectedProject === null ? styles.projectItemActive : ''}`}
-                  >
-                    <span>All Projects</span>
-                    <span className={styles.badge}>
-                      {projects.reduce((sum, p) => sum + (p._count.issues || 0), 0)}
-                    </span>
-                  </button>
-                  {projects.map(project => (
-                    <div key={project.id} className={styles.projectItemContainer}>
-                      <button
-                        onClick={() => setSelectedProject(project.id)}
-                        className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
-                      >
-                        <span>{project.name}</span>
-                        <span className={styles.badge}>{project._count.issues || 0}</span>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+          <header className={styles.header}>
+            <div className={styles.headerContent}>
+              <h1 className={styles.logo}>
+                <span className={styles.logoIcon}>⚡</span>
+                Sentry Monitor
+              </h1>
+              <div className={styles.headerActions}>
+                <button 
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className={styles.headerButton}
+                  title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
+                >
+                  {autoRefresh ? '●' : '○'} {autoRefresh ? 'Live' : 'Paused'}
+                </button>
+                <button 
+                  onClick={handleDeduplicate}
+                  className={styles.headerButton}
+                  disabled={isDeduplicating}
+                  title="Merge duplicate issues"
+                >
+                  {isDeduplicating ? '🔄' : '🔀'}
+                </button>
+                <button 
+                  onClick={fetchData} 
+                  className={styles.headerButton}
+                  title="Refresh data"
+                >
+                  🔄
+                </button>
+                <ThemeToggle />
+                <span className={styles.userEmail}>{user.email}</span>
               </div>
-            </aside>
-          )}
+            </div>
+          </header>
 
-          <div className={styles.contentWrapper}>
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+            {!sidebarCollapsed && (
+              <aside className={styles.sidebar}>
+                <div className={styles.sidebarSection}>
+                  <div className={styles.sidebarHeader}>
+                    <h3 className={styles.sidebarTitle}>Current View</h3>
+                  </div>
+                  <div style={{ padding: 'var(--space-2) var(--space-4)' }}>
+                    <div style={{ 
+                      background: 'var(--bg-tertiary)', 
+                      padding: 'var(--space-2) var(--space-3)', 
+                      borderRadius: 'var(--radius-md)',
+                      color: 'var(--accent-primary)',
+                      fontWeight: 'var(--weight-bold)',
+                      fontSize: 'var(--font-sm)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 'var(--space-2)'
+                    }}>
+                      <span style={{ fontSize: '18px' }}>{selectedProject ? '📁' : '📊'}</span>
+                      {selectedProject ? projects.find(p => p.id === selectedProject)?.name : 'All Projects'}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.sidebarSection}>
+                  <div className={styles.sidebarHeader}>
+                    <h3 className={styles.sidebarTitle}>Issues</h3>
+                  </div>
+                  <div className={styles.projectsList}>
+                    <button
+                      onClick={() => setFilterStatus('all')}
+                      className={`${styles.projectItem} ${filterStatus === 'all' ? styles.projectItemActive : ''}`}
+                    >
+                      <span>All Issues</span>
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('active')}
+                      className={`${styles.projectItem} ${filterStatus === 'active' ? styles.projectItemActive : ''}`}
+                    >
+                      <span>Active</span>
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('resolved')}
+                      className={`${styles.projectItem} ${filterStatus === 'resolved' ? styles.projectItemActive : ''}`}
+                    >
+                      <span>Resolved</span>
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('ignored')}
+                      className={`${styles.projectItem} ${filterStatus === 'ignored' ? styles.projectItemActive : ''}`}
+                    >
+                      <span>Ignored</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className={styles.sidebarSection}>
+                  <div className={styles.sidebarHeader}>
+                    <h3 className={styles.sidebarTitle}>Level</h3>
+                  </div>
+                  <div className={styles.projectsList}>
+                    <button
+                      onClick={() => setFilterLevel('all')}
+                      className={`${styles.projectItem} ${filterLevel === 'all' ? styles.projectItemActive : ''}`}
+                    >
+                      <span>All Levels</span>
+                    </button>
+                    <button
+                      onClick={() => setFilterLevel('error')}
+                      className={`${styles.projectItem} ${filterLevel === 'error' ? styles.projectItemActive : ''}`}
+                    >
+                      <span className={styles.levelDot} style={{ backgroundColor: 'var(--error)' }}></span>
+                      <span>Error</span>
+                    </button>
+                    <button
+                      onClick={() => setFilterLevel('warning')}
+                      className={`${styles.projectItem} ${filterLevel === 'warning' ? styles.projectItemActive : ''}`}
+                    >
+                      <span className={styles.levelDot} style={{ backgroundColor: 'var(--warning)' }}></span>
+                      <span>Warning</span>
+                    </button>
+                    <button
+                      onClick={() => setFilterLevel('info')}
+                      className={`${styles.projectItem} ${filterLevel === 'info' ? styles.projectItemActive : ''}`}
+                    >
+                      <span className={styles.levelDot} style={{ backgroundColor: 'var(--info)' }}></span>
+                      <span>Info</span>
+                    </button>
+                  </div>
+                </div>
+              </aside>
+            )}
+
+            <div className={styles.contentWrapper}>
             {/* Sidebar toggle button */}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -2563,66 +2609,6 @@ export default function Dashboard() {
                     </div>
                   </div>
                 )}
-                <div className={styles.eventsHeaderTop}>
-                  <h2 className={styles.eventsTitle}>
-                    Issues & Events ({filteredIssues.length})
-                  </h2>
-                  {!isSelectionMode && (
-                    <div className={styles.filterToolbar}>
-                      <div className={styles.filterGroup}>
-                        <select 
-                          value={filterLevel} 
-                          onChange={(e) => setFilterLevel(e.target.value)}
-                          className={styles.filterSelect}
-                        >
-                          <option value="all">All Levels</option>
-                          <option value="error">🔴 Errors</option>
-                          <option value="warning">🟡 Warnings</option>
-                          <option value="info">🔵 Info</option>
-                        </select>
-                        <select 
-                          value={filterStatus} 
-                          onChange={(e) => setFilterStatus(e.target.value)}
-                          className={styles.filterSelect}
-                        >
-                          <option value="active">⚡ Active</option>
-                          <option value="unresolved">⭕ Unresolved</option>
-                          <option value="resolved">✅ Resolved</option>
-                          <option value="ignored">🔕 Ignored</option>
-                          <option value="all">All Statuses</option>
-                        </select>
-                        <select 
-                          value={filterEventType} 
-                          onChange={(e) => setFilterEventType(e.target.value)}
-                          className={styles.filterSelect}
-                        >
-                          <option value="all">All Types</option>
-                          <option value="ERROR">🔴 Errors</option>
-                          <option value="CSP">🛡️ CSP Violations</option>
-                          <option value="MINIDUMP">💥 Crashes</option>
-                          <option value="TRANSACTION">⚡ Performance</option>
-                          <option value="MESSAGE">💬 Messages</option>
-                        </select>
-                      </div>
-                      <div className={styles.toolbarActions}>
-                        <button
-                          onClick={() => setIsSelectionMode(true)}
-                          className={styles.selectButton}
-                        >
-                          ☑️ Select
-                        </button>
-                        {selectedProject && (
-                          <Link 
-                            href={`/project/${selectedProject}`}
-                            className={styles.projectSettingsButton}
-                          >
-                            ⚙️ Project Settings
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
                 <input
                   type="text"
                   placeholder="Search issues..."
@@ -2834,6 +2820,7 @@ export default function Dashboard() {
             {renderEventDetail()}
             </div>
           </div>
+        </div>
         </div>
 
         {/* New Project Modal */}

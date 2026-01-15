@@ -12,6 +12,20 @@ function getUserFromCookie(req) {
   }
 }
 
+async function isProjectOwner(userId, projectId) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    include: {
+      projectOwners: {
+        select: { id: true }
+      }
+    }
+  });
+  
+  if (!project) return false;
+  return project.projectOwners.some(owner => owner.id === userId);
+}
+
 export default async function handler(req, res) {
   const { method, query } = req;
   const { id } = query;
@@ -27,7 +41,16 @@ export default async function handler(req, res) {
               select: {
                 id: true,
                 email: true,
-                name: true
+                name: true,
+                username: true
+              }
+            },
+            projectOwners: {
+              select: {
+                id: true,
+                email: true,
+                name: true,
+                username: true
               }
             },
             _count: {
@@ -67,7 +90,9 @@ export default async function handler(req, res) {
         const project = await prisma.project.findUnique({
           where: { id: parseInt(id) },
           include: {
-            users: true
+            users: {
+              select: { id: true }
+            }
           }
         });
 
@@ -78,6 +103,14 @@ export default async function handler(req, res) {
         // Check if user has access to this project
         if (!project.users.some(u => u.id === user.userId)) {
           return res.status(403).json({ error: 'Access denied' });
+        }
+
+        // Enforce deletion constraint: only allow deletion when there is exactly one user
+        if (project.users.length !== 1) {
+          return res.status(400).json({ 
+            error: 'Project deletion not allowed',
+            message: 'Projects can only be deleted when there is exactly one user remaining. Please remove all other users first.'
+          });
         }
 
         // Delete all events first

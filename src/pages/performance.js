@@ -575,69 +575,103 @@ export default function PerformancePage() {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <div className={styles.headerContent}>
-          <h1 className={styles.logo}>
-            <span className={styles.logoIcon}>⚡</span>
-            Performance Analytics
-          </h1>
-          <div className={styles.headerActions}>
-            <Link href="/dashboard">
-              <button className={styles.headerButton}>
-                📊 Dashboard
-              </button>
-            </Link>
+      {/* Left Navigation Sidebar */}
+      <nav className={styles.navSidebar}>
+        <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+          <div 
+            className={`${styles.navItem} ${router.pathname === '/dashboard' ? styles.navItemActive : ''}`}
+            title="Global Dashboard"
+          >
+            📊
+            <div className={styles.navItemTooltip}>Global Dashboard</div>
           </div>
-        </div>
-      </div>
+        </Link>
+        <Link href="/performance" style={{ textDecoration: 'none' }}>
+          <div 
+            className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
+            title="Performance"
+          >
+            ⚡
+            <div className={styles.navItemTooltip}>Performance</div>
+          </div>
+        </Link>
+        
+        <div className={styles.navDivider}></div>
+
+        {/* Project Selector (Discord-like) */}
+        {projects.map(project => (
+          <div 
+            key={project.id}
+            className={`${styles.navProjectItem} ${selectedProject === project.id ? styles.navProjectItemActive : ''}`}
+            onClick={() => setSelectedProject(project.id)}
+            title={project.name}
+          >
+            {project.name.substring(0, 2).toUpperCase()}
+            <div className={styles.navItemTooltip}>{project.name}</div>
+          </div>
+        ))}
+
+        <div className={styles.navDivider}></div>
+
+        <Link href="/profile" style={{ textDecoration: 'none' }}>
+          <div 
+            className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
+            title="Profile"
+          >
+            👤
+            <div className={styles.navItemTooltip}>Your Profile</div>
+          </div>
+        </Link>
+      </nav>
 
       <div className={styles.main}>
-        {!sidebarCollapsed && (
+        <header className={styles.header}>
+          <div className={styles.headerContent}>
+            <h1 className={styles.logo}>
+              <span className={styles.logoIcon}>⚡</span>
+              Performance Analytics
+            </h1>
+            <div className={styles.headerActions}>
+              <button 
+                onClick={() => {
+                  if (viewMode === 'timeseries') fetchTimeSeries();
+                  else fetchTransactions();
+                }}
+                className={styles.headerButton}
+                title="Refresh data"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           <aside className={styles.sidebar}>
             <div className={styles.sidebarSection}>
               <div className={styles.sidebarHeader}>
-                <div className={styles.sidebarTitleContainer}>
-                  <button
-                    onClick={() => setProjectsCollapsed(!projectsCollapsed)}
-                    className={styles.collapseButton}
-                    title={projectsCollapsed ? 'Expand projects' : 'Collapse projects'}
-                  >
-                    <span 
-                      className={styles.collapseIcon}
-                      style={{
-                        transform: projectsCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)'
-                      }}
-                    >
-                      ▼
-                    </span>
-                  </button>
-                  <h3 className={styles.sidebarTitle}>Projects</h3>
+                <h3 className={styles.sidebarTitle}>Current Project</h3>
+              </div>
+              <div style={{ padding: 'var(--space-2) var(--space-4)' }}>
+                <div style={{ 
+                  background: 'var(--bg-tertiary)', 
+                  padding: 'var(--space-2) var(--space-3)', 
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--accent-primary)',
+                  fontWeight: 'var(--weight-bold)',
+                  fontSize: 'var(--font-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--space-2)'
+                }}>
+                  <span style={{ fontSize: '18px' }}>📁</span>
+                  {projects.find(p => p.id === selectedProject)?.name || 'Select a project'}
                 </div>
               </div>
-              {!projectsCollapsed && (
-                <div className={styles.projectsList}>
-                  {projects.length === 0 ? (
-                    <div style={{ padding: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--font-sm)' }}>
-                      No projects available. Create a project first.
-                    </div>
-                  ) : (
-                    projects.map(project => (
-                      <div key={project.id} className={styles.projectItemContainer}>
-                        <button
-                          onClick={() => setSelectedProject(project.id)}
-                          className={`${styles.projectItem} ${selectedProject === project.id ? styles.projectItemActive : ''}`}
-                        >
-                          <span>{project.name}</span>
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
             </div>
 
             {/* Filters Section */}
-            <div className={styles.sidebarSection} style={{ marginTop: 'var(--space-4)' }}>
+            <div className={styles.sidebarSection} style={{ marginTop: 'var(--space-2)' }}>
               <div className={styles.sidebarHeader}>
                 <h3 className={styles.sidebarTitle}>Filters</h3>
               </div>
@@ -685,23 +719,8 @@ export default function PerformancePage() {
               </div>
             </div>
           </aside>
-        )}
 
         <div className={styles.contentWrapper} style={{ position: 'relative' }}>
-          {/* Sidebar toggle button */}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={styles.sidebarToggle}
-            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          >
-            <span style={{
-              transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
-              display: 'inline-block',
-              transition: 'transform 0.3s ease'
-            }}>
-              ◀
-            </span>
-          </button>
 
           <div style={{ 
             flex: 1, 
@@ -1494,6 +1513,7 @@ export default function PerformancePage() {
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
     </div>
