@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-export function middleware(request) {
+export function proxy(request) {
   const startTime = Date.now();
   const { pathname, search } = request.nextUrl;
   const method = request.method;
@@ -74,7 +74,7 @@ function getStatusText(status) {
   return statusTexts[status] || '';
 }
 
-// Configure which paths the middleware should run on
+// Configure which paths the proxy should run on
 export const config = {
   matcher: [
     /*
@@ -86,4 +86,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
-
