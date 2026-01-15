@@ -23,6 +23,7 @@ export default async function handler(req, res) {
       select: {
         id: true,
         email: true,
+        username: true,
         name: true,
         isAdmin: true,
         createdAt: true

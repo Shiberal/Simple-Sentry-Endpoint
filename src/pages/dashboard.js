@@ -2408,6 +2408,11 @@ export default function Dashboard() {
             </h1>
             <div className={styles.headerActions}>
               <span className={styles.userEmail}>{user.email}</span>
+              <Link href="/profile">
+                <button className={styles.headerButton}>
+                  👤 Profile
+                </button>
+              </Link>
               {user.isAdmin && (
                 <Link href="/admin">
                   <button className={styles.headerButton}>
