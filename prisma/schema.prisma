@@ -29,7 +29,7 @@ enum EventType {
 model User {
   id             Int       @id @default(autoincrement())
   email          String    @unique
-  username       String?   @unique //is null cause cant force a migration to update all users
+  username       String?   @unique @default(uuid())
   name           String?  
   password       String
   isAdmin        Boolean   @default(false)
