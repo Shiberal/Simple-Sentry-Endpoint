@@ -1627,6 +1627,32 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {/* Server Performance Information */}
+              {data._serverPerformance && (
+                <div className={styles.detailSection}>
+                  <h4 className={styles.detailSectionTitle}>🚀 Server Performance</h4>
+                  <div className={styles.infoCard}>
+                    <div className={styles.infoGrid}>
+                      <div className={styles.infoItem}>
+                        <span className={styles.infoLabel}>Total Processing Time</span>
+                        <span className={`${styles.infoValue} ${data._serverPerformance.totalTime > 500 ? styles.valueWarning : styles.valueSuccess}`}>
+                          {data._serverPerformance.totalTime}ms
+                        </span>
+                      </div>
+                      {Object.entries(data._serverPerformance).map(([key, value]) => {
+                        if (key === 'totalTime' || key === '_start') return null;
+                        return (
+                          <div key={key} className={styles.infoItem}>
+                            <span className={styles.infoLabel}>{key.replace(/_/g, ' ')}</span>
+                            <span className={styles.infoValue}>{value}ms</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Message or Exception */}
               {data.exception ? (
                 <div className={styles.detailSection}>

@@ -3,6 +3,7 @@ import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import crypto from 'crypto';
 import { sendErrorNotification } from '@/lib/telegram';
+import { createTracker, withPerformance } from '@/lib/server-performance';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -98,9 +99,11 @@ export default async function handler(req, res) {
 
     case 'POST':
       console.log('💥 Processing POST request with minidump data...');
+      const tracker = createTracker();
       try {
         // Get raw body buffer
         const rawBody = await getRawBody(req);
+        tracker.mark('receive_body');
         
         console.log('📄 Received data length:', rawBody.length, 'bytes');
         
@@ -115,6 +118,7 @@ export default async function handler(req, res) {
             const boundary = boundaryMatch[1].trim();
             console.log('📦 Parsing multipart data with boundary:', boundary);
             metadata = parseMultipartMetadata(rawBody, boundary);
+            tracker.mark('parse_multipart');
             console.log('✅ Extracted metadata:', Object.keys(metadata).join(', '));
           }
         } else if (contentType.includes('application/json')) {
@@ -140,6 +144,7 @@ export default async function handler(req, res) {
         const project = await prisma.project.findFirst({
           where: { id: projectId }
         });
+        tracker.mark('project_lookup');
 
         if (!project) {
           console.error('❌ Project not found with ID:', projectId);
@@ -164,6 +169,7 @@ export default async function handler(req, res) {
         
         // Create a descriptive title
         const title = `Native Crash: ${crashReason} on ${platform}`;
+        tracker.mark('extract_metadata');
         
         // Find or create issue
         let issue = await prisma.issue.findUnique({
@@ -174,6 +180,7 @@ export default async function handler(req, res) {
             }
           }
         });
+        tracker.mark('issue_lookup');
 
         let isNewIssue = false;
 
@@ -187,6 +194,7 @@ export default async function handler(req, res) {
               lastSeen: new Date()
             }
           });
+          tracker.mark('issue_update');
         } else {
           // Create new issue
           console.log('🆕 Creating NEW minidump issue:', title);
@@ -203,6 +211,7 @@ export default async function handler(req, res) {
               lastSeen: new Date()
             }
           });
+          tracker.mark('issue_create');
         }
 
         // Transform minidump metadata into event data
@@ -243,9 +252,10 @@ export default async function handler(req, res) {
             projectId: project.id,
             issueId: issue.id,
             eventType: 'MINIDUMP',
-            data: eventData
+            data: withPerformance(eventData, tracker.getTimings())
           }
         });
+        tracker.mark('save_event');
         
         console.log('💾 Minidump event saved to database (ID:', event.id, ')');
         console.log('ℹ️  Note: Full minidump binary analysis is not implemented');
@@ -264,7 +274,8 @@ export default async function handler(req, res) {
             console.error('❌ Error sending Telegram notification:', error);
           }
         }
-
+        
+        tracker.mark('notifications');
         console.log('✅ SUCCESS: Minidump processed successfully!');
         console.log(`   Event ID: ${event.id}`);
         console.log(`   Issue ID: ${issue.id}`);
