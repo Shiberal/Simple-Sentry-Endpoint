@@ -1270,6 +1270,16 @@
   font-family: 'Monaco', 'Menlo', monospace;
 }
 
+.valueWarning {
+  color: var(--warning) !important;
+  font-weight: var(--weight-bold);
+}
+
+.valueSuccess {
+  color: var(--success) !important;
+  font-weight: var(--weight-medium);
+}
+
 /* Code block */
 .codeBlock {
   background-color: var(--bg-secondary);

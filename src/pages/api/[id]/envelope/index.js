@@ -5,6 +5,7 @@ import { generateFingerprint, extractTitle, extractCulprit, extractLevel } from 
 import { sendNewIssueAlert } from '@/lib/email';
 import { createGitHubIssue, shouldAutoReport, updateGitHubIssue } from '@/lib/github';
 import { sendErrorNotification } from '@/lib/telegram';
+import { createTracker, withPerformance } from '@/lib/server-performance';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -61,9 +62,11 @@ export default async function handler(req, res) {
 
     case 'POST':
       console.log('📦 Processing POST request with error data...');
+      const tracker = createTracker();
       try {
         // Get raw body buffer
         const rawBody = await getRawBody(req);
+        tracker.mark('receive_body');
         
         // Check if content is gzipped
         const contentEncoding = req.headers['content-encoding'];
@@ -77,6 +80,7 @@ export default async function handler(req, res) {
           // If not gzipped, just convert to string
           decompressedData = rawBody.toString('utf-8');
         }
+        tracker.mark('decompress');
         
         console.log('📄 Decompressed data length:', decompressedData.length, 'bytes');
         console.log('📄 First 200 chars:', decompressedData.substring(0, 200));
@@ -99,6 +103,7 @@ export default async function handler(req, res) {
             // Fallback to second line for simpler formats
             eventData = JSON.parse(lines[1]);
           }
+          tracker.mark('parse_envelope');
         } catch (parseError) {
           console.log('Could not parse event data:', parseError);
           console.log('Available lines:', lines.length);
@@ -120,6 +125,7 @@ export default async function handler(req, res) {
         const project = await prisma.project.findFirst({
           where: { id: projectId }
         });
+        tracker.mark('project_lookup');
 
         if (!project) {
           console.error('❌ Project not found with ID:', projectId);
@@ -154,9 +160,10 @@ export default async function handler(req, res) {
               projectId: project.id,
               issueId: null, // Transactions don't have issues
               eventType: eventType,
-              data: eventData
+              data: withPerformance(eventData, tracker.getTimings())
             }
           });
+          tracker.mark('save_event');
           
           console.log('💾 Transaction saved to database (ID:', event.id, ')');
         } else {
@@ -165,6 +172,7 @@ export default async function handler(req, res) {
           const title = extractTitle(eventData);
           const culprit = extractCulprit(eventData);
           const level = extractLevel(eventData);
+          tracker.mark('extract_metadata');
 
           // Find or create issue
           issue = await prisma.issue.findUnique({
@@ -175,6 +183,7 @@ export default async function handler(req, res) {
               }
             }
           });
+          tracker.mark('issue_lookup');
 
           if (issue) {
             // Update existing issue
@@ -186,6 +195,7 @@ export default async function handler(req, res) {
                 lastSeen: new Date()
               }
             });
+            tracker.mark('issue_update');
           } else {
             // Create new issue
             console.log('🆕 Creating NEW issue:', title);
@@ -202,6 +212,7 @@ export default async function handler(req, res) {
                 lastSeen: new Date()
               }
             });
+            tracker.mark('issue_create');
           }
 
           // Save event to database linked to issue
@@ -210,9 +221,10 @@ export default async function handler(req, res) {
               projectId: project.id,
               issueId: issue.id,
               eventType: eventType,
-              data: eventData
+              data: withPerformance(eventData, tracker.getTimings())
             }
           });
+          tracker.mark('save_event');
         }
         
         console.log('💾 Event saved to database (ID:', event.id, ')');
@@ -377,6 +389,7 @@ export default async function handler(req, res) {
           }
         }
         
+        tracker.mark('notifications');
         console.log('✅ SUCCESS: Envelope processed successfully!');
         console.log(`   Event ID: ${event.id}`);
         console.log(`   Event Type: ${eventType}`);

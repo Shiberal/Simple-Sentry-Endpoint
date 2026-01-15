@@ -3,6 +3,7 @@ import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import crypto from 'crypto';
 import { sendErrorNotification } from '@/lib/telegram';
+import { createTracker, withPerformance } from '@/lib/server-performance';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -65,9 +66,11 @@ export default async function handler(req, res) {
 
     case 'POST':
       console.log('🛡️  Processing POST request with CSP violation report...');
+      const tracker = createTracker();
       try {
         // Get raw body buffer
         const rawBody = await getRawBody(req);
+        tracker.mark('receive_body');
         
         // Check if content is gzipped
         const contentEncoding = req.headers['content-encoding'];
@@ -79,6 +82,7 @@ export default async function handler(req, res) {
         } else {
           decompressedData = rawBody.toString('utf-8');
         }
+        tracker.mark('decompress');
         
         console.log('📄 Decompressed data length:', decompressedData.length, 'bytes');
         
@@ -88,6 +92,7 @@ export default async function handler(req, res) {
           const parsed = JSON.parse(decompressedData);
           // CSP reports come in format: { "csp-report": { ... } }
           cspData = parsed['csp-report'] || parsed;
+          tracker.mark('parse_json');
           console.log('✅ Parsed CSP report successfully');
           console.log('   Violated Directive:', cspData['violated-directive'] || cspData['effective-directive']);
           console.log('   Blocked URI:', cspData['blocked-uri']);
@@ -113,6 +118,7 @@ export default async function handler(req, res) {
         const project = await prisma.project.findFirst({
           where: { id: projectId }
         });
+        tracker.mark('project_lookup');
 
         if (!project) {
           console.error('❌ Project not found with ID:', projectId);
@@ -136,6 +142,7 @@ export default async function handler(req, res) {
         
         // Create a descriptive title
         const title = `CSP Violation: ${violatedDirective} blocked ${blockedUri}`;
+        tracker.mark('extract_metadata');
         
         // Find or create issue
         let issue = await prisma.issue.findUnique({
@@ -146,6 +153,7 @@ export default async function handler(req, res) {
             }
           }
         });
+        tracker.mark('issue_lookup');
 
         let isNewIssue = false;
 
@@ -159,6 +167,7 @@ export default async function handler(req, res) {
               lastSeen: new Date()
             }
           });
+          tracker.mark('issue_update');
         } else {
           // Create new issue
           console.log('🆕 Creating NEW CSP issue:', title);
@@ -178,6 +187,7 @@ export default async function handler(req, res) {
               lastSeen: new Date()
             }
           });
+          tracker.mark('issue_create');
         }
 
         // Transform CSP report into Sentry-like event data for storage
@@ -212,9 +222,10 @@ export default async function handler(req, res) {
             projectId: project.id,
             issueId: issue.id,
             eventType: 'CSP',
-            data: eventData
+            data: withPerformance(eventData, tracker.getTimings())
           }
         });
+        tracker.mark('save_event');
         
         console.log('💾 CSP violation saved to database (ID:', event.id, ')');
 
@@ -232,7 +243,8 @@ export default async function handler(req, res) {
             console.error('❌ Error sending Telegram notification:', error);
           }
         }
-
+        
+        tracker.mark('notifications');
         console.log('✅ SUCCESS: CSP report processed successfully!');
         console.log(`   Event ID: ${event.id}`);
         console.log(`   Issue ID: ${issue.id}`);
