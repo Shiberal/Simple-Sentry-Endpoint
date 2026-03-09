@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -36,6 +36,7 @@ export default function PerformancePage() {
   const [availableEndpoints, setAvailableEndpoints] = useState([]);
   const [error, setError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const refreshFnRef = useRef(null);
 
   // Helper to get CSS variable value for SVG (some browsers need computed values)
   const getCSSVariable = (varName) => {
@@ -63,11 +64,7 @@ export default function PerformancePage() {
     if (!autoRefresh || selectedProject == null) return;
     const refreshIntervalMs = 15000;
     const id = setInterval(() => {
-      if (viewMode === 'timeseries') {
-        fetchTimeSeries();
-      } else {
-        fetchTransactions();
-      }
+      refreshFnRef.current?.();
     }, refreshIntervalMs);
     return () => clearInterval(id);
   }, [autoRefresh, selectedProject, viewMode]);
@@ -255,6 +252,9 @@ export default function PerformancePage() {
       setLoading(false);
     }
   };
+
+  // Keep ref pointing at the current fetch so the interval always calls the latest
+  refreshFnRef.current = viewMode === 'timeseries' ? fetchTimeSeries : fetchTransactions;
 
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 Bytes';
