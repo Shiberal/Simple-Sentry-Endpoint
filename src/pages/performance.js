@@ -37,6 +37,8 @@ export default function PerformancePage() {
   const [error, setError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const refreshFnRef = useRef(null);
+  const selectedProjectRef = useRef(selectedProject);
+  selectedProjectRef.current = selectedProject;
 
   // Helper to get CSS variable value for SVG (some browsers need computed values)
   const getCSSVariable = (varName) => {
@@ -62,9 +64,12 @@ export default function PerformancePage() {
 
   useEffect(() => {
     if (!autoRefresh || selectedProject == null) return;
-    const refreshIntervalMs = 15000;
+    const refreshIntervalMs = 5000;
     const id = setInterval(() => {
-      refreshFnRef.current?.();
+      const projectId = selectedProjectRef.current;
+      if (projectId == null) return;
+      const fn = refreshFnRef.current;
+      if (fn) fn(projectId);
     }, refreshIntervalMs);
     return () => clearInterval(id);
   }, [autoRefresh, selectedProject, viewMode]);
@@ -84,8 +89,9 @@ export default function PerformancePage() {
     }
   };
 
-  const fetchTransactions = async () => {
-    if (selectedProject === null || selectedProject === undefined) {
+  const fetchTransactions = async (optionalProjectId) => {
+    const projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
+    if (projectId === null || projectId === undefined) {
       setTransactions([]);
       setAnalytics(null);
       setPerformanceSeries([]);
@@ -93,11 +99,14 @@ export default function PerformancePage() {
       setLoading(false);
       return;
     }
-    
-    setLoading(true);
+
+    const isBackgroundRefresh = optionalProjectId !== undefined;
+    if (!isBackgroundRefresh) {
+      setLoading(true);
+    }
     setError(null);
     try {
-      const response = await fetch(`/api/analytics/performance?projectId=${selectedProject}`);
+      const response = await fetch(`/api/analytics/performance?projectId=${projectId}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch: ${response.statusText}`);
@@ -209,14 +218,18 @@ export default function PerformancePage() {
       setPerformanceSeries([]);
       setAvailableEndpoints([]);
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) setLoading(false);
     }
   };
 
-  const fetchTimeSeries = async () => {
-    if (!selectedProject) return;
-    
-    setLoading(true);
+  const fetchTimeSeries = async (optionalProjectId) => {
+    const projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
+    if (!projectId) return;
+
+    const isBackgroundRefresh = optionalProjectId !== undefined;
+    if (!isBackgroundRefresh) {
+      setLoading(true);
+    }
     try {
       let startDate, endDate;
       const end = new Date();
@@ -237,24 +250,26 @@ export default function PerformancePage() {
       }
       
       const params = new URLSearchParams({
-        projectId: selectedProject,
+        projectId: String(projectId),
         interval: interval,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
       });
-      
+
       const response = await fetch(`/api/analytics/performance/timeseries?${params}`);
       const data = await response.json();
       setTimeSeriesData(data);
     } catch (error) {
       console.error('Error fetching time series:', error);
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) setLoading(false);
     }
   };
 
-  // Keep ref pointing at the current fetch so the interval always calls the latest
-  refreshFnRef.current = viewMode === 'timeseries' ? fetchTimeSeries : fetchTransactions;
+  // Wrapper so the interval can pass current projectId and always call the latest fetch
+  refreshFnRef.current = viewMode === 'timeseries'
+    ? (id) => fetchTimeSeries(id)
+    : (id) => fetchTransactions(id);
 
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 Bytes';
