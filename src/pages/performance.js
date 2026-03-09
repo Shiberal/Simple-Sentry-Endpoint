@@ -217,11 +217,11 @@ export default function PerformancePage() {
           });
         });
         
-        // Sort each group by timestamp and convert to time series
-        const series = Object.entries(grouped).map(([name, points]) => ({
-          name,
-          data: points.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-        }));
+      // Sort each group by timestamp and convert to time series
+      const series = Object.entries(grouped).map(([name, points]) => ({
+        name,
+        data: points.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      }));
         
         setPerformanceSeries(series);
         
@@ -370,7 +370,7 @@ export default function PerformancePage() {
         date: dateLabel,
         value: s.metrics?.[metricKey] || 0
       };
-    }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Sort chronologically
+    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort chronologically (newest first)
     
     const values = chartData.map(d => d.value);
     const max = Math.max(...values, 1);
@@ -511,7 +511,7 @@ export default function PerformancePage() {
         });
       }
     });
-    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(a) - new Date(b));
+    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(b) - new Date(a));
     
     // Transform data for Recharts - create unified dataset
     const chartData = sortedTimestamps.map(timestamp => {
