@@ -72,7 +72,7 @@ export default function PerformancePage() {
       if (fn) fn(projectId);
     }, refreshIntervalMs);
     return () => clearInterval(id);
-  }, [autoRefresh, selectedProject, viewMode]);
+  }, [autoRefresh, selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate]);
 
   const fetchProjects = async () => {
     try {
@@ -80,7 +80,7 @@ export default function PerformancePage() {
       const data = await response.json();
       const projectsList = data.projects || [];
       setProjects(projectsList);
-      if (projectsList.length > 0) {
+      if (projectsList.length > 0 && selectedProject === null) {
         setSelectedProject(projectsList[0].id);
       }
     } catch (error) {
@@ -294,8 +294,8 @@ export default function PerformancePage() {
     }));
     
     return (
-      <div style={{ padding: '20px 0', width: '100%', height: '300px' }}>
-        <ResponsiveContainer width="100%" height="100%">
+      <div style={{ padding: '20px 0', width: '100%', height: '300px', minHeight: '300px' }}>
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
           <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
             <XAxis 
@@ -356,8 +356,8 @@ export default function PerformancePage() {
     return (
       <div style={{ padding: 'var(--space-5) 0' }}>
         <h3 style={{ fontSize: 'var(--font-base)', marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>{label}</h3>
-        <div style={{ width: '100%', height: '250px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)' }}>
-          <ResponsiveContainer width="100%" height="100%">
+        <div style={{ width: '100%', height: '250px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)', minHeight: '250px' }}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
               <XAxis 
@@ -529,8 +529,8 @@ export default function PerformancePage() {
         }}>
           ⚡ Performance by Transaction Type - {metricLabel}
         </h3>
-        <div style={{ width: '100%', height: '400px' }}>
-          <ResponsiveContainer width="100%" height="100%">
+        <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
               <XAxis 
