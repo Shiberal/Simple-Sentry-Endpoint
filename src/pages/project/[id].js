@@ -33,11 +33,20 @@ export default function ProjectSettings() {
   const [removingUsers, setRemovingUsers] = useState(false);
   const [isProjectOwner, setIsProjectOwner] = useState(false);
 
+  // Validate project id to prevent SSRF/path traversal: only allow positive integer
+  const projectId = (typeof id === 'string' && /^\d+$/.test(id) && parseInt(id, 10) > 0)
+    ? id
+    : null;
+
   useEffect(() => {
     if (id) {
+      if (!projectId) {
+        router.push('/dashboard');
+        return;
+      }
       checkAuth();
     }
-  }, [id]);
+  }, [id, projectId]);
 
   // Check project ownership when both user and project are available
   useEffect(() => {
@@ -62,8 +71,9 @@ export default function ProjectSettings() {
   };
 
   const fetchProject = async () => {
+    if (!projectId) return;
     try {
-      const response = await fetch(`/api/projects/${id}`);
+      const response = await fetch(`/api/projects/${projectId}`);
       if (!response.ok) {
         router.push('/dashboard');
         return;
@@ -94,8 +104,9 @@ export default function ProjectSettings() {
   };
 
   const fetchIgnoredIssues = async () => {
+    if (!projectId) return;
     try {
-      const response = await fetch(`/api/issues?projectId=${id}&status=ignored&pageSize=100`);
+      const response = await fetch(`/api/issues?projectId=${projectId}&status=ignored&pageSize=100`);
       if (response.ok) {
         const data = await response.json();
         setIgnoredIssues(data.issues || []);
@@ -134,6 +145,7 @@ export default function ProjectSettings() {
 
   const handleSaveGitHub = async (e) => {
     e.preventDefault();
+    if (!projectId) return;
     setSaving(true);
     setSaved(false);
     
@@ -144,7 +156,7 @@ export default function ProjectSettings() {
         environments: filterEnvironments ? filterEnvironments.split(',').map(e => e.trim()).filter(Boolean) : []
       };
 
-      const response = await fetch(`/api/projects/${id}`, {
+      const response = await fetch(`/api/projects/${projectId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,11 +181,12 @@ export default function ProjectSettings() {
 
   const handleSaveTelegram = async (e) => {
     e.preventDefault();
+    if (!projectId) return;
     setSavingTelegram(true);
     setSavedTelegram(false);
     
     try {
-      const response = await fetch(`/api/projects/${id}`, {
+      const response = await fetch(`/api/projects/${projectId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,9 +207,10 @@ export default function ProjectSettings() {
   };
 
   const handleClearData = async () => {
+    if (!projectId) return;
     setClearingData(true);
     try {
-      const response = await fetch(`/api/projects/${id}/clear-data`, {
+      const response = await fetch(`/api/projects/${projectId}/clear-data`, {
         method: 'POST'
       });
 
@@ -219,8 +233,9 @@ export default function ProjectSettings() {
   };
 
   const fetchProjectMembers = async () => {
+    if (!projectId) return;
     try {
-      const response = await fetch(`/api/projects/${id}/users`);
+      const response = await fetch(`/api/projects/${projectId}/users`);
       if (response.ok) {
         const data = await response.json();
         setProjectMembers(data.members || []);
@@ -232,11 +247,11 @@ export default function ProjectSettings() {
 
   const handleAddUser = async (e) => {
     e.preventDefault();
-    if (!newUsername.trim()) return;
+    if (!newUsername.trim() || !projectId) return;
 
     setAddingUser(true);
     try {
-      const response = await fetch(`/api/projects/${id}/users`, {
+      const response = await fetch(`/api/projects/${projectId}/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: newUsername.trim(), isAdmin: false })
@@ -260,8 +275,9 @@ export default function ProjectSettings() {
   };
 
   const handleToggleAdmin = async (userId, currentAdminStatus) => {
+    if (!projectId) return;
     try {
-      const response = await fetch(`/api/projects/${id}/users/${userId}`, {
+      const response = await fetch(`/api/projects/${projectId}/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isAdmin: !currentAdminStatus })
@@ -281,12 +297,13 @@ export default function ProjectSettings() {
   };
 
   const handleRemoveUser = async (userId) => {
+    if (!projectId) return;
     if (!confirm('Are you sure you want to remove this user from the project?')) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/projects/${id}/users/${userId}`, {
+      const response = await fetch(`/api/projects/${projectId}/users/${userId}`, {
         method: 'DELETE'
       });
 
@@ -305,7 +322,7 @@ export default function ProjectSettings() {
   };
 
   const handleBulkRemoveUsers = async () => {
-    if (selectedUsers.length === 0) return;
+    if (!projectId || selectedUsers.length === 0) return;
     
     if (!confirm(`Are you sure you want to remove ${selectedUsers.length} user(s) from the project?`)) {
       return;
@@ -313,7 +330,7 @@ export default function ProjectSettings() {
 
     setRemovingUsers(true);
     try {
-      const response = await fetch(`/api/projects/${id}/users`, {
+      const response = await fetch(`/api/projects/${projectId}/users`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userIds: selectedUsers })
@@ -353,8 +370,9 @@ export default function ProjectSettings() {
   };
 
   const handleDelete = async () => {
+    if (!projectId) return;
     try {
-      const response = await fetch(`/api/projects/${id}`, {
+      const response = await fetch(`/api/projects/${projectId}`, {
         method: 'DELETE'
       });
 
@@ -370,7 +388,7 @@ export default function ProjectSettings() {
     }
   };
 
-  if (loading || !project) {
+  if (!projectId || loading || !project) {
     return (
       <div className={styles.container}>
         <div className={styles.loading}>Loading...</div>
