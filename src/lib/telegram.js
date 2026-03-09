@@ -172,27 +172,12 @@ export function formatCrashNotification(issue, event, project) {
  * @param {string} text - Text to escape
  * @returns {string} Escaped text
  */
+// Telegram MarkdownV2: must escape \ _ * [ ] ( ) ~ ` > # + - = | { } . !
+const MARKDOWN_V2_SPECIAL = /([\\_*[\]()~`>#+=|{}.!-])/g;
+
 function escapeMarkdown(text) {
   if (!text) return '';
-  return String(text)
-    .replace(/\_/g, '\\_')
-    .replace(/\*/g, '\\*')
-    .replace(/\[/g, '\\[')
-    .replace(/\]/g, '\\]')
-    .replace(/\(/g, '\\(')
-    .replace(/\)/g, '\\)')
-    .replace(/\~/g, '\\~')
-    .replace(/\`/g, '\\`')
-    .replace(/\>/g, '\\>')
-    .replace(/\#/g, '\\#')
-    .replace(/\+/g, '\\+')
-    .replace(/\-/g, '\\-')
-    .replace(/\=/g, '\\=')
-    .replace(/\|/g, '\\|')
-    .replace(/\{/g, '\\{')
-    .replace(/\}/g, '\\}')
-    .replace(/\./g, '\\.')
-    .replace(/\!/g, '\\!');
+  return String(text).replace(MARKDOWN_V2_SPECIAL, '\\$1');
 }
 
 /**

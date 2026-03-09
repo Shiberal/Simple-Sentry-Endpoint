@@ -3,6 +3,7 @@ import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import { parseGitHubRepo } from '@/lib/github';
 import styles from '@/styles/Dashboard.module.css';
 
 export default function Dashboard() {
@@ -617,18 +618,12 @@ export default function Dashboard() {
     // Check if project has GitHub configuration
     if (event.project?.githubRepo) {
       try {
-        // Parse the GitHub repo (extract owner/repo from URL if needed)
-        let repo = event.project.githubRepo;
-        if (repo.includes('github.com/')) {
-          repo = repo.split('github.com/')[1].replace(/\.git$/, '');
-        }
-        
-        const [owner, repoName] = repo.split('/');
-        
-        if (!owner || !repoName) {
+        const parsed = parseGitHubRepo(event.project.githubRepo);
+        if (!parsed) {
           throw new Error('Invalid GitHub repository format');
         }
-        
+        const { owner, repo: repoName } = parsed;
+
         // Create issue via GitHub API
         const headers = {
           'Accept': 'application/vnd.github.v3+json',

@@ -3,6 +3,33 @@
  */
 
 /**
+ * Parse GitHub repo string (URL or owner/repo) with safe URL validation.
+ * Only accepts URLs whose host is exactly github.com.
+ * @param {string} repoStr - URL (https://github.com/owner/repo) or "owner/repo"
+ * @returns {{ owner: string, repo: string } | null}
+ */
+export function parseGitHubRepo(repoStr) {
+  if (!repoStr || typeof repoStr !== 'string') return null;
+  const trimmed = repoStr.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const url = new URL(trimmed);
+      if (url.hostname !== 'github.com' && url.hostname !== 'www.github.com') return null;
+      const pathMatch = url.pathname.match(/^\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
+      if (!pathMatch) return null;
+      return { owner: pathMatch[1], repo: pathMatch[2].replace(/\.git$/, '') };
+    } catch {
+      return null;
+    }
+  }
+  if (trimmed.includes('/')) {
+    const [owner, repo] = trimmed.split('/').map(s => s.trim());
+    if (owner && repo) return { owner, repo: repo.replace(/\.git$/, '') };
+  }
+  return null;
+}
+
+/**
  * Check if an error should auto-create a GitHub issue based on filters
  * @param {Object} params
  * @param {Object} params.issue - The issue object from database
@@ -56,26 +83,12 @@ export async function createGitHubIssue({ issue, eventData, project, baseUrl }) 
   }
 
   try {
-    // Parse repository from various formats
-    let owner, repo;
-    const repoStr = project.githubRepo;
-    
-    if (repoStr.includes('github.com/')) {
-      // Handle full URL: https://github.com/owner/repo
-      const match = repoStr.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-      if (match) {
-        owner = match[1];
-        repo = match[2].replace(/\.git$/, ''); // Remove .git suffix if present
-      }
-    } else if (repoStr.includes('/')) {
-      // Handle owner/repo format
-      [owner, repo] = repoStr.split('/');
-    }
-
-    if (!owner || !repo) {
-      console.error('❌ Invalid GitHub repository format:', repoStr);
+    const parsed = parseGitHubRepo(project.githubRepo);
+    if (!parsed) {
+      console.error('❌ Invalid GitHub repository format:', project.githubRepo);
       return null;
     }
+    const { owner, repo } = parsed;
 
     // Build the issue title with occurrence count
     const countSuffix = issue.count > 1 ? ` (${issue.count}x)` : '';
@@ -228,24 +241,12 @@ export async function createGitHubIssue({ issue, eventData, project, baseUrl }) 
  */
 export async function updateGitHubIssue({ issueNumber, project, issue, comment }) {
   try {
-    // Parse repository
-    let owner, repo;
-    const repoStr = project.githubRepo;
-    
-    if (repoStr.includes('github.com/')) {
-      const match = repoStr.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-      if (match) {
-        owner = match[1];
-        repo = match[2].replace(/\.git$/, '');
-      }
-    } else if (repoStr.includes('/')) {
-      [owner, repo] = repoStr.split('/');
-    }
-
-    if (!owner || !repo) {
-      console.error('❌ Invalid GitHub repository format:', repoStr);
+    const parsed = parseGitHubRepo(project.githubRepo);
+    if (!parsed) {
+      console.error('❌ Invalid GitHub repository format:', project.githubRepo);
       return false;
     }
+    const { owner, repo } = parsed;
 
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
     
@@ -299,24 +300,12 @@ export async function updateGitHubIssue({ issueNumber, project, issue, comment }
  */
 export async function updateGitHubIssueState({ issueNumber, project, state, comment }) {
   try {
-    // Parse repository
-    let owner, repo;
-    const repoStr = project.githubRepo;
-    
-    if (repoStr.includes('github.com/')) {
-      const match = repoStr.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-      if (match) {
-        owner = match[1];
-        repo = match[2].replace(/\.git$/, '');
-      }
-    } else if (repoStr.includes('/')) {
-      [owner, repo] = repoStr.split('/');
-    }
-
-    if (!owner || !repo) {
-      console.error('❌ Invalid GitHub repository format:', repoStr);
+    const parsed = parseGitHubRepo(project.githubRepo);
+    if (!parsed) {
+      console.error('❌ Invalid GitHub repository format:', project.githubRepo);
       return false;
     }
+    const { owner, repo } = parsed;
 
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}`;
     
@@ -365,24 +354,12 @@ export async function updateGitHubIssueState({ issueNumber, project, state, comm
  */
 export async function addGitHubComment({ issueNumber, project, comment }) {
   try {
-    // Parse repository
-    let owner, repo;
-    const repoStr = project.githubRepo;
-    
-    if (repoStr.includes('github.com/')) {
-      const match = repoStr.match(/github\.com\/([^\/]+)\/([^\/]+)/);
-      if (match) {
-        owner = match[1];
-        repo = match[2].replace(/\.git$/, '');
-      }
-    } else if (repoStr.includes('/')) {
-      [owner, repo] = repoStr.split('/');
-    }
-
-    if (!owner || !repo) {
-      console.error('❌ Invalid GitHub repository format:', repoStr);
+    const parsed = parseGitHubRepo(project.githubRepo);
+    if (!parsed) {
+      console.error('❌ Invalid GitHub repository format:', project.githubRepo);
       return false;
     }
+    const { owner, repo } = parsed;
 
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`;
     
