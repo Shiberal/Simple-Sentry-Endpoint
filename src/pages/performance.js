@@ -69,7 +69,10 @@ export default function PerformancePage() {
       const projectId = selectedProjectRef.current;
       if (projectId == null) return;
       const fn = refreshFnRef.current;
-      if (fn) fn(projectId);
+      if (fn) {
+        console.log(`[AutoRefresh] Triggering refresh for project ${projectId} in ${viewMode} mode`);
+        fn(projectId);
+      }
     }, refreshIntervalMs);
     return () => clearInterval(id);
   }, [autoRefresh, selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate]);
@@ -106,12 +109,14 @@ export default function PerformancePage() {
     }
     setError(null);
     try {
+      console.log(`[fetchTransactions] Fetching for project ${projectId}`);
       const response = await fetch(`/api/analytics/performance?projectId=${projectId}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch: ${response.statusText}`);
       }
       const data = await response.json();
+      console.log(`[fetchTransactions] Received ${data.transactions?.length || 0} transactions`);
       setTransactions(data.transactions || []);
       setAnalytics(data.analytics || null);
       
@@ -473,7 +478,7 @@ export default function PerformancePage() {
     // Format dates for labels
     const formatDate = (timestamp) => {
       const date = new Date(timestamp);
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     };
     
     // Get all unique timestamps and sort them
@@ -501,6 +506,9 @@ export default function PerformancePage() {
       });
       return dataPoint;
     });
+
+    // If we have many points, only show labels for some to avoid overlap
+    const interval = Math.ceil(chartData.length / 10);
     
     // Generate colors for each transaction type - theme-aware
     const colors = [
@@ -540,6 +548,7 @@ export default function PerformancePage() {
                 angle={-45}
                 textAnchor="end"
                 height={60}
+                interval={interval}
               />
               <YAxis 
                 tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 12 }}
