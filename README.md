@@ -1,65 +1,152 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# Sentry Monitor
 
-## Getting Started
+Self-hosted error tracking and monitoring. Ingest events from [Sentry](https://sentry.io) SDKs (and compatible clients), group them into issues, and manage them with a web dashboard. Optional integrations: GitHub (auto-create issues), Telegram, and email alerts.
 
-First, run the development server:
+## Features
+
+- **Sentry-compatible ingestion** — Use Sentry SDKs with your project DSN; events hit this server instead of Sentry’s cloud
+- **Issue grouping** — Errors are grouped by fingerprint with status (Unresolved, Resolved, In Progress, Ignored)
+- **Event types** — Errors, CSP reports, minidumps, transactions, messages
+- **Dashboard** — Projects, issues, event detail, performance views, and analytics
+- **Integrations** — GitHub (auto-create issues), Telegram notifications, email alert rules
+- **Auth** — Register, login, project members, and admin panel
+
+## Tech stack
+
+- **Next.js 16** (Pages Router) — API routes and UI
+- **Prisma** — PostgreSQL ORM
+- **Sentry (Next.js)** — Frontend error monitoring (optional; tunnel at `/monitoring`)
+
+## Prerequisites
+
+- Node.js 20+
+- PostgreSQL
+- (Optional) SMTP server and/or Telegram bot for alerts
+
+## Environment variables
+
+Create a `.env` in the project root:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string, e.g. `postgresql://user:pass@localhost:5432/sentry_monitor` |
+| `NEXT_PUBLIC_BASE_URL` | No | Public base URL (for DSN and links), e.g. `https://errors.example.com` |
+| `TELEGRAM_BOT_TOKEN` | No | Bot token for Telegram notifications |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | SMTP settings for email alerts |
+| `EMAIL_FROM` | No | From address for emails (defaults to `SMTP_USER`) |
+
+## Getting started
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure database
+
+Set `DATABASE_URL` in `.env`, then generate the Prisma client and run migrations:
+
+```bash
+npm run prisma:generate
+npm run prisma:migrate
+```
+
+### 3. Run the app
+
+**Development (with Turbopack):**
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Register a user, create a project, and use the project’s DSN in your Sentry SDK.
 
-You can start editing the page by modifying `pages/index.js`. The page auto-updates as you edit the file.
-
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.js`.
-
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
-
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Prisma Database
-
-This project uses [Prisma](https://www.prisma.io/) with SQLite as the database.
-
-### Database Commands
+**Production:**
 
 ```bash
-# Generate Prisma Client after schema changes
+npm run build
+npm run start
+```
+
+To run migrations before starting (e.g. in deployment):
+
+```bash
+npm run start:migrate
+```
+
+## Sentry SDK setup
+
+Point your app’s Sentry DSN to this server:
+
+- **DSN format:** `https://<key>@<host>/<project_id>`
+- **Host:** Your server’s base URL (e.g. `https://errors.example.com` or `http://localhost:3000`)
+- **Project ID:** Shown in the project settings in the dashboard (numeric).
+- **Key:** The project key from the same settings.
+
+Example for a Next.js app:
+
+```js
+// sentry.client.config.js or equivalent
+Sentry.init({
+  dsn: 'https://your-project-key@https://errors.example.com/1',
+  // ...
+});
+```
+
+Ingestion endpoints (used by the SDK automatically):
+
+- `POST /api/[id]/envelope` — Envelope (primary)
+- `POST /api/[id]/store` — Legacy store
+- `POST /api/[id]/minidump` — Native crash minidumps
+- `POST /api/[id]/security` — CSP / security reports
+
+## Database commands
+
+```bash
+# Regenerate Prisma client after schema changes
 npm run prisma:generate
 
-# Create and apply migrations
+# Create and apply migrations (development)
 npm run prisma:migrate
 
-# Open Prisma Studio (database GUI)
+# Apply migrations only (production)
+npm run prisma:migrate:deploy
+
+# Open Prisma Studio (DB GUI)
 npm run prisma:studio
 ```
 
-### Example API Endpoint
+## Docker
 
-Check out the `/api/users` endpoint for an example of how to use Prisma:
-- GET `/api/users` - Fetch all users
-- POST `/api/users` - Create a new user (send JSON with `email` and optional `name`)
+Build and run with Docker. The image runs migrations (via `prisma db push`) then starts the server.
 
-The Prisma schema is located at `prisma/schema.prisma` and the Prisma client is initialized in `src/lib/prisma.js`.
+```bash
+docker build -t sentry-monitor .
+docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." sentry-monitor
+```
 
-## Learn More
+Ensure `DATABASE_URL` is set (required by `docker-entrypoint.sh`).
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start dev server (Turbopack) |
+| `npm run build` | Prisma generate + Next.js build |
+| `npm run start` | Start production server |
+| `npm run start:migrate` | Run migrations then start |
+| `npm run lint` | Run ESLint |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project structure (overview)
 
-## Deploy on Vercel
+- `src/pages/` — Next.js pages (dashboard, project, login, admin, etc.) and API routes
+- `src/pages/api/[id]/` — Sentry ingestion: `envelope`, `store`, `minidump`, `security`
+- `src/pages/api/auth/` — Login, register, logout, me
+- `src/pages/api/projects/`, `issues/`, `events/`, `analytics/` — CRUD and analytics
+- `src/lib/` — Prisma client, GitHub, Telegram, email, Sentry helpers
+- `prisma/schema.prisma` — Data models (User, Project, Issue, Event, Comment, AlertRule, SystemSettings)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+Private — see repository settings.
