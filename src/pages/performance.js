@@ -1341,7 +1341,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Transaction Duration Over Time</h2>
                       {renderBarChart(
                         analytics.transactionDurations,
-                        analytics.transactionDurations.map((unused, i) => `Transaction ${i + 1}`),
+                        analytics.transactionNames || analytics.transactionDurations.map((unused, i) => `T${i + 1}`),
                         'var(--accent-primary)',
                         's'
                       )}
@@ -1363,7 +1363,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>Heap Used (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.heapUsed / 1024 / 1024),
-                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
+                            analytics.transactionNames || analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             'var(--success)',
                             ' MB'
                           )}
@@ -1372,7 +1372,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>Heap Total (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.heapTotal / 1024 / 1024),
-                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
+                            analytics.transactionNames || analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             'var(--info)',
                             ' MB'
                           )}
@@ -1381,7 +1381,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>RSS (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.rss / 1024 / 1024),
-                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
+                            analytics.transactionNames || analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             'var(--warning)',
                             ' MB'
                           )}
@@ -1402,7 +1402,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>CPU Usage Over Time</h2>
                       {renderBarChart(
                         analytics.cpuTimeline,
-                        analytics.cpuTimeline.map((unused, i) => `Transaction ${i + 1}`),
+                        analytics.transactionNames || analytics.cpuTimeline.map((unused, i) => `T${i + 1}`),
                         'var(--error)',
                         '%'
                       )}
@@ -1420,7 +1420,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Event Loop Lag</h2>
                       {renderBarChart(
                         analytics.eventLoopTimeline,
-                        analytics.eventLoopTimeline.map((unused, i) => `Transaction ${i + 1}`),
+                        analytics.transactionNames || analytics.eventLoopTimeline.map((unused, i) => `T${i + 1}`),
                         'var(--info)',
                         ' ms'
                       )}

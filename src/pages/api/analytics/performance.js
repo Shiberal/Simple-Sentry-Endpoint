@@ -63,6 +63,7 @@ function analyzeTransactions(transactions) {
   const memoryTimeline = [];
   const cpuTimeline = [];
   const eventLoopTimeline = [];
+  const transactionNames = [];
   const webVitals = {
     fcp: [],
     lcp: [],
@@ -79,6 +80,10 @@ function analyzeTransactions(transactions) {
   let eventLoopCount = 0;
 
   transactions.forEach(transaction => {
+    // Extract transaction name
+    const info = extractTransactionInfo(transaction);
+    transactionNames.push(info.name || 'Unnamed');
+
     // Extract duration using Sentry parser
     const duration = extractDuration(transaction);
     if (duration > 0) {
@@ -139,6 +144,7 @@ function analyzeTransactions(transactions) {
     avgCpu: cpuCount > 0 ? totalCpu / cpuCount : 0,
     avgEventLoopLag: eventLoopCount > 0 ? eventLoopTimeline.reduce((a, b) => a + b, 0) / eventLoopCount : 0,
     transactionDurations: durations,
+    transactionNames,
     memoryTimeline,
     cpuTimeline,
     eventLoopTimeline,
