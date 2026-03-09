@@ -43,13 +43,10 @@ export default function AdminPage() {
   const checkAuth = async () => {
     try {
       const response = await fetch('/api/auth/me');
-      if (!response.ok) {
-        router.push('/login');
-        return;
-      }
       const data = await response.json();
-      if (!data.user || !data.user.isAdmin) {
-        router.push('/dashboard');
+      if (!data?.user || !data.user.isAdmin) {
+        if (!data?.user) router.push('/login');
+        else router.push('/dashboard');
         return;
       }
       setUser(data.user);

@@ -22,7 +22,7 @@ export default async function handler(req, res) {
           settings = await prisma.systemSettings.create({
             data: {
               id: 0,
-              allowSelfRegistration: false,
+              allowSelfRegistration: true,
               allowProjectCreation: false
             }
           });
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
           },
           create: {
             id: 0,
-            allowSelfRegistration: allowSelfRegistration ?? false,
+            allowSelfRegistration: allowSelfRegistration ?? true,
             allowProjectCreation: allowProjectCreation ?? false
           }
         });

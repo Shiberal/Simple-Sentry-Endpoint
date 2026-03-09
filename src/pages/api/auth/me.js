@@ -12,11 +12,11 @@ export default async function handler(req, res) {
     const session = cookies.session;
 
     if (!session) {
-      return res.status(401).json({ error: 'Not authenticated' });
+      return res.status(200).json({ success: true, user: null });
     }
 
     const sessionData = JSON.parse(session);
-    
+
     // Get user from database
     const user = await prisma.user.findUnique({
       where: { id: sessionData.userId },
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     });
 
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+      return res.status(200).json({ success: true, user: null });
     }
 
     res.status(200).json({
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Auth check error:', error);
-    res.status(401).json({ error: 'Not authenticated' });
+    res.status(200).json({ success: true, user: null });
   }
 }
 

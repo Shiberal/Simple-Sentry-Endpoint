@@ -172,11 +172,11 @@ export default function Dashboard() {
   const checkAuth = async () => {
     try {
       const response = await fetch('/api/auth/me');
-      if (!response.ok) {
+      const data = await response.json();
+      if (!data?.user) {
         router.push('/login');
         return;
       }
-      const data = await response.json();
       setUser(data.user);
       fetchData();
     } catch (error) {

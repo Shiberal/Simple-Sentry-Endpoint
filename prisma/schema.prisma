@@ -135,7 +135,7 @@ model AlertRule {
 
 model SystemSettings {
   id              Int       @id @default(0)
-  allowSelfRegistration Boolean @default(false)
+  allowSelfRegistration Boolean @default(true)
   allowProjectCreation Boolean @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

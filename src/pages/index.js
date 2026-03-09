@@ -13,8 +13,8 @@ export default function Home() {
   const checkAuthAndRedirect = async () => {
     try {
       const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        // User is logged in, redirect to dashboard
+      const data = await response.json();
+      if (data?.user) {
         router.push('/dashboard');
       }
     } catch (error) {
