@@ -17,14 +17,19 @@ export default async function handler(req, res) {
   try {
     const { projectId } = req.query;
 
-    if (!projectId) {
-      return res.status(400).json({ error: 'projectId is required' });
+    if (!projectId || projectId === '[object Object]') {
+      return res.status(400).json({ error: 'Valid projectId is required' });
+    }
+
+    const id = parseInt(projectId);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid projectId format' });
     }
 
     // Fetch all transaction events for this project
     const transactions = await prisma.event.findMany({
       where: {
-        projectId: parseInt(projectId),
+        projectId: id,
         eventType: 'TRANSACTION'
       },
       orderBy: {

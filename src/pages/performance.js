@@ -63,19 +63,29 @@ export default function PerformancePage() {
   }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate]);
 
   useEffect(() => {
+    // Update the ref whenever the fetch functions or viewMode change
+    refreshFnRef.current = viewMode === 'timeseries'
+      ? (id) => fetchTimeSeries(id)
+      : (id) => fetchTransactions(id);
+  }, [viewMode, timeRange, interval, customStartDate, customEndDate]);
+
+  useEffect(() => {
     if (!autoRefresh || selectedProject == null) return;
+    
     const refreshIntervalMs = 5000;
     const id = setInterval(() => {
       const projectId = selectedProjectRef.current;
       if (projectId == null) return;
+      
       const fn = refreshFnRef.current;
       if (fn) {
         console.log(`[AutoRefresh] Triggering refresh for project ${projectId} in ${viewMode} mode`);
         fn(projectId);
       }
     }, refreshIntervalMs);
+    
     return () => clearInterval(id);
-  }, [autoRefresh, selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate]);
+  }, [autoRefresh, selectedProject == null, viewMode]); // Only restart if autoRefresh, project presence, or viewMode changes
 
   const fetchProjects = async () => {
     try {
@@ -93,8 +103,15 @@ export default function PerformancePage() {
   };
 
   const fetchTransactions = async (optionalProjectId) => {
-    const projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
-    if (projectId === null || projectId === undefined) {
+    let projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
+    
+    // Safety check for [object Object] or other invalid IDs
+    if (typeof projectId === 'object' && projectId !== null) {
+      console.warn('[fetchTransactions] Received object as projectId, attempting to extract id', projectId);
+      projectId = projectId.id || null;
+    }
+
+    if (projectId === null || projectId === undefined || projectId === '[object Object]') {
       setTransactions([]);
       setAnalytics(null);
       setPerformanceSeries([]);
@@ -228,8 +245,15 @@ export default function PerformancePage() {
   };
 
   const fetchTimeSeries = async (optionalProjectId) => {
-    const projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
-    if (!projectId) return;
+    let projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
+    
+    // Safety check for [object Object] or other invalid IDs
+    if (typeof projectId === 'object' && projectId !== null) {
+      console.warn('[fetchTimeSeries] Received object as projectId, attempting to extract id', projectId);
+      projectId = projectId.id || null;
+    }
+
+    if (!projectId || projectId === '[object Object]') return;
 
     const isBackgroundRefresh = optionalProjectId !== undefined;
     if (!isBackgroundRefresh) {
@@ -271,11 +295,6 @@ export default function PerformancePage() {
     }
   };
 
-  // Wrapper so the interval can pass current projectId and always call the latest fetch
-  refreshFnRef.current = viewMode === 'timeseries'
-    ? (id) => fetchTimeSeries(id)
-    : (id) => fetchTransactions(id);
-
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -300,7 +319,7 @@ export default function PerformancePage() {
     
     return (
       <div style={{ padding: '20px 0', width: '100%', height: '300px', minHeight: '300px' }}>
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+        <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
             <XAxis 
@@ -362,7 +381,7 @@ export default function PerformancePage() {
       <div style={{ padding: 'var(--space-5) 0' }}>
         <h3 style={{ fontSize: 'var(--font-base)', marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>{label}</h3>
         <div style={{ width: '100%', height: '250px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)', minHeight: '250px' }}>
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
               <XAxis 
@@ -538,7 +557,7 @@ export default function PerformancePage() {
           ⚡ Performance by Transaction Type - {metricLabel}
         </h3>
         <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
-          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
               <XAxis 
