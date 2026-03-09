@@ -35,6 +35,7 @@ export default function PerformancePage() {
   const [selectedMetric, setSelectedMetric] = useState('duration'); // duration, memory, cpu
   const [availableEndpoints, setAvailableEndpoints] = useState([]);
   const [error, setError] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   // Helper to get CSS variable value for SVG (some browsers need computed values)
   const getCSSVariable = (varName) => {
@@ -57,6 +58,19 @@ export default function PerformancePage() {
       fetchTransactions();
     }
   }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    if (!autoRefresh || selectedProject == null) return;
+    const refreshIntervalMs = 15000;
+    const id = setInterval(() => {
+      if (viewMode === 'timeseries') {
+        fetchTimeSeries();
+      } else {
+        fetchTransactions();
+      }
+    }, refreshIntervalMs);
+    return () => clearInterval(id);
+  }, [autoRefresh, selectedProject, viewMode]);
 
   const fetchProjects = async () => {
     try {
@@ -632,6 +646,13 @@ export default function PerformancePage() {
               Performance Analytics
             </h1>
             <div className={styles.headerActions}>
+              <button
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={styles.headerButton}
+                title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
+              >
+                {autoRefresh ? '●' : '○'} {autoRefresh ? 'Live' : 'Paused'}
+              </button>
               <button 
                 onClick={() => {
                   if (viewMode === 'timeseries') fetchTimeSeries();
