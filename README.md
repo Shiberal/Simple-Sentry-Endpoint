@@ -1,152 +1,141 @@
 # Sentry Monitor
 
-Self-hosted error tracking and monitoring. Ingest events from [Sentry](https://sentry.io) SDKs (and compatible clients), group them into issues, and manage them with a web dashboard. Optional integrations: GitHub (auto-create issues), Telegram, and email alerts.
+**Not affiliated with Sentry.** This project is independent software. It is not made by, endorsed by, or officially related to [Sentry](https://sentry.io) (Functional Software, Inc.) or the Sentry SaaS product. It only speaks the same client protocol so you can use the public Sentry SDKs with your own server.
 
-## Features
+A self-hosted app that collects errors and monitoring data from [Sentry](https://sentry.io) SDKs (and similar clients). Events land on your server, get grouped into issues, and you manage everything in a web UI. You can optionally connect GitHub, Telegram, and email for alerts.
 
-- **Sentry-compatible ingestion** — Use Sentry SDKs with your project DSN; events hit this server instead of Sentry’s cloud
-- **Issue grouping** — Errors are grouped by fingerprint with status (Unresolved, Resolved, In Progress, Ignored)
-- **Event types** — Errors, CSP reports, minidumps, transactions, messages
-- **Dashboard** — Projects, issues, event detail, performance views, and analytics
-- **Integrations** — GitHub (auto-create issues), Telegram notifications, email alert rules
-- **Auth** — Register, login, project members, and admin panel
+## What it does
 
-## Tech stack
+- Accepts the same kind of traffic Sentry’s cloud would, but on your own machine or host.
+- Groups similar errors into issues you can open, resolve, or ignore.
+- Handles several event kinds: errors, content security policy (CSP) reports, minidumps, performance transactions, and messages.
+- Gives you a dashboard for projects, issues, single events, performance, and simple analytics.
+- Supports sign-up, login, who can access each project, and an admin area.
 
-- **Next.js 16** (Pages Router) — API routes and UI
-- **Prisma** — PostgreSQL ORM
-- **Sentry (Next.js)** — Frontend error monitoring (optional; tunnel at `/monitoring`)
+## What it is built with
 
-## Prerequisites
+- Next.js 16 (pages router) for the website and API.
+- Prisma with PostgreSQL for the database.
+- Optional Sentry for the monitor app itself (tunnel path `/monitoring` if you use it).
 
-- Node.js 20+
-- PostgreSQL
-- (Optional) SMTP server and/or Telegram bot for alerts
+## What you need
 
-## Environment variables
+- Node.js 20 or newer.
+- A PostgreSQL database.
+- Optional: SMTP for email alerts, or a Telegram bot for Telegram alerts.
 
-Create a `.env` in the project root:
+## Configuration
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string, e.g. `postgresql://user:pass@localhost:5432/sentry_monitor` |
-| `NEXT_PUBLIC_BASE_URL` | No | Public base URL (for DSN and links), e.g. `https://errors.example.com` |
-| `TELEGRAM_BOT_TOKEN` | No | Bot token for Telegram notifications |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | SMTP settings for email alerts |
-| `EMAIL_FROM` | No | From address for emails (defaults to `SMTP_USER`) |
+Create a `.env` file in the project root:
 
-## Getting started
+| Variable | Required | What it is for |
+|----------|----------|----------------|
+| `DATABASE_URL` | Yes | PostgreSQL URL, for example `postgresql://user:password@localhost:5432/sentry_monitor` |
+| `NEXT_PUBLIC_BASE_URL` | No | Public site URL (helps with DSNs and links), for example `https://errors.example.com` |
+| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token for notifications |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | Mail server settings for email alerts |
+| `EMAIL_FROM` | No | Sender address for mail (if omitted, `SMTP_USER` is used) |
 
-### 1. Install dependencies
+## Local setup
 
-```bash
-npm install
-```
+1. Install packages:
 
-### 2. Configure database
+   ```bash
+   npm install
+   ```
 
-Set `DATABASE_URL` in `.env`, then generate the Prisma client and run migrations:
+2. Point `DATABASE_URL` at your database in `.env`, then prepare the schema:
 
-```bash
-npm run prisma:generate
-npm run prisma:migrate
-```
+   ```bash
+   npm run prisma:generate
+   npm run prisma:migrate
+   ```
 
-### 3. Run the app
+3. Run in development:
 
-**Development (with Turbopack):**
+   ```bash
+   npm run dev
+   ```
 
-```bash
-npm run dev
-```
+   Open [http://localhost:3000](http://localhost:3000). Register, create a project, then copy that project’s DSN into your app’s Sentry setup.
 
-Open [http://localhost:3000](http://localhost:3000). Register a user, create a project, and use the project’s DSN in your Sentry SDK.
+4. Production build and run:
 
-**Production:**
+   ```bash
+   npm run build
+   npm run start
+   ```
 
-```bash
-npm run build
-npm run start
-```
+   To apply database migrations before starting (typical on a server):
 
-To run migrations before starting (e.g. in deployment):
+   ```bash
+   npm run start:migrate
+   ```
 
-```bash
-npm run start:migrate
-```
+## Pointing the Sentry SDK at this server
 
-## Sentry SDK setup
+Your DSN tells the SDK where to send data. Format:
 
-Point your app’s Sentry DSN to this server:
+`https://<key>@<host>/<project_id>`
 
-- **DSN format:** `https://<key>@<host>/<project_id>`
-- **Host:** Your server’s base URL (e.g. `https://errors.example.com` or `http://localhost:3000`)
-- **Project ID:** Shown in the project settings in the dashboard (numeric).
-- **Key:** The project key from the same settings.
+- **host**: Your site’s base URL (for example `https://errors.example.com` or `http://localhost:3000`).
+- **project_id**: The number shown for the project in the UI.
+- **key**: The project key from the same project settings.
 
-Example for a Next.js app:
+Example:
 
 ```js
-// sentry.client.config.js or equivalent
 Sentry.init({
   dsn: 'https://your-project-key@https://errors.example.com/1',
-  // ...
 });
 ```
 
-Ingestion endpoints (used by the SDK automatically):
+Main ingestion paths (the SDK usually picks these for you):
 
-- `POST /api/[id]/envelope` — Envelope (primary)
-- `POST /api/[id]/store` — Legacy store
-- `POST /api/[id]/minidump` — Native crash minidumps
-- `POST /api/[id]/security` — CSP / security reports
+- `POST /api/[id]/envelope` — main path
+- `POST /api/[id]/store` — older store API
+- `POST /api/[id]/minidump` — native crash dumps
+- `POST /api/[id]/security` — CSP and security reports
 
-## Database commands
+## Database helpers
 
 ```bash
-# Regenerate Prisma client after schema changes
-npm run prisma:generate
-
-# Create and apply migrations (development)
-npm run prisma:migrate
-
-# Apply migrations only (production)
-npm run prisma:migrate:deploy
-
-# Open Prisma Studio (DB GUI)
-npm run prisma:studio
+npm run prisma:generate          # After schema changes
+npm run prisma:migrate           # Create and apply migrations (development)
+npm run prisma:migrate:deploy    # Apply migrations only (production)
+npm run prisma:studio            # Open a simple database browser
 ```
 
 ## Docker
 
-Build and run with Docker. The image runs migrations (via `prisma db push`) then starts the server.
+The Docker image runs `prisma db push` (with `--accept-data-loss`) on startup, then starts the app. You must set `DATABASE_URL`.
 
 ```bash
 docker build -t sentry-monitor .
 docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." sentry-monitor
 ```
 
-Ensure `DATABASE_URL` is set (required by `docker-entrypoint.sh`).
+`db push` syncs the schema to the database without using migration files. For production where you rely on migrations, prefer `npm run start:migrate` on a normal Node deployment instead of relying on `db push` in Docker unless you accept that tradeoff.
 
-## Scripts
+## npm scripts
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start dev server (Turbopack) |
-| `npm run build` | Prisma generate + Next.js build |
-| `npm run start` | Start production server |
-| `npm run start:migrate` | Run migrations then start |
-| `npm run lint` | Run ESLint |
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Dev server with Turbopack |
+| `npm run build` | Generate Prisma client and build Next.js |
+| `npm run start` | Production server |
+| `npm run start:migrate` | Run migrations, then production server |
+| `npm run lint` | ESLint |
 
-## Project structure (overview)
+## Folder map
 
-- `src/pages/` — Next.js pages (dashboard, project, login, admin, etc.) and API routes
-- `src/pages/api/[id]/` — Sentry ingestion: `envelope`, `store`, `minidump`, `security`
-- `src/pages/api/auth/` — Login, register, logout, me
-- `src/pages/api/projects/`, `issues/`, `events/`, `analytics/` — CRUD and analytics
-- `src/lib/` — Prisma client, GitHub, Telegram, email, Sentry helpers
-- `prisma/schema.prisma` — Data models (User, Project, Issue, Event, Comment, AlertRule, SystemSettings)
+- `src/pages/` — UI pages (dashboard, project, login, admin, and so on) plus API routes under `src/pages/api/`.
+- `src/pages/api/[id]/` — Ingestion: `envelope`, `store`, `minidump`, `security`.
+- `src/pages/api/auth/` — Register, login, logout, current user.
+- `src/pages/api/projects/`, `issues/`, `events/`, `analytics/` — App data and charts.
+- `src/lib/` — Database client, GitHub, Telegram, email, Sentry helpers.
+- `prisma/schema.prisma` — Models such as User, Project, Issue, Event, comments, alert rules, system settings.
 
 ## License
 
-Private — see repository settings.
+Licensed under the [MIT License](LICENSE). You may use, copy, modify, and distribute the software under those terms. The software is provided as-is, without warranty.
