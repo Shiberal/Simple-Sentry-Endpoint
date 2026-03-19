@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -35,6 +35,10 @@ export default function PerformancePage() {
   const [selectedMetric, setSelectedMetric] = useState('duration'); // duration, memory, cpu
   const [availableEndpoints, setAvailableEndpoints] = useState([]);
   const [error, setError] = useState(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const refreshFnRef = useRef(null);
+  const selectedProjectRef = useRef(selectedProject);
+  selectedProjectRef.current = selectedProject;
 
   // Helper to get CSS variable value for SVG (some browsers need computed values)
   const getCSSVariable = (varName) => {
@@ -58,13 +62,38 @@ export default function PerformancePage() {
     }
   }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate]);
 
+  useEffect(() => {
+    // Update the ref whenever the fetch functions or viewMode change
+    refreshFnRef.current = viewMode === 'timeseries'
+      ? (id) => fetchTimeSeries(id)
+      : (id) => fetchTransactions(id);
+  }, [viewMode, timeRange, interval, customStartDate, customEndDate]);
+
+  useEffect(() => {
+    if (!autoRefresh || selectedProject == null) return;
+    
+    const refreshIntervalMs = 5000;
+    const id = setInterval(() => {
+      const projectId = selectedProjectRef.current;
+      if (projectId == null) return;
+      
+      const fn = refreshFnRef.current;
+      if (fn) {
+        console.log(`[AutoRefresh] Triggering refresh for project ${projectId} in ${viewMode} mode`);
+        fn(projectId);
+      }
+    }, refreshIntervalMs);
+    
+    return () => clearInterval(id);
+  }, [autoRefresh, selectedProject == null, viewMode]); // Only restart if autoRefresh, project presence, or viewMode changes
+
   const fetchProjects = async () => {
     try {
       const response = await fetch('/api/projects');
       const data = await response.json();
       const projectsList = data.projects || [];
       setProjects(projectsList);
-      if (projectsList.length > 0) {
+      if (projectsList.length > 0 && selectedProject === null) {
         setSelectedProject(projectsList[0].id);
       }
     } catch (error) {
@@ -73,8 +102,16 @@ export default function PerformancePage() {
     }
   };
 
-  const fetchTransactions = async () => {
-    if (selectedProject === null || selectedProject === undefined) {
+  const fetchTransactions = async (optionalProjectId) => {
+    let projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
+    
+    // Safety check for [object Object] or other invalid IDs
+    if (typeof projectId === 'object' && projectId !== null) {
+      console.warn('[fetchTransactions] Received object as projectId, attempting to extract id', projectId);
+      projectId = projectId.id || null;
+    }
+
+    if (projectId === null || projectId === undefined || projectId === '[object Object]') {
       setTransactions([]);
       setAnalytics(null);
       setPerformanceSeries([]);
@@ -82,16 +119,21 @@ export default function PerformancePage() {
       setLoading(false);
       return;
     }
-    
-    setLoading(true);
+
+    const isBackgroundRefresh = optionalProjectId !== undefined;
+    if (!isBackgroundRefresh) {
+      setLoading(true);
+    }
     setError(null);
     try {
-      const response = await fetch(`/api/analytics/performance?projectId=${selectedProject}`);
+      console.log(`[fetchTransactions] Fetching for project ${projectId}`);
+      const response = await fetch(`/api/analytics/performance?projectId=${projectId}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch: ${response.statusText}`);
       }
       const data = await response.json();
+      console.log(`[fetchTransactions] Received ${data.transactions?.length || 0} transactions`);
       setTransactions(data.transactions || []);
       setAnalytics(data.analytics || null);
       
@@ -175,11 +217,11 @@ export default function PerformancePage() {
           });
         });
         
-        // Sort each group by timestamp and convert to time series
-        const series = Object.entries(grouped).map(([name, points]) => ({
-          name,
-          data: points.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-        }));
+      // Sort each group by timestamp and convert to time series
+      const series = Object.entries(grouped).map(([name, points]) => ({
+        name,
+        data: points.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      }));
         
         setPerformanceSeries(series);
         
@@ -198,14 +240,25 @@ export default function PerformancePage() {
       setPerformanceSeries([]);
       setAvailableEndpoints([]);
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) setLoading(false);
     }
   };
 
-  const fetchTimeSeries = async () => {
-    if (!selectedProject) return;
+  const fetchTimeSeries = async (optionalProjectId) => {
+    let projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
     
-    setLoading(true);
+    // Safety check for [object Object] or other invalid IDs
+    if (typeof projectId === 'object' && projectId !== null) {
+      console.warn('[fetchTimeSeries] Received object as projectId, attempting to extract id', projectId);
+      projectId = projectId.id || null;
+    }
+
+    if (!projectId || projectId === '[object Object]') return;
+
+    const isBackgroundRefresh = optionalProjectId !== undefined;
+    if (!isBackgroundRefresh) {
+      setLoading(true);
+    }
     try {
       let startDate, endDate;
       const end = new Date();
@@ -226,19 +279,19 @@ export default function PerformancePage() {
       }
       
       const params = new URLSearchParams({
-        projectId: selectedProject,
+        projectId: String(projectId),
         interval: interval,
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
       });
-      
+
       const response = await fetch(`/api/analytics/performance/timeseries?${params}`);
       const data = await response.json();
       setTimeSeriesData(data);
     } catch (error) {
       console.error('Error fetching time series:', error);
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) setLoading(false);
     }
   };
 
@@ -265,7 +318,7 @@ export default function PerformancePage() {
     }));
     
     return (
-      <div style={{ padding: '20px 0', width: '100%', height: '300px' }}>
+      <div style={{ padding: '20px 0', width: '100%', height: '300px', minHeight: '300px' }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
@@ -317,7 +370,7 @@ export default function PerformancePage() {
         date: dateLabel,
         value: s.metrics?.[metricKey] || 0
       };
-    }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Sort chronologically
+    }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Sort chronologically (newest first)
     
     const values = chartData.map(d => d.value);
     const max = Math.max(...values, 1);
@@ -327,7 +380,7 @@ export default function PerformancePage() {
     return (
       <div style={{ padding: 'var(--space-5) 0' }}>
         <h3 style={{ fontSize: 'var(--font-base)', marginBottom: 'var(--space-4)', color: 'var(--text-primary)' }}>{label}</h3>
-        <div style={{ width: '100%', height: '250px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)' }}>
+        <div style={{ width: '100%', height: '250px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)', minHeight: '250px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
@@ -444,7 +497,7 @@ export default function PerformancePage() {
     // Format dates for labels
     const formatDate = (timestamp) => {
       const date = new Date(timestamp);
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     };
     
     // Get all unique timestamps and sort them
@@ -458,7 +511,7 @@ export default function PerformancePage() {
         });
       }
     });
-    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(a) - new Date(b));
+    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(b) - new Date(a));
     
     // Transform data for Recharts - create unified dataset
     const chartData = sortedTimestamps.map(timestamp => {
@@ -472,6 +525,9 @@ export default function PerformancePage() {
       });
       return dataPoint;
     });
+
+    // If we have many points, only show labels for some to avoid overlap
+    const interval = Math.ceil(chartData.length / 10);
     
     // Generate colors for each transaction type - theme-aware
     const colors = [
@@ -500,7 +556,7 @@ export default function PerformancePage() {
         }}>
           ⚡ Performance by Transaction Type - {metricLabel}
         </h3>
-        <div style={{ width: '100%', height: '400px' }}>
+        <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
@@ -511,6 +567,7 @@ export default function PerformancePage() {
                 angle={-45}
                 textAnchor="end"
                 height={60}
+                interval={interval}
               />
               <YAxis 
                 tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 12 }}
@@ -632,6 +689,13 @@ export default function PerformancePage() {
               Performance Analytics
             </h1>
             <div className={styles.headerActions}>
+              <button
+                onClick={() => setAutoRefresh(!autoRefresh)}
+                className={styles.headerButton}
+                title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
+              >
+                {autoRefresh ? '●' : '○'} {autoRefresh ? 'Live' : 'Paused'}
+              </button>
               <button 
                 onClick={() => {
                   if (viewMode === 'timeseries') fetchTimeSeries();
@@ -1277,7 +1341,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Transaction Duration Over Time</h2>
                       {renderBarChart(
                         analytics.transactionDurations,
-                        analytics.transactionDurations.map((unused, i) => `Transaction ${i + 1}`),
+                        analytics.transactionNames || analytics.transactionDurations.map((unused, i) => `T${i + 1}`),
                         'var(--accent-primary)',
                         's'
                       )}
@@ -1299,7 +1363,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>Heap Used (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.heapUsed / 1024 / 1024),
-                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
+                            analytics.transactionNames || analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             'var(--success)',
                             ' MB'
                           )}
@@ -1308,7 +1372,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>Heap Total (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.heapTotal / 1024 / 1024),
-                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
+                            analytics.transactionNames || analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             'var(--info)',
                             ' MB'
                           )}
@@ -1317,7 +1381,7 @@ export default function PerformancePage() {
                           <h3 style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--space-3)' }}>RSS (MB)</h3>
                           {renderBarChart(
                             analytics.memoryTimeline.map(m => m.rss / 1024 / 1024),
-                            analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
+                            analytics.transactionNames || analytics.memoryTimeline.map((unused, i) => `T${i + 1}`),
                             'var(--warning)',
                             ' MB'
                           )}
@@ -1338,7 +1402,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>CPU Usage Over Time</h2>
                       {renderBarChart(
                         analytics.cpuTimeline,
-                        analytics.cpuTimeline.map((unused, i) => `Transaction ${i + 1}`),
+                        analytics.transactionNames || analytics.cpuTimeline.map((unused, i) => `T${i + 1}`),
                         'var(--error)',
                         '%'
                       )}
@@ -1356,7 +1420,7 @@ export default function PerformancePage() {
                       <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Event Loop Lag</h2>
                       {renderBarChart(
                         analytics.eventLoopTimeline,
-                        analytics.eventLoopTimeline.map((unused, i) => `Transaction ${i + 1}`),
+                        analytics.transactionNames || analytics.eventLoopTimeline.map((unused, i) => `T${i + 1}`),
                         'var(--info)',
                         ' ms'
                       )}

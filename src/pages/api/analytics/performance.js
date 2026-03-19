@@ -17,14 +17,19 @@ export default async function handler(req, res) {
   try {
     const { projectId } = req.query;
 
-    if (!projectId) {
-      return res.status(400).json({ error: 'projectId is required' });
+    if (!projectId || projectId === '[object Object]') {
+      return res.status(400).json({ error: 'Valid projectId is required' });
+    }
+
+    const id = parseInt(projectId);
+    if (isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid projectId format' });
     }
 
     // Fetch all transaction events for this project
     const transactions = await prisma.event.findMany({
       where: {
-        projectId: parseInt(projectId),
+        projectId: id,
         eventType: 'TRANSACTION'
       },
       orderBy: {
@@ -58,6 +63,7 @@ function analyzeTransactions(transactions) {
   const memoryTimeline = [];
   const cpuTimeline = [];
   const eventLoopTimeline = [];
+  const transactionNames = [];
   const webVitals = {
     fcp: [],
     lcp: [],
@@ -74,6 +80,10 @@ function analyzeTransactions(transactions) {
   let eventLoopCount = 0;
 
   transactions.forEach(transaction => {
+    // Extract transaction name
+    const info = extractTransactionInfo(transaction);
+    transactionNames.push(info.name || 'Unnamed');
+
     // Extract duration using Sentry parser
     const duration = extractDuration(transaction);
     if (duration > 0) {
@@ -134,6 +144,7 @@ function analyzeTransactions(transactions) {
     avgCpu: cpuCount > 0 ? totalCpu / cpuCount : 0,
     avgEventLoopLag: eventLoopCount > 0 ? eventLoopTimeline.reduce((a, b) => a + b, 0) / eventLoopCount : 0,
     transactionDurations: durations,
+    transactionNames,
     memoryTimeline,
     cpuTimeline,
     eventLoopTimeline,
