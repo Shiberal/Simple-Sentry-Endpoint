@@ -83,11 +83,8 @@ code, pre {
   color: white;
 }
 
-/* Smooth theme transitions */
-html,
-body,
-body * {
-  transition-property: background-color, border-color, color;
-  transition-duration: var(--transition-base);
-  transition-timing-function: ease;
+/* Theme: transition only the document surface — avoid transitioning every descendant (feels laggy). */
+html {
+  transition: background-color var(--transition-base) ease,
+    color var(--transition-base) ease;
 }

@@ -1,7 +1,7 @@
 import { useTheme } from '../contexts/ThemeContext';
 import styles from './ThemeToggle.module.css';
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ variant = 'default' }) {
   const { theme, setTheme } = useTheme();
 
   const cycleTheme = () => {
@@ -39,8 +39,9 @@ export default function ThemeToggle() {
 
   return (
     <button
+      type="button"
       onClick={cycleTheme}
-      className={styles.toggle}
+      className={`${styles.toggle} ${variant === 'glass' ? styles.glass : ''}`}
       aria-label={`Current theme: ${getLabel()}. Click to change theme.`}
       title={`Theme: ${getLabel()} (click to cycle)`}
     >

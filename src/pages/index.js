@@ -37,7 +37,7 @@ export default function Home() {
 
       <main id="main-content" className={styles.page}>
         <div className={styles.topBar}>
-          <ThemeToggle />
+          <ThemeToggle variant="glass" />
         </div>
 
         <div className={styles.hero}>

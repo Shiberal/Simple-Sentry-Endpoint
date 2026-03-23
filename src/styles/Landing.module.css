@@ -1,3 +1,4 @@
+/* Marketing page: reads clearly in both system themes; gradient is intentional, not token-tinted gray. */
 .page {
   min-height: 100vh;
   display: flex;
@@ -5,13 +6,22 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-8) var(--space-4);
-  background: linear-gradient(
-    145deg,
-    color-mix(in srgb, var(--accent-primary) 55%, var(--bg-darkest)) 0%,
-    color-mix(in srgb, var(--accent-hover) 40%, var(--bg-secondary)) 100%
-  );
-  color: var(--text-primary);
+  padding-top: calc(var(--space-10) + var(--space-4));
   position: relative;
+  color: #fff;
+  /* Fallback when color-mix is unsupported */
+  background: linear-gradient(155deg, #4338ca 0%, #6d28d9 42%, #1e1b4b 100%);
+}
+
+@supports (color: color-mix(in srgb, white, black)) {
+  .page {
+    background: linear-gradient(
+      155deg,
+      color-mix(in srgb, var(--accent-primary) 70%, #1e1b4b) 0%,
+      color-mix(in srgb, #7c3aed 85%, #0f172a) 45%,
+      #0f172a 100%
+    );
+  }
 }
 
 .topBar {
@@ -26,30 +36,34 @@
 .hero {
   text-align: center;
   margin-bottom: var(--space-10);
-  max-width: 42rem;
+  max-width: 40rem;
 }
 
 .heroIcon {
-  font-size: 3.5rem;
+  font-size: clamp(2.5rem, 8vw, 3.5rem);
   display: block;
   margin-bottom: var(--space-3);
-  filter: drop-shadow(0 2px 8px color-mix(in srgb, var(--bg-darkest) 35%, transparent));
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.25));
 }
 
 .heroTitle {
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: clamp(2rem, 5vw, 2.75rem);
   font-weight: 800;
   color: #fff;
   margin-bottom: var(--space-3);
-  text-shadow: 0 4px 12px color-mix(in srgb, var(--bg-darkest) 45%, transparent);
-  letter-spacing: -0.02em;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
 .heroSubtitle {
   font-size: var(--font-lg);
-  color: color-mix(in srgb, #fff 92%, transparent);
+  color: rgba(255, 255, 255, 0.88);
   margin-bottom: var(--space-6);
   line-height: var(--leading-relaxed);
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .heroButtons {
@@ -70,69 +84,71 @@
   align-items: center;
   justify-content: center;
   transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast),
-    background var(--transition-fast),
-    border-color var(--transition-fast);
-  min-height: 44px;
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+  min-height: 48px;
   min-width: 44px;
 }
 
 .primaryButton {
   background: #fff;
-  color: var(--accent-primary);
-  box-shadow: var(--shadow-md);
+  color: #4338ca;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
 .primaryButton:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.28);
 }
 
 .secondaryButton {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  border: 2px solid color-mix(in srgb, #fff 85%, transparent);
+  border: 2px solid rgba(255, 255, 255, 0.45);
 }
 
 .secondaryButton:hover {
-  background: color-mix(in srgb, #fff 12%, transparent);
-  border-color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.75);
 }
 
 .features {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-6);
+  gap: var(--space-5);
   max-width: 960px;
   width: 100%;
 }
 
 .feature {
-  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   padding: var(--space-6);
   border-radius: var(--radius-lg);
   text-align: center;
-  box-shadow: var(--shadow-md);
-  border: 1px solid color-mix(in srgb, var(--border-primary) 50%, transparent);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .featureIcon {
-  font-size: 2.75rem;
+  font-size: 2.5rem;
   margin-bottom: var(--space-3);
+  line-height: 1;
 }
 
 .featureTitle {
   font-size: var(--font-lg);
   font-weight: 700;
-  color: var(--text-primary);
+  color: #fff;
   margin-bottom: var(--space-2);
 }
 
 .featureText {
   font-size: var(--font-sm);
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.82);
   line-height: var(--leading-relaxed);
 }
 

@@ -6,12 +6,15 @@ function getFocusable(root) {
     root.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     )
-  ).filter((el) => !el.hasAttribute('disabled') && el.offsetParent !== null);
+  ).filter((el) => {
+    if (el.hasAttribute('disabled')) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  });
 }
 
 /**
- * Accessible modal: focus trap, Escape to close, restores focus.
- * Set `labelledBy` to the id of the visible modal title element.
+ * Accessible modal: focus trap, Escape to close, restores focus to the opener.
  */
 export function AppModal({
   isOpen,
@@ -23,24 +26,24 @@ export function AppModal({
   ariaDescribedBy,
 }) {
   const panelRef = useRef(null);
-  const lastActiveRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!isOpen) return;
-    lastActiveRef.current = typeof document !== 'undefined' ? document.activeElement : null;
-    const t = requestAnimationFrame(() => {
+    if (!isOpen) return undefined;
+
+    const previousActive = typeof document !== 'undefined' ? document.activeElement : null;
+
+    const focusFirst = () => {
       const focusables = getFocusable(panelRef.current);
       (focusables[0] || panelRef.current)?.focus?.();
-    });
-    return () => cancelAnimationFrame(t);
-  }, [isOpen]);
+    };
+    const id = requestAnimationFrame(focusFirst);
 
-  useEffect(() => {
-    if (!isOpen) return;
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== 'Tab' || !panelRef.current) return;
@@ -58,12 +61,16 @@ export function AppModal({
         first.focus();
       }
     };
+
     document.addEventListener('keydown', onKeyDown);
     return () => {
+      cancelAnimationFrame(id);
       document.removeEventListener('keydown', onKeyDown);
-      lastActiveRef.current?.focus?.();
+      if (previousActive && typeof previousActive.focus === 'function') {
+        previousActive.focus();
+      }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 

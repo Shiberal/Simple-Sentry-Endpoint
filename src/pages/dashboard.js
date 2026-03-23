@@ -62,6 +62,7 @@ export default function Dashboard() {
   const [copiedError, setCopiedError] = useState(false); // Track if error was copied
   const [copiedCode, setCopiedCode] = useState(false); // Track if code snippet was copied
   const [fetchError, setFetchError] = useState(null);
+  const [insightsOpen, setInsightsOpen] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -2449,7 +2450,29 @@ export default function Dashboard() {
                 </div>
               )}
               {!selectedEvent && (
-                <DashboardAnalyticsCharts analyticsData={analyticsData} />
+                <div className={styles.insightsWrap}>
+                  <button
+                    type="button"
+                    className={styles.insightsToggle}
+                    onClick={() => setInsightsOpen((o) => !o)}
+                    aria-expanded={insightsOpen}
+                    id="dashboard-insights-toggle"
+                  >
+                    <span>Insights (trends and top issues)</span>
+                    <span className={styles.insightsChevron} aria-hidden>
+                      {insightsOpen ? '▼' : '▶'}
+                    </span>
+                  </button>
+                  {insightsOpen ? (
+                    <div
+                      className={styles.insightsPanel}
+                      role="region"
+                      aria-labelledby="dashboard-insights-toggle"
+                    >
+                      <DashboardAnalyticsCharts analyticsData={analyticsData} />
+                    </div>
+                  ) : null}
+                </div>
               )}
               <div className={styles.eventsHeader}>
                 {isSelectionMode && (
