@@ -465,14 +465,31 @@
   color: var(--text-primary);
 }
 
-/* Content split layout */
+/* Main workspace: optional full-width insights row, then issue list + detail */
 .content {
   flex: 1;
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   height: calc(100vh - 36px);
   min-width: 0;
+}
+
+.contentMainSplit {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.insightsFullRow {
+  flex-shrink: 0;
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  background-color: var(--bg-primary);
+  border-bottom: 1px solid var(--border-primary);
+  box-sizing: border-box;
 }
 
 /* Events list */
@@ -2030,12 +2047,9 @@
   border-left: 4px solid #3b82f6;
 }
 
-.insightsWrap {
-  margin-bottom: var(--space-2);
-}
-
 .insightsToggle {
   width: 100%;
+  max-width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2064,8 +2078,10 @@
 }
 
 .insightsPanel {
-  margin-top: var(--space-2);
-  margin-bottom: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-primary);
+  min-height: 280px;
 }
 
 .analyticsGrid {

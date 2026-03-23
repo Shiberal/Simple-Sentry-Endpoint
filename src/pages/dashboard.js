@@ -17,8 +17,8 @@ const DashboardAnalyticsCharts = dynamic(
     ssr: false,
     loading: () => (
       <div className={styles.analyticsGrid} aria-hidden>
-        <div style={{ height: 200, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
-        <div style={{ height: 200, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
+        <div style={{ height: 240, minHeight: 240, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
+        <div style={{ height: 240, minHeight: 240, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
       </div>
     ),
   }
@@ -2440,17 +2440,8 @@ export default function Dashboard() {
             </button>
 
             <div className={styles.content}>
-            <div className={styles.eventsList}>
-              {fetchError && (
-                <div className={styles.fetchErrorBanner} role="alert">
-                  <span>{fetchError}</span>
-                  <button type="button" className={styles.headerButton} onClick={() => fetchData()}>
-                    Retry
-                  </button>
-                </div>
-              )}
               {!selectedEvent && (
-                <div className={styles.insightsWrap}>
+                <div className={styles.insightsFullRow}>
                   <button
                     type="button"
                     className={styles.insightsToggle}
@@ -2472,6 +2463,16 @@ export default function Dashboard() {
                       <DashboardAnalyticsCharts analyticsData={analyticsData} />
                     </div>
                   ) : null}
+                </div>
+              )}
+              <div className={styles.contentMainSplit}>
+            <div className={styles.eventsList}>
+              {fetchError && (
+                <div className={styles.fetchErrorBanner} role="alert">
+                  <span>{fetchError}</span>
+                  <button type="button" className={styles.headerButton} onClick={() => fetchData()}>
+                    Retry
+                  </button>
                 </div>
               )}
               <div className={styles.eventsHeader}>
@@ -2721,6 +2722,7 @@ export default function Dashboard() {
             </div>
 
             {renderEventDetail()}
+              </div>
             </div>
           </div>
         </div>

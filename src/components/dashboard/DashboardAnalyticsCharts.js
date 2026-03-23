@@ -21,8 +21,8 @@ export default function DashboardAnalyticsCharts({ analyticsData }) {
   if (!analyticsData) {
     return (
       <div className={styles.analyticsGrid} aria-busy="true">
-        <div style={{ height: 200, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
-        <div style={{ height: 200, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
+        <div style={{ height: 240, minHeight: 240, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
+        <div style={{ height: 240, minHeight: 240, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
       </div>
     );
   }
@@ -38,7 +38,7 @@ export default function DashboardAnalyticsCharts({ analyticsData }) {
           border: '1px solid var(--border-primary)',
           borderRadius: 'var(--radius-md)',
           padding: 'var(--space-4)',
-          minHeight: 240,
+          minHeight: 260,
         }}
       >
         <h2
@@ -54,7 +54,7 @@ export default function DashboardAnalyticsCharts({ analyticsData }) {
         {chartData.length === 0 ? (
           <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-sm)' }}>No trend data yet.</p>
         ) : (
-          <div style={{ width: '100%', height: 200 }}>
+          <div style={{ width: '100%', height: 240, minHeight: 220 }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={cssVar('--border-primary')} opacity={0.35} />
