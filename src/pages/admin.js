@@ -3,6 +3,8 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import { AppModal } from '@/components/AppModal';
+import { LiveNotifications } from '@/components/LiveNotifications';
 import styles from '@/styles/Admin.module.css';
 
 export default function AdminPage() {
@@ -344,8 +346,13 @@ export default function AdminPage() {
                 </button>
               </Link>
               <Link href="/dashboard">
-                <button className={styles.headerButton}>
+                <button type="button" className={styles.headerButton}>
                   📊 Dashboard
+                </button>
+              </Link>
+              <Link href="/performance">
+                <button type="button" className={styles.headerButton}>
+                  ⚡ Performance
                 </button>
               </Link>
               <ThemeToggle />
@@ -403,7 +410,7 @@ export default function AdminPage() {
           </nav>
         </aside>
 
-        <main className={styles.main}>
+        <main className={styles.main} id="main-content">
           <div className={styles.content}>
             {activeTab === 'overview' && stats && (
               <>
@@ -668,11 +675,14 @@ export default function AdminPage() {
           </div>
         </main>
 
-        {/* Edit User Modal */}
-        {editingUser && (
-          <div className={styles.modalOverlay} onClick={() => setEditingUser(null)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <h2 className={styles.modalTitle}>Edit User</h2>
+        <AppModal
+          isOpen={!!editingUser}
+          onClose={() => setEditingUser(null)}
+          labelledBy="admin-modal-edit-user-title"
+          overlayClassName={styles.modalOverlay}
+          panelClassName={styles.modal}
+        >
+              <h2 id="admin-modal-edit-user-title" className={styles.modalTitle}>Edit User</h2>
               <div className={styles.modalForm}>
                 <label className={styles.label}>
                   Email
@@ -715,15 +725,16 @@ export default function AdminPage() {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+        </AppModal>
 
-        {/* Edit Project Modal */}
-        {editingProject && (
-          <div className={styles.modalOverlay} onClick={() => setEditingProject(null)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
-              <h2 className={styles.modalTitle}>Edit Project</h2>
+        <AppModal
+          isOpen={!!editingProject}
+          onClose={() => setEditingProject(null)}
+          labelledBy="admin-modal-edit-project-title"
+          overlayClassName={styles.modalOverlay}
+          panelClassName={`${styles.modal} ${styles.modalWide}`}
+        >
+              <h2 id="admin-modal-edit-project-title" className={styles.modalTitle}>Edit Project</h2>
               <div className={styles.modalForm}>
                 <label className={styles.label}>
                   Name
@@ -828,15 +839,16 @@ export default function AdminPage() {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+        </AppModal>
 
-        {/* Delete User Confirmation */}
-        {showDeleteUserConfirm && deletingUser && (
-          <div className={styles.modalOverlay} onClick={() => setShowDeleteUserConfirm(false)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <h2 className={styles.modalTitle}>Delete User</h2>
+        <AppModal
+          isOpen={showDeleteUserConfirm && !!deletingUser}
+          onClose={() => setShowDeleteUserConfirm(false)}
+          labelledBy="admin-modal-delete-user-title"
+          overlayClassName={styles.modalOverlay}
+          panelClassName={styles.modal}
+        >
+              <h2 id="admin-modal-delete-user-title" className={styles.modalTitle}>Delete User</h2>
               <p className={styles.modalText}>
                 Are you sure you want to delete user <strong>{deletingUser.email}</strong>? 
                 This action cannot be undone.
@@ -858,15 +870,16 @@ export default function AdminPage() {
                   Delete
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+        </AppModal>
 
-        {/* Delete Project Confirmation */}
-        {showDeleteProjectConfirm && deletingProject && (
-          <div className={styles.modalOverlay} onClick={() => setShowDeleteProjectConfirm(false)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <h2 className={styles.modalTitle}>Delete Project</h2>
+        <AppModal
+          isOpen={showDeleteProjectConfirm && !!deletingProject}
+          onClose={() => setShowDeleteProjectConfirm(false)}
+          labelledBy="admin-modal-delete-project-title"
+          overlayClassName={styles.modalOverlay}
+          panelClassName={styles.modal}
+        >
+              <h2 id="admin-modal-delete-project-title" className={styles.modalTitle}>Delete Project</h2>
               <p className={styles.modalText}>
                 Are you sure you want to delete project <strong>{deletingProject.name}</strong>? 
                 This will also delete all associated events and issues. This action cannot be undone.
@@ -888,18 +901,13 @@ export default function AdminPage() {
                   Delete
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+        </AppModal>
 
-        {/* Notifications */}
-        <div className={styles.notifications}>
-          {notifications.map(notif => (
-            <div key={notif.id} className={`${styles.notification} ${styles[`notification${notif.type}`]}`}>
-              {notif.message}
-            </div>
-          ))}
-        </div>
+        <LiveNotifications
+          notifications={notifications}
+          onRemove={(id) => setNotifications((prev) => prev.filter((n) => n.id !== id))}
+          variant="admin"
+        />
       </div>
     </>
   );

@@ -5,6 +5,18 @@ import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 import styles from '@/styles/Auth.module.css';
 
+function ProfileSkeleton() {
+  return (
+    <div className={styles.container} id="main-content">
+      <div className={styles.skeletonStack} aria-busy="true" aria-label="Loading profile">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className={styles.skeletonBar} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
@@ -97,9 +109,12 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className={styles.container}>
-        <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Loading...</div>
-      </div>
+      <>
+        <Head>
+          <title>Profile Settings - Sentry Monitor</title>
+        </Head>
+        <ProfileSkeleton />
+      </>
     );
   }
 
@@ -109,8 +124,14 @@ export default function ProfilePage() {
         <title>Profile Settings - Sentry Monitor</title>
       </Head>
 
-      <div className={styles.container}>
-        <div className={styles.card}>
+      <div className={styles.container} style={{ position: 'relative' }}>
+        <div className={styles.profileTopBar}>
+          <Link href="/performance" className={styles.link}>
+            Performance
+          </Link>
+          <ThemeToggle />
+        </div>
+        <main id="main-content" className={styles.card}>
           <div className={styles.header}>
             <h1 className={styles.logo}>
               <span className={styles.logoIcon}>👤</span>
@@ -207,7 +228,7 @@ export default function ProfilePage() {
               </Link>
             )}
           </div>
-        </div>
+        </main>
       </div>
     </>
   );

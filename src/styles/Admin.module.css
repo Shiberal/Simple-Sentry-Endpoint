@@ -481,6 +481,10 @@
   box-shadow: var(--shadow-md);
 }
 
+.modalWide {
+  max-width: 700px;
+}
+
 .modalTitle {
   font-size: var(--font-xl);
   font-weight: var(--weight-semibold);

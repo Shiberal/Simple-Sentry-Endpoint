@@ -601,7 +601,7 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
           </div>
         </header>
 
-        <div className={styles.main}>
+        <div className={styles.main} id="main-content">
           {/* DSN Section */}
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>DSN (Data Source Name)</h2>

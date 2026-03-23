@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
+import ThemeToggle from '@/components/ThemeToggle';
+import AppNavRail from '@/components/AppNavRail';
 import {
   LineChart,
   Line,
@@ -17,6 +18,7 @@ import styles from '@/styles/Dashboard.module.css';
 
 export default function PerformancePage() {
   const router = useRouter();
+  const [user, setUser] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState(null);
@@ -48,8 +50,28 @@ export default function PerformancePage() {
     return '';
   };
 
+  const checkAuth = async () => {
+    try {
+      const response = await fetch('/api/auth/me');
+      const data = await response.json();
+      if (!data?.user) {
+        router.push('/login');
+        return;
+      }
+      setUser(data.user);
+      fetchProjects();
+    } catch {
+      router.push('/login');
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  };
+
   useEffect(() => {
-    fetchProjects();
+    checkAuth();
   }, []);
 
   useEffect(() => {
@@ -632,56 +654,19 @@ export default function PerformancePage() {
 
   return (
     <div className={styles.container}>
-      {/* Left Navigation Sidebar */}
-      <nav className={styles.navSidebar}>
-        <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-          <div 
-            className={`${styles.navItem} ${router.pathname === '/dashboard' ? styles.navItemActive : ''}`}
-            title="Global Dashboard"
-          >
-            📊
-            <div className={styles.navItemTooltip}>Global Dashboard</div>
-          </div>
-        </Link>
-        <Link href="/performance" style={{ textDecoration: 'none' }}>
-          <div 
-            className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
-            title="Performance"
-          >
-            ⚡
-            <div className={styles.navItemTooltip}>Performance</div>
-          </div>
-        </Link>
-        
-        <div className={styles.navDivider}></div>
+      {user ? (
+        <AppNavRail
+          mode="performance"
+          router={router}
+          user={user}
+          projects={projects}
+          selectedProject={selectedProject}
+          onSelectProject={setSelectedProject}
+          onLogout={handleLogout}
+        />
+      ) : null}
 
-        {/* Project Selector (Discord-like) */}
-        {projects.map(project => (
-          <div 
-            key={project.id}
-            className={`${styles.navProjectItem} ${selectedProject === project.id ? styles.navProjectItemActive : ''}`}
-            onClick={() => setSelectedProject(project.id)}
-            title={project.name}
-          >
-            {project.name.substring(0, 2).toUpperCase()}
-            <div className={styles.navItemTooltip}>{project.name}</div>
-          </div>
-        ))}
-
-        <div className={styles.navDivider}></div>
-
-        <Link href="/profile" style={{ textDecoration: 'none' }}>
-          <div 
-            className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
-            title="Profile"
-          >
-            👤
-            <div className={styles.navItemTooltip}>Your Profile</div>
-          </div>
-        </Link>
-      </nav>
-
-      <div className={styles.main}>
+      <div className={styles.main} id="main-content">
         <header className={styles.header}>
           <div className={styles.headerContent}>
             <h1 className={styles.logo}>
@@ -706,6 +691,10 @@ export default function PerformancePage() {
               >
                 🔄 Refresh
               </button>
+              <ThemeToggle />
+              {user?.email ? (
+                <span className={styles.userEmail}>{user.email}</span>
+              ) : null}
             </div>
           </div>
         </header>

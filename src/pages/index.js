@@ -1,26 +1,30 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Head from "next/head";
+import Head from 'next/head';
 import Link from 'next/link';
+import ThemeToggle from '@/components/ThemeToggle';
+import styles from '@/styles/Landing.module.css';
 
 export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    checkAuthAndRedirect();
-  }, []);
-
-  const checkAuthAndRedirect = async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      const data = await response.json();
-      if (data?.user) {
-        router.push('/dashboard');
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        const data = await response.json();
+        if (!cancelled && data?.user) {
+          router.push('/dashboard');
+        }
+      } catch {
+        /* stay on landing */
       }
-    } catch (error) {
-      // User is not logged in, stay on landing page
-    }
-  };
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   return (
     <>
@@ -30,141 +34,62 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      
-      <div style={styles.container}>
-        <div style={styles.hero}>
-          <h1 style={styles.heroTitle}>
-            <span style={styles.heroIcon}>⚡</span>
+
+      <main id="main-content" className={styles.page}>
+        <div className={styles.topBar}>
+          <ThemeToggle />
+        </div>
+
+        <div className={styles.hero}>
+          <h1 className={styles.heroTitle}>
+            <span className={styles.heroIcon} aria-hidden>
+              ⚡
+            </span>
             Sentry Monitor
           </h1>
-          <p style={styles.heroSubtitle}>
+          <p className={styles.heroSubtitle}>
             Real-time error tracking and monitoring for your applications
           </p>
-          <div style={styles.heroButtons}>
-            <Link href="/register" style={styles.primaryButton}>
+          <div className={styles.heroButtons}>
+            <Link href="/register" className={styles.primaryButton}>
               Get Started
             </Link>
-            <Link href="/login" style={styles.secondaryButton}>
+            <Link href="/login" className={styles.secondaryButton}>
               Sign In
             </Link>
           </div>
         </div>
 
-        <div style={styles.features}>
-          <div style={styles.feature}>
-            <div style={styles.featureIcon}>📊</div>
-            <h3 style={styles.featureTitle}>Real-time Monitoring</h3>
-            <p style={styles.featureText}>
+        <div className={styles.features}>
+          <div className={styles.feature}>
+            <div className={styles.featureIcon} aria-hidden>
+              📊
+            </div>
+            <h2 className={styles.featureTitle}>Real-time Monitoring</h2>
+            <p className={styles.featureText}>
               Track errors and events as they happen with automatic refresh
             </p>
           </div>
-          <div style={styles.feature}>
-            <div style={styles.featureIcon}>🎯</div>
-            <h3 style={styles.featureTitle}>Project Organization</h3>
-            <p style={styles.featureText}>
+          <div className={styles.feature}>
+            <div className={styles.featureIcon} aria-hidden>
+              🎯
+            </div>
+            <h2 className={styles.featureTitle}>Project Organization</h2>
+            <p className={styles.featureText}>
               Manage multiple projects with unique keys and team collaboration
             </p>
           </div>
-          <div style={styles.feature}>
-            <div style={styles.featureIcon}>🔌</div>
-            <h3 style={styles.featureTitle}>Easy Integration</h3>
-            <p style={styles.featureText}>
+          <div className={styles.feature}>
+            <div className={styles.featureIcon} aria-hidden>
+              🔌
+            </div>
+            <h2 className={styles.featureTitle}>Easy Integration</h2>
+            <p className={styles.featureText}>
               Simple HTTP API compatible with any language or framework
             </p>
           </div>
         </div>
-      </div>
+      </main>
     </>
   );
 }
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '2rem',
-  },
-  hero: {
-    textAlign: 'center',
-    marginBottom: '4rem',
-  },
-  heroIcon: {
-    fontSize: '4rem',
-    display: 'block',
-    marginBottom: '1rem',
-  },
-  heroTitle: {
-    fontSize: '3.5rem',
-    fontWeight: '800',
-    color: '#fff',
-    marginBottom: '1rem',
-    textShadow: '0 4px 6px rgba(0,0,0,0.2)',
-  },
-  heroSubtitle: {
-    fontSize: '1.25rem',
-    color: '#f3f4f6',
-    marginBottom: '2rem',
-  },
-  heroButtons: {
-    display: 'flex',
-    gap: '1rem',
-    justifyContent: 'center',
-  },
-  primaryButton: {
-    padding: '1rem 2.5rem',
-    backgroundColor: '#fff',
-    color: '#667eea',
-    textDecoration: 'none',
-    borderRadius: '0.5rem',
-    fontSize: '1.125rem',
-    fontWeight: '600',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-    transition: 'transform 0.2s',
-    display: 'inline-block',
-  },
-  secondaryButton: {
-    padding: '1rem 2.5rem',
-    backgroundColor: 'transparent',
-    color: '#fff',
-    textDecoration: 'none',
-    border: '2px solid #fff',
-    borderRadius: '0.5rem',
-    fontSize: '1.125rem',
-    fontWeight: '600',
-    transition: 'all 0.2s',
-    display: 'inline-block',
-  },
-  features: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-    gap: '2rem',
-    maxWidth: '1000px',
-    width: '100%',
-  },
-  feature: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    padding: '2rem',
-    borderRadius: '1rem',
-    textAlign: 'center',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
-  },
-  featureIcon: {
-    fontSize: '3rem',
-    marginBottom: '1rem',
-  },
-  featureTitle: {
-    fontSize: '1.25rem',
-    fontWeight: '700',
-    color: '#1a202c',
-    marginBottom: '0.75rem',
-  },
-  featureText: {
-    fontSize: '0.95rem',
-    color: '#4a5568',
-    lineHeight: 1.6,
-  },
-};

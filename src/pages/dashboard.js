@@ -1,10 +1,28 @@
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import { AppModal } from '@/components/AppModal';
+import { LiveNotifications } from '@/components/LiveNotifications';
+import AppNavRail from '@/components/AppNavRail';
 import { parseGitHubRepo } from '@/lib/github';
+import { prettifyContent } from '@/lib/prettifyContent';
 import styles from '@/styles/Dashboard.module.css';
+
+const DashboardAnalyticsCharts = dynamic(
+  () => import('@/components/dashboard/DashboardAnalyticsCharts'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className={styles.analyticsGrid} aria-hidden>
+        <div style={{ height: 200, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
+        <div style={{ height: 200, background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }} />
+      </div>
+    ),
+  }
+);
 
 export default function Dashboard() {
   const router = useRouter();
@@ -43,6 +61,7 @@ export default function Dashboard() {
   const [prettifiedMessage, setPrettifiedMessage] = useState(false); // Track if message is prettified
   const [copiedError, setCopiedError] = useState(false); // Track if error was copied
   const [copiedCode, setCopiedCode] = useState(false); // Track if code snippet was copied
+  const [fetchError, setFetchError] = useState(null);
 
   useEffect(() => {
     checkAuth();
@@ -73,102 +92,6 @@ export default function Dashboard() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-
-  // Prettify function to format JSON or text (loosely)
-  const prettifyContent = (content) => {
-    if (!content) return content;
-    
-    const trimmed = content.trim();
-    
-    // Helper function to find balanced JSON structures
-    const findBalancedJson = (str, startChar, endChar) => {
-      let depth = 0;
-      let start = -1;
-      for (let i = 0; i < str.length; i++) {
-        if (str[i] === startChar) {
-          if (depth === 0) start = i;
-          depth++;
-        } else if (str[i] === endChar) {
-          depth--;
-          if (depth === 0 && start !== -1) {
-            return str.substring(start, i + 1);
-          }
-        }
-      }
-      return null;
-    };
-    
-    // Try to parse as direct JSON
-    try {
-      const parsed = JSON.parse(trimmed);
-      return JSON.stringify(parsed, null, 2);
-    } catch (e) {
-      // Try to find JSON objects/arrays embedded in the content
-      const jsonObject = findBalancedJson(trimmed, '{', '}');
-      const jsonArray = findBalancedJson(trimmed, '[', ']');
-      
-      // Try object first
-      if (jsonObject) {
-        try {
-          const parsed = JSON.parse(jsonObject);
-          const formatted = JSON.stringify(parsed, null, 2);
-          return trimmed.replace(jsonObject, formatted);
-        } catch (e2) {
-          // Try unescaping common escape sequences
-          try {
-            const unescaped = jsonObject
-              .replace(/\\"/g, '"')
-              .replace(/\\n/g, '\n')
-              .replace(/\\t/g, '\t')
-              .replace(/\\r/g, '\r');
-            const parsed = JSON.parse(unescaped);
-            const formatted = JSON.stringify(parsed, null, 2);
-            return trimmed.replace(jsonObject, formatted);
-          } catch (e3) {
-            // Continue to try array or other methods
-          }
-        }
-      }
-      
-      // Try array
-      if (jsonArray) {
-        try {
-          const parsed = JSON.parse(jsonArray);
-          const formatted = JSON.stringify(parsed, null, 2);
-          return trimmed.replace(jsonArray, formatted);
-        } catch (e2) {
-          // Continue to other methods
-        }
-      }
-      
-      // Try parsing as a JSON string (double-encoded, e.g., "{\"key\":\"value\"}")
-      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-        try {
-          // First unescape the outer quotes
-          const unescaped = trimmed.slice(1, -1)
-            .replace(/\\"/g, '"')
-            .replace(/\\n/g, '\n')
-            .replace(/\\t/g, '\t')
-            .replace(/\\r/g, '\r')
-            .replace(/\\\\/g, '\\');
-          const parsed = JSON.parse(unescaped);
-          return JSON.stringify(parsed, null, 2);
-        } catch (e2) {
-          // Continue to text formatting
-        }
-      }
-      
-      // If not JSON, format as text with better line breaks
-      // Replace common escape sequences and format
-      return content
-        .replace(/\\n/g, '\n')
-        .replace(/\\t/g, '\t')
-        .replace(/\\r/g, '\r')
-        .replace(/\\"/g, '"')
-        .replace(/\\'/g, "'")
-        .replace(/\\\\/g, '\\');
-    }
-  };
 
   const checkAuth = async () => {
     try {
@@ -216,8 +139,10 @@ export default function Dashboard() {
         const standalone = eventsData.events.filter(event => !event.issueId);
         setStandaloneEvents(standalone);
       }
+      setFetchError(null);
     } catch (error) {
       console.error('Error fetching data:', error);
+      setFetchError('Could not load issues or projects. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -259,7 +184,7 @@ export default function Dashboard() {
       fetchData();
       fetchAnalytics();
     }
-  }, [selectedProject, user, filterLevel, activeTab]);
+  }, [selectedProject, user, filterLevel]);
 
   useEffect(() => {
     if (autoRefresh && user) {
@@ -2319,7 +2244,22 @@ export default function Dashboard() {
     );
   };
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <>
+        <Head>
+          <title>Dashboard - Sentry Monitor</title>
+        </Head>
+        <div className={styles.container} id="main-content">
+          <div className={styles.issueListSkeleton} style={{ flex: 1, padding: 'var(--space-8)', justifyContent: 'center' }}>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className={styles.issueListSkeletonRow} />
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -2328,99 +2268,18 @@ export default function Dashboard() {
       </Head>
       
       <div className={styles.container}>
-        {/* Left Navigation Sidebar */}
-        <nav className={styles.navSidebar}>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <div 
-              className={`${styles.navItem} ${router.pathname === '/dashboard' && !selectedProject ? styles.navItemActive : ''}`}
-              title="Global Dashboard"
-            >
-              📊
-              <div className={styles.navItemTooltip}>Global Dashboard</div>
-            </div>
-          </Link>
-          <Link href="/performance" style={{ textDecoration: 'none' }}>
-            <div 
-              className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
-              title="Performance"
-            >
-              ⚡
-              <div className={styles.navItemTooltip}>Performance</div>
-            </div>
-          </Link>
-          
-          <div className={styles.navDivider}></div>
+        <AppNavRail
+          mode="dashboard"
+          router={router}
+          user={user}
+          projects={projects}
+          selectedProject={selectedProject}
+          onSelectProject={setSelectedProject}
+          onCreateProject={() => setShowNewProjectModal(true)}
+          onLogout={handleLogout}
+        />
 
-          {/* Project Selector (Discord-like) */}
-          <div 
-            className={`${styles.navProjectItem} ${selectedProject === null ? styles.navProjectItemActive : ''}`}
-            onClick={() => setSelectedProject(null)}
-            title="All Projects"
-          >
-            ALL
-            <div className={styles.navItemTooltip}>All Projects</div>
-          </div>
-
-          {projects.map(project => (
-            <div 
-              key={project.id}
-              className={`${styles.navProjectItem} ${selectedProject === project.id ? styles.navProjectItemActive : ''}`}
-              onClick={() => setSelectedProject(project.id)}
-              title={project.name}
-            >
-              {project.name.substring(0, 2).toUpperCase()}
-              {project._count.issues > 0 && (
-                <span className={styles.projectBadge}>{project._count.issues}</span>
-              )}
-              <div className={styles.navItemTooltip}>{project.name}</div>
-            </div>
-          ))}
-
-          <button 
-            className={styles.navProjectItem}
-            onClick={() => setShowNewProjectModal(true)}
-            title="Create New Project"
-            style={{ color: 'var(--success)', fontSize: '24px' }}
-          >
-            +
-            <div className={styles.navItemTooltip}>Create New Project</div>
-          </button>
-
-          <div className={styles.navDivider}></div>
-
-          {user.isAdmin && (
-            <Link href="/admin" style={{ textDecoration: 'none' }}>
-              <div 
-                className={`${styles.navItem} ${router.pathname === '/admin' ? styles.navItemActive : ''}`}
-                title="Admin"
-              >
-                ⚙️
-                <div className={styles.navItemTooltip}>Admin Settings</div>
-              </div>
-            </Link>
-          )}
-          
-          <Link href="/profile" style={{ textDecoration: 'none' }}>
-            <div 
-              className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
-              title="Profile"
-            >
-              👤
-              <div className={styles.navItemTooltip}>Your Profile</div>
-            </div>
-          </Link>
-          
-          <button 
-            className={styles.navItem}
-            onClick={handleLogout}
-            title="Logout"
-          >
-            🚪
-            <div className={styles.navItemTooltip}>Logout</div>
-          </button>
-        </nav>
-
-        <div className={styles.main}>
+        <div className={styles.main} id="main-content">
           <header className={styles.header}>
             <div className={styles.headerContent}>
               <h1 className={styles.logo}>
@@ -2581,6 +2440,17 @@ export default function Dashboard() {
 
             <div className={styles.content}>
             <div className={styles.eventsList}>
+              {fetchError && (
+                <div className={styles.fetchErrorBanner} role="alert">
+                  <span>{fetchError}</span>
+                  <button type="button" className={styles.headerButton} onClick={() => fetchData()}>
+                    Retry
+                  </button>
+                </div>
+              )}
+              {!selectedEvent && (
+                <DashboardAnalyticsCharts analyticsData={analyticsData} />
+              )}
               <div className={styles.eventsHeader}>
                 {isSelectionMode && (
                   <div className={styles.selectionToolbar}>
@@ -2625,7 +2495,11 @@ export default function Dashboard() {
               </div>
 
               {loading ? (
-                <div className={styles.loading}>Loading issues...</div>
+                <div className={styles.issueListSkeleton} aria-busy="true" aria-label="Loading issues">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div key={i} className={styles.issueListSkeletonRow} />
+                  ))}
+                </div>
               ) : projects.length === 0 ? (
                 <div className={styles.empty}>
                   <div className={styles.emptyIcon}>🚀</div>
@@ -2829,11 +2703,14 @@ export default function Dashboard() {
         </div>
         </div>
 
-        {/* New Project Modal */}
-        {showNewProjectModal && (
-          <div className={styles.modalOverlay} onClick={() => setShowNewProjectModal(false)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <h3 className={styles.modalTitle}>Create New Project</h3>
+        <AppModal
+          isOpen={showNewProjectModal}
+          onClose={() => setShowNewProjectModal(false)}
+          labelledBy="dashboard-modal-new-project-title"
+          overlayClassName={styles.modalOverlay}
+          panelClassName={styles.modal}
+        >
+              <h3 id="dashboard-modal-new-project-title" className={styles.modalTitle}>Create New Project</h3>
               <form onSubmit={handleCreateProject}>
                 <input
                   type="text"
@@ -2853,19 +2730,20 @@ export default function Dashboard() {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
+        </AppModal>
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirm && (deletingIssue || deletingEvent) && (
-          <div className={styles.modalOverlay} onClick={() => {
+        <AppModal
+          isOpen={showDeleteConfirm && !!(deletingIssue || deletingEvent)}
+          onClose={() => {
             setShowDeleteConfirm(false);
             setDeletingIssue(null);
             setDeletingEvent(null);
-          }}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <h3 className={styles.modalTitle}>
+          }}
+          labelledBy="dashboard-modal-delete-title"
+          overlayClassName={styles.modalOverlay}
+          panelClassName={styles.modal}
+        >
+              <h3 id="dashboard-modal-delete-title" className={styles.modalTitle}>
                 {deletingIssue 
                   ? (deletingIssue.bulk ? 'Delete Multiple Issues' : 'Delete Issue')
                   : (deletingEvent?.bulk ? 'Delete Multiple Events' : 'Delete Event')
@@ -2937,15 +2815,16 @@ export default function Dashboard() {
                   }
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+        </AppModal>
 
-        {/* GitHub Issue Modal */}
-        {showGitHubModal && (
-          <div className={styles.modalOverlay} onClick={() => setShowGitHubModal(false)}>
-            <div className={styles.modal} style={{ maxWidth: '600px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
-              <h3 className={styles.modalTitle}>🐙 Create GitHub Issue</h3>
+        <AppModal
+          isOpen={showGitHubModal}
+          onClose={() => setShowGitHubModal(false)}
+          labelledBy="dashboard-modal-github-title"
+          overlayClassName={styles.modalOverlay}
+          panelClassName={`${styles.modal} ${styles.modalWide}`}
+        >
+              <h3 id="dashboard-modal-github-title" className={styles.modalTitle}>🐙 Create GitHub Issue</h3>
               <p className={styles.modalText}>
                 Copy the information below and create an issue on your GitHub repository.
               </p>
@@ -3001,36 +2880,9 @@ export default function Dashboard() {
                   Close
                 </button>
               </div>
-            </div>
-          </div>
-        )}
+        </AppModal>
 
-        {/* Notification System */}
-        <div className={styles.notificationContainer}>
-          {notifications.map((notification) => (
-            <div 
-              key={notification.id} 
-              className={`${styles.notification} ${styles[`notification${notification.type.charAt(0).toUpperCase() + notification.type.slice(1)}`]}`}
-            >
-              <div className={styles.notificationContent}>
-                <span className={styles.notificationIcon}>
-                  {notification.type === 'success' && '✅'}
-                  {notification.type === 'error' && '❌'}
-                  {notification.type === 'warning' && '⚠️'}
-                  {notification.type === 'info' && 'ℹ️'}
-                </span>
-                <span className={styles.notificationMessage}>{notification.message}</span>
-              </div>
-              <button 
-                className={styles.notificationClose}
-                onClick={() => removeNotification(notification.id)}
-                aria-label="Close notification"
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
+        <LiveNotifications notifications={notifications} onRemove={removeNotification} variant="dashboard" />
       </div>
     </>
   );
