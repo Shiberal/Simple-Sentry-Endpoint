@@ -33,7 +33,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.1.1"
   },
-  "overrides-disabled": {
-    "hono": "4.11.0"
+  "overrides": {
+    "effect": "^3.20.0"
   }
 }
