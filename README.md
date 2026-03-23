@@ -138,4 +138,4 @@ docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." sentry-monitor
 
 ## License
 
-Licensed under the [MIT License](LICENSE). You may use, copy, modify, and distribute the software under those terms. The software is provided as-is, without warranty.
+Licensed under the [MPL](LICENSE).
