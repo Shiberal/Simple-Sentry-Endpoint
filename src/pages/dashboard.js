@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 import { parseGitHubRepo } from '@/lib/github';
+import { platformFromEventData } from '@/lib/platform';
 import styles from '@/styles/Dashboard.module.css';
 
 export default function Dashboard() {
@@ -1051,15 +1052,20 @@ export default function Dashboard() {
       lastSeen: event.createdAt,
       createdAt: event.createdAt,
       project: event.project,
-      events: [event],
-      eventType: event.eventType
+      events: [{ id: event.id, eventType: event.eventType, createdAt: event.createdAt }],
+      eventType: event.eventType,
+      platformLabel: platformFromEventData(event.data || {}),
     }))
   ].sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
 
   const filteredIssues = combinedItems.filter(issue => {
-    const matchesSearch = !searchQuery || 
-      issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (issue.project?.name || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const q = (searchQuery || '').toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      issue.title.toLowerCase().includes(q) ||
+      (issue.project?.name || '').toLowerCase().includes(q) ||
+      (issue.platformLabel && issue.platformLabel.toLowerCase().includes(q)) ||
+      (issue.culprit && String(issue.culprit).toLowerCase().includes(q));
     
     const matchesLevel = filterLevel === 'all' || 
       issue.level === filterLevel;
@@ -2617,7 +2623,7 @@ export default function Dashboard() {
                 )}
                 <input
                   type="text"
-                  placeholder="Search issues..."
+                  placeholder="Search title, project, platform, culprit…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={styles.searchInput}
@@ -2690,7 +2696,7 @@ export default function Dashboard() {
                             }
                           }
                         }}
-                        className={`${styles.eventCard} ${isSelected ? styles.eventCardSelected : ''}`}
+                        className={`${styles.eventCard} ${isSelectionMode ? styles.eventCardSelectMode : ''} ${isSelected ? styles.eventCardSelected : ''}`}
                         style={{
                           borderLeftColor: type === 'error' ? 'var(--error)' : 
                                          type === 'warning' ? 'var(--warning)' : 
@@ -2706,24 +2712,35 @@ export default function Dashboard() {
                             onClick={(e) => e.stopPropagation()}
                           />
                         )}
-                        <div className={styles.eventHeader}>
-                          <span 
-                            className={styles.eventType}
-                            style={{
-                              backgroundColor: type === 'error' ? 'var(--error-bg)' : 
-                                             type === 'warning' ? 'var(--warning-bg)' : 
-                                             type === 'info' ? 'var(--info-bg)' : 'var(--success-bg)',
-                              color: type === 'error' ? 'var(--error)' : 
-                                     type === 'warning' ? 'var(--warning)' : 
-                                     type === 'info' ? 'var(--info)' : 'var(--success)'
-                            }}
-                          >
-                            {type.toUpperCase()}
-                          </span>
+                        <div className={styles.issueListTop}>
+                          <div className={styles.issueListLeading}>
+                            {issue.platformLabel ? (
+                              <span
+                                className={styles.platformBracket}
+                                title={`Platform: ${issue.platformLabel}`}
+                              >
+                                [{issue.platformLabel}]
+                              </span>
+                            ) : null}
+                            <span 
+                              className={styles.eventType}
+                              style={{
+                                backgroundColor: type === 'error' ? 'var(--error-bg)' : 
+                                               type === 'warning' ? 'var(--warning-bg)' : 
+                                               type === 'info' ? 'var(--info-bg)' : 'var(--success-bg)',
+                                color: type === 'error' ? 'var(--error)' : 
+                                       type === 'warning' ? 'var(--warning)' : 
+                                       type === 'info' ? 'var(--info)' : 'var(--success)'
+                              }}
+                            >
+                              {type.toUpperCase()}
+                            </span>
+                          </div>
                           <span className={styles.eventTime}>{formatDate(issue.lastSeen)}</span>
                         </div>
-                        <h4 className={styles.eventTitle}>
-                          {issue.title}
+                        <div className={styles.issueListTitleBlock}>
+                          <div className={styles.issueListTitleMain}>{issue.title}</div>
+                          <div className={styles.issueListTitleBadges}>
                           {issue.count > 1 && (
                             <span className={styles.occurrenceBadge}>
                               <button 
@@ -2786,7 +2803,13 @@ export default function Dashboard() {
                               🔕
                             </span>
                           )}
-                        </h4>
+                          </div>
+                        </div>
+                        {issue.culprit && !issue._isStandaloneEvent ? (
+                          <div className={styles.issueListCulprit} title={issue.culprit}>
+                            {issue.culprit}
+                          </div>
+                        ) : null}
                         <div className={styles.eventMeta}>
                           <span>{issue.project?.name || 'Unknown Project'}</span>
                           <span>• {issue.status}</span>

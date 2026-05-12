@@ -782,11 +782,11 @@
   background-color: var(--bg-primary);
   border: 1px solid var(--border-primary);
   border-left: 3px solid;
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-2);
-  margin-bottom: var(--space-1);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  margin-bottom: var(--space-2);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
   position: relative;
 }
 
@@ -797,6 +797,10 @@
 .eventCardSelected {
   border-left-color: var(--accent-primary);
   background-color: var(--bg-secondary);
+}
+
+.eventCardSelectMode {
+  padding-left: calc(var(--space-8) + var(--space-2));
 }
 
 .eventCheckbox {
@@ -810,11 +814,72 @@
   z-index: 2;
 }
 
-.eventHeader {
+.issueListTop {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
   margin-bottom: var(--space-2);
+  min-width: 0;
+}
+
+.issueListLeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.platformBracket {
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Monaco, monospace;
+  font-size: 11px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.issueListTitleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  min-width: 0;
+}
+
+.issueListTitleMain {
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  line-height: var(--leading-normal);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.issueListTitleBadges {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.issueListCulprit {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+  font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, Monaco, monospace;
+  line-height: var(--leading-tight);
+  margin-bottom: var(--space-2);
+  padding-left: 1px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+  word-break: break-all;
 }
 
 .eventType {
@@ -823,23 +888,14 @@
   font-size: var(--font-xs);
   font-weight: var(--weight-bold);
   letter-spacing: 0.05em;
+  flex-shrink: 0;
 }
 
 .eventTime {
   font-size: var(--font-xs);
   color: var(--text-secondary);
-}
-
-.eventTitle {
-  font-size: var(--font-xs);
-  font-weight: var(--weight-medium);
-  margin: 2px 0;
-  color: var(--text-primary);
-  line-height: var(--leading-tight);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .occurrenceBadge {
@@ -925,11 +981,15 @@
 }
 
 .eventMeta {
-  font-size: 10px;
+  font-size: var(--font-xs);
   color: var(--text-secondary);
   display: flex;
-  gap: var(--space-1);
+  gap: var(--space-2);
   align-items: center;
+  flex-wrap: wrap;
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border-secondary);
+  margin-top: auto;
 }
 
 .quickResolveButton,

@@ -1,4 +1,19 @@
 import prisma from '@/lib/prisma';
+import { platformFromEventData } from '@/lib/platform';
+
+function attachPlatformLabel(issue) {
+  const latest = issue.events?.[0];
+  const platformLabel =
+    latest && latest.data && typeof latest.data === 'object'
+      ? platformFromEventData(latest.data)
+      : null;
+  const events = (issue.events || []).map(({ id, eventType, createdAt }) => ({
+    id,
+    eventType,
+    createdAt,
+  }));
+  return { ...issue, events, platformLabel };
+}
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -89,12 +104,13 @@ export default async function handler(req, res) {
                 select: {
                   id: true,
                   eventType: true,
-                  createdAt: true
+                  createdAt: true,
+                  data: true,
                 },
                 orderBy: {
                   createdAt: 'desc'
                 },
-                take: 1 // Only get the latest event for event type badge
+                take: 1,
               },
               _count: {
                 select: {
@@ -110,9 +126,11 @@ export default async function handler(req, res) {
           prisma.issue.count({ where })
         ]);
 
+        const issuesOut = issues.map(attachPlatformLabel);
+
         res.status(200).json({ 
           success: true, 
-          issues,
+          issues: issuesOut,
           pagination: {
             page: parseInt(page),
             pageSize: parseInt(pageSize),
