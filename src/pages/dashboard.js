@@ -3,6 +3,7 @@ import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import IssueListSkeleton from '@/components/IssueListSkeleton';
 import { parseGitHubRepo } from '@/lib/github';
 import styles from '@/styles/Dashboard.module.css';
 
@@ -2625,7 +2626,7 @@ export default function Dashboard() {
               </div>
 
               {loading ? (
-                <div className={styles.loading}>Loading issues...</div>
+                <IssueListSkeleton rows={9} />
               ) : projects.length === 0 ? (
                 <div className={styles.empty}>
                   <div className={styles.emptyIcon}>🚀</div>

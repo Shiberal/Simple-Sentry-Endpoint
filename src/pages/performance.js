@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+import Head from 'next/head';
 import {
   LineChart,
   Line,
@@ -13,6 +14,7 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
+import PerformancePageSkeleton from '@/components/PerformancePageSkeleton';
 import styles from '@/styles/Dashboard.module.css';
 
 export default function PerformancePage() {
@@ -619,14 +621,12 @@ export default function PerformancePage() {
 
   if (loading && !analytics && !timeSeriesData) {
     return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <h1>Performance Monitoring</h1>
-        </div>
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          Loading performance data...
-        </div>
-      </div>
+      <>
+        <Head>
+          <title>Performance - Sentry Monitor</title>
+        </Head>
+        <PerformancePageSkeleton />
+      </>
     );
   }
 
