@@ -23,8 +23,15 @@
 }
 
 .icon {
-  font-size: var(--font-base);
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+}
+
+.svgIcon {
+  width: 18px;
+  height: 18px;
 }
 
 .label {

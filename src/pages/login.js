@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import BrandMark from '@/components/BrandMark';
 import styles from '@/styles/Auth.module.css';
 
 export default function Login() {
@@ -44,12 +45,12 @@ export default function Login() {
       <div className={styles.container}>
         <div className={styles.card}>
           <div className={styles.header}>
-            <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>⚡</span>
+            <Link href="/" className={styles.logo}>
+              <BrandMark className={styles.logoMark} size={24} />
               Sentry Monitor
-            </h1>
-            <h2 className={styles.title}>Welcome Back</h2>
-            <p className={styles.subtitle}>Sign in to your account</p>
+            </Link>
+            <h1 className={styles.title}>Welcome back</h1>
+            <p className={styles.subtitle}>Sign in to continue to your workspace.</p>
           </div>
 
           <form onSubmit={handleSubmit} className={styles.form}>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import BrandMark from '@/components/BrandMark';
 import styles from '@/styles/Auth.module.css';
 
 export default function Register() {
@@ -45,12 +46,12 @@ export default function Register() {
       <div className={styles.container}>
         <div className={styles.card}>
           <div className={styles.header}>
-            <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>⚡</span>
+            <Link href="/" className={styles.logo}>
+              <BrandMark className={styles.logoMark} size={24} />
               Sentry Monitor
-            </h1>
-            <h2 className={styles.title}>Create Account</h2>
-            <p className={styles.subtitle}>Start monitoring your applications</p>
+            </Link>
+            <h1 className={styles.title}>Create your account</h1>
+            <p className={styles.subtitle}>Set up a workspace and start ingesting events in minutes.</p>
           </div>
 
           <form onSubmit={handleSubmit} className={styles.form}>
@@ -95,16 +96,8 @@ export default function Register() {
               <p className={styles.hint}>Must be at least 6 characters</p>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                ...styles.button,
-                opacity: loading ? 0.7 : 1,
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {loading ? 'Creating account...' : 'Create Account'}
+            <button type="submit" disabled={loading} className={styles.button}>
+              {loading ? 'Creating account…' : 'Create account'}
             </button>
           </form>
 
