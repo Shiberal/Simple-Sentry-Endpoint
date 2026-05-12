@@ -25,6 +25,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: var(--leading-normal);
+  /* Theme only on body — avoid `body *` transitions (very expensive on large UIs). */
   transition: background-color var(--transition-base), color var(--transition-base);
 }
 
@@ -79,13 +80,4 @@ code, pre {
 ::selection {
   background-color: var(--accent-primary);
   color: white;
-}
-
-/* Smooth theme transitions */
-html,
-body,
-body * {
-  transition-property: background-color, border-color, color;
-  transition-duration: var(--transition-base);
-  transition-timing-function: ease;
 }

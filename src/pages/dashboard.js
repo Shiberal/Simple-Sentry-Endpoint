@@ -179,7 +179,6 @@ export default function Dashboard() {
         return;
       }
       setUser(data.user);
-      fetchData();
     } catch (error) {
       router.push('/login');
     }
@@ -255,18 +254,20 @@ export default function Dashboard() {
 
 
   useEffect(() => {
-    if (user) {
-      fetchData();
-      fetchAnalytics();
-    }
-  }, [selectedProject, user, filterLevel, activeTab]);
+    if (!user) return;
+    fetchData();
+  }, [selectedProject, user]);
 
   useEffect(() => {
-    if (autoRefresh && user) {
-      const interval = setInterval(fetchData, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [autoRefresh, selectedProject, user, filterLevel]);
+    if (!user || activeTab !== 'overview') return;
+    fetchAnalytics();
+  }, [selectedProject, user, activeTab]);
+
+  useEffect(() => {
+    if (!autoRefresh || !user) return;
+    const interval = setInterval(fetchData, 10000);
+    return () => clearInterval(interval);
+  }, [autoRefresh, selectedProject, user]);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
