@@ -2,27 +2,32 @@ import prisma from '@/lib/prisma';
 
 export default async function handler(req, res) {
   const { method } = req;
-  const { 
-    projectId, 
-    status, 
-    level, 
+  const {
+    projectId,
+    status,
+    level,
     search,
     environment,
     platform,
     dateFrom,
     dateTo,
-    page = 1, 
+    page = 1,
     pageSize = 50,
     sortBy = 'lastSeen',
-    sortOrder = 'desc'
+    sortOrder = 'desc',
+    assignedToUserId,
+    pageUrlFacet,
+    releaseFacet,
+    inbox
   } = req.query;
 
   switch (method) {
     case 'GET':
       try {
-        // Build where clause
-        const where = {};
-        
+        const where = {
+          mergedIntoId: null
+        };
+
         if (projectId) {
           where.projectId = parseInt(projectId);
         }
@@ -35,12 +40,33 @@ export default async function handler(req, res) {
           where.level = level.toLowerCase();
         }
 
-        // Search in title
         if (search) {
           where.title = {
             contains: search,
             mode: 'insensitive'
           };
+        }
+
+        if (assignedToUserId && assignedToUserId !== '') {
+          where.assignedToId = parseInt(assignedToUserId, 10);
+        }
+
+        if (inbox === 'unassigned') {
+          where.assignedToId = null;
+        }
+
+        const eventSome = {};
+        if (pageUrlFacet) {
+          eventSome.promotedPageUrl = {
+            contains: pageUrlFacet,
+            mode: 'insensitive'
+          };
+        }
+        if (releaseFacet) {
+          eventSome.promotedRelease = String(releaseFacet);
+        }
+        if (Object.keys(eventSome).length) {
+          where.events = { some: eventSome };
         }
 
         // Date range filter
@@ -53,12 +79,6 @@ export default async function handler(req, res) {
             where.lastSeen.lte = new Date(dateTo);
           }
         }
-
-        // For environment and platform, we need to filter by related events
-        // This is more complex with SQLite, so we'll do a simpler approach
-        // We can add these filters to the event data JSON field later if needed
-
-        // Pagination
         const skip = (parseInt(page) - 1) * parseInt(pageSize);
         const take = parseInt(pageSize);
 

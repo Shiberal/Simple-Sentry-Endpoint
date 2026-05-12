@@ -1,3 +1,5 @@
+import { normalizePageUrl } from '@/lib/event-normalize';
+
 /**
  * Sentry Transaction Parser
  * 
@@ -250,6 +252,7 @@ export function extractTransactionInfo(transaction) {
     platform: data.platform || null,
     environment: data.environment || null,
     release: data.release || null,
+    pageUrl: normalizePageUrl(data),
     timestamp: data.timestamp || null,
     startTimestamp: data.start_timestamp || null,
     duration: extractDuration(transaction),

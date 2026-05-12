@@ -26,7 +26,8 @@
     "prisma": "^6.19.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "recharts": "^3.6.0"
+    "recharts": "^3.6.0",
+    "source-map": "^0.7.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

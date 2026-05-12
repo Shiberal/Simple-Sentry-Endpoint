@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId } = req.query;
+    const { projectId, pageUrl } = req.query;
 
     if (!projectId || projectId === '[object Object]') {
       return res.status(400).json({ error: 'Valid projectId is required' });
@@ -26,12 +26,21 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid projectId format' });
     }
 
+    const whereEvt = {
+      projectId: id,
+      eventType: 'TRANSACTION'
+    };
+
+    if (pageUrl && String(pageUrl).trim()) {
+      whereEvt.promotedPageUrl = {
+        contains: String(pageUrl),
+        mode: 'insensitive'
+      };
+    }
+
     // Fetch all transaction events for this project
     const transactions = await prisma.event.findMany({
-      where: {
-        projectId: id,
-        eventType: 'TRANSACTION'
-      },
+      where: whereEvt,
       orderBy: {
         createdAt: 'desc'
       },

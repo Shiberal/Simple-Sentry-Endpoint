@@ -2,12 +2,34 @@ import prisma from '@/lib/prisma';
 
 export default async function handler(req, res) {
   const { method } = req;
-  const { projectId, limit = 50 } = req.query;
+  const {
+    projectId,
+    limit = 50,
+    promotedPageUrl,
+    promotedRelease,
+    promotedEnv,
+    cursor
+  } = req.query;
 
   switch (method) {
     case 'GET':
       try {
         const where = projectId ? { projectId: parseInt(projectId) } : {};
+
+        if (promotedPageUrl) {
+          where.promotedPageUrl = {
+            contains: String(promotedPageUrl),
+            mode: 'insensitive'
+          };
+        }
+        if (promotedRelease) {
+          where.promotedRelease = String(promotedRelease);
+        }
+        if (promotedEnv) {
+          where.promotedEnv = String(promotedEnv);
+        }
+
+        const skipCursor = cursor ? parseInt(cursor, 10) : 0;
         
         const events = await prisma.event.findMany({
           where,
@@ -17,7 +39,8 @@ export default async function handler(req, res) {
           orderBy: {
             createdAt: 'desc'
           },
-          take: parseInt(limit)
+          skip: Number.isFinite(skipCursor) ? skipCursor : 0,
+          take: parseInt(limit, 10)
         });
 
         res.status(200).json({ 

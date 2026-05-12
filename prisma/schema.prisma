@@ -11,7 +11,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Example model - you can modify this as needed
 enum IssueStatus {
   UNRESOLVED
   RESOLVED
@@ -25,13 +24,14 @@ enum EventType {
   MINIDUMP
   TRANSACTION
   MESSAGE
+  CHECK_IN
 }
 
 model User {
   id             Int       @id @default(autoincrement())
   email          String    @unique
   username       String?   @unique @default(uuid())
-  name           String?  
+  name           String?
   password       String
   isAdmin        Boolean   @default(false)
   createdAt      DateTime  @default(now())
@@ -43,68 +43,83 @@ model User {
 }
 
 model Project {
-  id                      Int         @id @default(autoincrement())
-  name                    String
-  key                     String      @unique // Unique key for the project (like Sentry DSN)
-  githubRepo              String? // GitHub repository (e.g., "owner/repo" or full URL)
-  githubToken             String? // Optional GitHub personal access token for API access
-  autoGithubReport        Boolean     @default(false) // Automatically create GitHub issues for new errors
-  autoGithubReportFilters Json? // Filters for auto GitHub reporting: { levels: ["error"], environments: ["production"] }
-  telegramChatId          String? // Telegram chat/channel ID for error notifications
-  createdAt               DateTime    @default(now())
-  updatedAt               DateTime    @updatedAt
-  events                  Event[]
-  users                   User[]      @relation("ProjectUsers")
-  projectOwners           User[]      @relation("ProjectOwners") //aka is admin of the project
-  issues                  Issue[]
-  alertRules              AlertRule[]
+  id                       Int               @id @default(autoincrement())
+  name                     String
+  key                      String            @unique
+  githubRepo               String?
+  githubToken              String?
+  autoGithubReport         Boolean           @default(false)
+  autoGithubReportFilters  Json?
+  telegramChatId           String?
+  fingerprintByPageUrl     Boolean           @default(false)
+  ingestFilters            Json?
+  scrubRules               Json?
+  sampleRate               Float?
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+  events                   Event[]
+  users                    User[]            @relation("ProjectUsers")
+  projectOwners            User[]            @relation("ProjectOwners")
+  issues                   Issue[]
+  alertRules               AlertRule[]
+  releases                 Release[]
+  debugFiles               DebugFile[]
+  cronMonitors             CronMonitor[]
 }
 
 model Issue {
-  id                Int         @id @default(autoincrement())
-  projectId         Int
-  project           Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  fingerprint       String // Hash of error signature for grouping
-  title             String // Error message/title
-  culprit           String? // Function/file where error occurred
-  level             String      @default("error") // error, warning, info
-  status            IssueStatus @default(UNRESOLVED)
-  count             Int         @default(1) // Number of occurrences
-  firstSeen         DateTime    @default(now())
-  lastSeen          DateTime    @default(now())
-  assignedToId      Int?
-  assignedTo        User?       @relation("AssignedIssues", fields: [assignedToId], references: [id], onDelete: SetNull)
-  githubIssueUrl    String? // URL of the created GitHub issue (if auto-reported)
-  githubIssueNumber Int? // GitHub issue number (if auto-reported)
-  // CSP-specific fields
-  violatedDirective String? // CSP directive that was violated
-  blockedUri        String? // URI that was blocked by CSP
-  sourceFile        String? // File where CSP violation occurred
-  events            Event[]
-  comments          Comment[]
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  id                 Int           @id @default(autoincrement())
+  projectId          Int
+  project            Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fingerprint        String
+  title              String
+  culprit            String?
+  level              String        @default("error")
+  status             IssueStatus   @default(UNRESOLVED)
+  count              Int           @default(1)
+  firstSeen          DateTime      @default(now())
+  lastSeen           DateTime      @default(now())
+  assignedToId       Int?
+  assignedTo         User?         @relation("AssignedIssues", fields: [assignedToId], references: [id], onDelete: SetNull)
+  githubIssueUrl     String?
+  githubIssueNumber  Int?
+  violatedDirective  String?
+  blockedUri         String?
+  sourceFile         String?
+  mergedIntoId       Int?
+  mergedInto         Issue?        @relation("IssueMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFromIssues   Issue[]       @relation("IssueMerge")
+  events             Event[]
+  comments           Comment[]
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
   @@unique([projectId, fingerprint])
   @@index([projectId, status])
   @@index([projectId, lastSeen])
   @@index([projectId, githubIssueNumber])
+  @@index([mergedIntoId])
 }
 
 model Event {
-  id        Int       @id @default(autoincrement())
-  projectId Int
-  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  issueId   Int?
-  issue     Issue?    @relation(fields: [issueId], references: [id], onDelete: SetNull)
-  eventType EventType @default(ERROR)
-  data      Json
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id               Int           @id @default(autoincrement())
+  projectId        Int
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  issueId          Int?
+  issue            Issue?        @relation(fields: [issueId], references: [id], onDelete: SetNull)
+  eventType        EventType     @default(ERROR)
+  promotedPageUrl  String?
+  promotedRelease  String?
+  promotedEnv      String?
+  data             Json
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   @@index([issueId])
   @@index([projectId, createdAt])
   @@index([projectId, eventType])
+  @@index([projectId, promotedPageUrl])
+  @@index([projectId, promotedRelease])
 }
 
 model Comment {
@@ -120,24 +135,86 @@ model Comment {
 }
 
 model AlertRule {
-  id              Int       @id @default(autoincrement())
-  projectId       Int
-  project         Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  name            String
-  enabled         Boolean   @default(true)
-  condition       Json // { level: ["error"], environment: "production", etc. }
-  emailRecipients String // Comma-separated email addresses
-  lastTriggered   DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                 Int       @id @default(autoincrement())
+  projectId          Int
+  project            Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name               String
+  enabled            Boolean   @default(true)
+  condition          Json
+  emailRecipients    String    @default("")
+  slackWebhookUrl    String?
+  genericWebhookUrl  String?
+  lastTriggered      DateTime?
+  spikeBaselineCount Int?
+  spikeBaselineAt    DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@index([projectId, enabled])
 }
 
+model Release {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version    String
+  firstSeen  DateTime @default(now())
+  lastSeen   DateTime @default(now())
+  eventCount Int      @default(0)
+
+  @@unique([projectId, version])
+  @@index([projectId, lastSeen])
+}
+
+model DebugFile {
+  id          Int      @id @default(autoincrement())
+  projectId   Int
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  release     String
+  dist        String?
+  headerName  String
+  checksum    String?
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  @@index([projectId, release])
+}
+
+model CronMonitor {
+  id            Int               @id @default(autoincrement())
+  projectId     Int
+  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  slug          String
+  name          String?
+  status        String            @default("active")
+  schedule      String?
+  environment   String?
+  lastCheckInAt DateTime?
+  checkIns      MonitorCheckIn[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([projectId, slug])
+  @@index([projectId, status])
+}
+
+model MonitorCheckIn {
+  id          Int          @id @default(autoincrement())
+  monitorId   Int
+  monitor     CronMonitor  @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  status      String
+  environment String?
+  durationMs  Float?
+  data        Json?
+  createdAt   DateTime     @default(now())
+
+  @@index([monitorId, createdAt])
+}
+
 model SystemSettings {
-  id              Int       @id @default(0)
-  allowSelfRegistration Boolean @default(true)
-  allowProjectCreation Boolean @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                    Int       @id @default(0)
+  allowSelfRegistration Boolean   @default(true)
+  allowProjectCreation  Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 }

@@ -51,22 +51,35 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Delete all events for this project
     const deletedEvents = await prisma.event.deleteMany({
       where: { projectId }
     });
 
-    // Delete all issues for this project (this will also delete comments due to cascade)
     const deletedIssues = await prisma.issue.deleteMany({
+      where: { projectId }
+    });
+
+    const deletedMonitors = await prisma.cronMonitor.deleteMany({
+      where: { projectId }
+    });
+
+    const deletedReleases = await prisma.release.deleteMany({
+      where: { projectId }
+    });
+
+    const deletedDebugFiles = await prisma.debugFile.deleteMany({
       where: { projectId }
     });
 
     res.status(200).json({
       success: true,
-      message: 'All issues and events cleared successfully',
+      message: 'Project monitoring data cleared',
       deleted: {
         issues: deletedIssues.count,
-        events: deletedEvents.count
+        events: deletedEvents.count,
+        releases: deletedReleases.count,
+        debugFiles: deletedDebugFiles.count,
+        monitors: deletedMonitors.count
       }
     });
   } catch (error) {
