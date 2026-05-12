@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import AuthCardSkeleton from '@/components/AuthCardSkeleton';
 import styles from '@/styles/Auth.module.css';
 
 export default function ProfilePage() {
@@ -97,9 +98,12 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className={styles.container}>
-        <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>Loading...</div>
-      </div>
+      <>
+        <Head>
+          <title>Profile Settings - Sentry Monitor</title>
+        </Head>
+        <AuthCardSkeleton />
+      </>
     );
   }
 

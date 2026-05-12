@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import AdminPageSkeleton from '@/components/AdminPageSkeleton';
 import styles from '@/styles/Admin.module.css';
 
 export default function AdminPage() {
@@ -317,9 +318,12 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className={styles.container}>
-        <div className={styles.loading}>Loading...</div>
-      </div>
+      <>
+        <Head>
+          <title>Admin - Sentry Monitor</title>
+        </Head>
+        <AdminPageSkeleton />
+      </>
     );
   }
 

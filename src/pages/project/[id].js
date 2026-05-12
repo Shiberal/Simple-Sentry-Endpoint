@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
+import ProjectSettingsSkeleton from '@/components/ProjectSettingsSkeleton';
 import styles from '@/styles/ProjectSettings.module.css';
 
 export default function ProjectSettings() {
@@ -390,9 +391,12 @@ export default function ProjectSettings() {
 
   if (!projectId || loading || !project) {
     return (
-      <div className={styles.container}>
-        <div className={styles.loading}>Loading...</div>
-      </div>
+      <>
+        <Head>
+          <title>Project settings - Sentry Monitor</title>
+        </Head>
+        <ProjectSettingsSkeleton />
+      </>
     );
   }
 
