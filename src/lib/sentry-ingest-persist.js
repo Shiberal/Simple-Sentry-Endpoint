@@ -115,26 +115,31 @@ export async function persistTransactionEvent(prisma, project, preparedData, tra
   });
 }
 
+/**
+ * Record a Sentry SDK check-in only if a monitor with this slug was created on the server.
+ * Name/schedule/environment are not created or renamed by the SDK.
+ */
 export async function persistCheckInEvent(prisma, project, payload, tracker) {
   const slug = payload.monitor_slug || payload.monitorSlug;
-  if (!slug) return null;
+  if (!slug) {
+    return { ok: false, reason: 'missing_monitor_slug', event: null };
+  }
 
-  const monitor = await prisma.cronMonitor.upsert({
+  const monitor = await prisma.cronMonitor.findUnique({
     where: {
       projectId_slug: { projectId: project.id, slug: String(slug) }
-    },
-    create: {
-      projectId: project.id,
-      slug: String(slug),
-      name: payload.monitor_name || slug,
-      status: String(payload.status || 'unknown'),
-      environment: payload.environment || null,
-      lastCheckInAt: new Date()
-    },
-    update: {
+    }
+  });
+
+  if (!monitor) {
+    return { ok: false, reason: 'unknown_monitor_slug', event: null };
+  }
+
+  await prisma.cronMonitor.update({
+    where: { id: monitor.id },
+    data: {
       lastCheckInAt: new Date(),
-      status: String(payload.status || 'unknown'),
-      ...(payload.monitor_name !== undefined ? { name: payload.monitor_name } : {})
+      status: String(payload.status || 'unknown')
     }
   });
 
@@ -149,7 +154,7 @@ export async function persistCheckInEvent(prisma, project, payload, tracker) {
     }
   });
 
-  return prisma.event.create({
+  const event = await prisma.event.create({
     data: {
       projectId: project.id,
       issueId: null,
@@ -158,4 +163,6 @@ export async function persistCheckInEvent(prisma, project, payload, tracker) {
       data: withPerformance(payload, tracker.getTimings())
     }
   });
+
+  return { ok: true, event };
 }
