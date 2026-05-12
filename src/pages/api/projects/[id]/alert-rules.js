@@ -32,12 +32,30 @@ export default async function handler(req, res) {
 
     case 'POST':
       try {
-        const { name, condition, emailRecipients, enabled = true } = req.body;
+        const {
+          name,
+          condition,
+          emailRecipients = '',
+          slackWebhookUrl,
+          genericWebhookUrl,
+          enabled = true
+        } = req.body;
 
-        if (!name || !emailRecipients) {
+        if (!name) {
           return res.status(400).json({
             success: false,
-            error: 'Name and email recipients are required'
+            error: 'Name is required'
+          });
+        }
+
+        const slug = slackWebhookUrl != null ? String(slackWebhookUrl).trim() : '';
+        const hook = genericWebhookUrl != null ? String(genericWebhookUrl).trim() : '';
+        const emails = emailRecipients != null ? String(emailRecipients).trim() : '';
+
+        if (!emails && !slug && !hook) {
+          return res.status(400).json({
+            success: false,
+            error: 'Provide at least one destination: email recipients, Slack webhook, or generic webhook URL'
           });
         }
 
@@ -58,7 +76,9 @@ export default async function handler(req, res) {
             projectId,
             name,
             condition: condition || {},
-            emailRecipients,
+            emailRecipients: emails || '',
+            slackWebhookUrl: slug || null,
+            genericWebhookUrl: hook || null,
             enabled
           }
         });
@@ -79,7 +99,7 @@ export default async function handler(req, res) {
 
     case 'PATCH':
       try {
-        const { ruleId, name, condition, emailRecipients, enabled } = req.body;
+        const { ruleId, name, condition, emailRecipients, slackWebhookUrl, genericWebhookUrl, enabled } = req.body;
 
         if (!ruleId) {
           return res.status(400).json({
@@ -92,6 +112,12 @@ export default async function handler(req, res) {
         if (name !== undefined) updateData.name = name;
         if (condition !== undefined) updateData.condition = condition;
         if (emailRecipients !== undefined) updateData.emailRecipients = emailRecipients;
+        if (slackWebhookUrl !== undefined) {
+          updateData.slackWebhookUrl = slackWebhookUrl || null;
+        }
+        if (genericWebhookUrl !== undefined) {
+          updateData.genericWebhookUrl = genericWebhookUrl || null;
+        }
         if (enabled !== undefined) updateData.enabled = enabled;
 
         const alertRule = await prisma.alertRule.update({

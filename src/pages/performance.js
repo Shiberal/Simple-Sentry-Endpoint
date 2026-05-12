@@ -34,6 +34,7 @@ export default function PerformancePage() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = useState('all'); // Filter by endpoint/transaction name
+  const [pageUrlFilter, setPageUrlFilter] = useState('');
   const [selectedMetric, setSelectedMetric] = useState('duration'); // duration, memory, cpu
   const [availableEndpoints, setAvailableEndpoints] = useState([]);
   const [error, setError] = useState(null);
@@ -62,14 +63,14 @@ export default function PerformancePage() {
     } else {
       fetchTransactions();
     }
-  }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate]);
+  }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter]);
 
   useEffect(() => {
     // Update the ref whenever the fetch functions or viewMode change
     refreshFnRef.current = viewMode === 'timeseries'
       ? (id) => fetchTimeSeries(id)
       : (id) => fetchTransactions(id);
-  }, [viewMode, timeRange, interval, customStartDate, customEndDate]);
+  }, [viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter]);
 
   useEffect(() => {
     if (!autoRefresh || selectedProject == null) return;
@@ -129,7 +130,13 @@ export default function PerformancePage() {
     setError(null);
     try {
       console.log(`[fetchTransactions] Fetching for project ${projectId}`);
-      const response = await fetch(`/api/analytics/performance?projectId=${projectId}`);
+      const pq =
+        typeof pageUrlFilter === 'string' && pageUrlFilter.trim()
+          ? `&pageUrl=${encodeURIComponent(pageUrlFilter.trim())}`
+          : '';
+      const response = await fetch(
+        `/api/analytics/performance?projectId=${projectId}${pq}`
+      );
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch: ${response.statusText}`);
@@ -286,6 +293,10 @@ export default function PerformancePage() {
         startDate: startDate.toISOString(),
         endDate: endDate.toISOString()
       });
+
+      const pqTrim =
+        typeof pageUrlFilter === 'string' ? pageUrlFilter.trim() : '';
+      if (pqTrim) params.set('pageUrl', pqTrim);
 
       const response = await fetch(`/api/analytics/performance/timeseries?${params}`);
       const data = await response.json();
@@ -652,7 +663,16 @@ export default function PerformancePage() {
             <div className={styles.navItemTooltip}>Performance</div>
           </div>
         </Link>
-        
+        <Link href="/monitors" style={{ textDecoration: 'none' }}>
+          <div 
+            className={`${styles.navItem} ${router.pathname === '/monitors' ? styles.navItemActive : ''}`}
+            title="Cron monitors"
+          >
+            🕒
+            <div className={styles.navItemTooltip}>Monitors</div>
+          </div>
+        </Link>
+
         <div className={styles.navDivider}></div>
 
         {/* Project Selector (Discord-like) */}
@@ -760,6 +780,30 @@ export default function PerformancePage() {
                       <option key={endpoint} value={endpoint}>{endpoint}</option>
                     ))}
                   </select>
+
+                  <label style={{
+                    fontSize: 'var(--font-xs)',
+                    color: 'var(--text-secondary)',
+                    marginBottom: 'var(--space-1)',
+                    display: 'block'
+                  }}>
+                    Page URL facet
+                  </label>
+                  <input
+                    type="text"
+                    value={pageUrlFilter}
+                    onChange={(e) => setPageUrlFilter(e.target.value)}
+                    placeholder="/checkout or substring"
+                    style={{
+                      width: '100%',
+                      marginBottom: 'var(--space-3)',
+                      padding: 'var(--space-2)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-primary)',
+                      fontSize: 'var(--font-sm)',
+                      boxSizing: 'border-box'
+                    }}
+                  />
 
                   <label style={{ 
                     fontSize: 'var(--font-xs)', 

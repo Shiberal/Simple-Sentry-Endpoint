@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId, interval = 'day', startDate, endDate } = req.query;
+    const { projectId, interval = 'day', startDate, endDate, pageUrl } = req.query;
 
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' });
@@ -21,23 +21,32 @@ export default async function handler(req, res) {
 
     // Calculate date range (default to last 30 days)
     const end = endDate ? new Date(endDate) : new Date();
-    const start = startDate 
-      ? new Date(startDate) 
+    const start = startDate
+      ? new Date(startDate)
       : new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
 
     // Validate interval
     const validInterval = interval === 'hour' ? 'hour' : 'day';
 
+    const whereEvt = {
+      projectId: parseInt(projectId, 10),
+      eventType: 'TRANSACTION',
+      createdAt: {
+        gte: start,
+        lte: end
+      }
+    };
+
+    if (pageUrl && String(pageUrl).trim()) {
+      whereEvt.promotedPageUrl = {
+        contains: String(pageUrl),
+        mode: 'insensitive'
+      };
+    }
+
     // Fetch all transaction events for this project within the date range
     const transactions = await prisma.event.findMany({
-      where: {
-        projectId: parseInt(projectId),
-        eventType: 'TRANSACTION',
-        createdAt: {
-          gte: start,
-          lte: end
-        }
-      },
+      where: whereEvt,
       orderBy: {
         createdAt: 'asc'
       }

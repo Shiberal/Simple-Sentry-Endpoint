@@ -2349,6 +2349,15 @@ export default function Dashboard() {
               <div className={styles.navItemTooltip}>Performance</div>
             </div>
           </Link>
+          <Link href="/monitors" style={{ textDecoration: 'none' }}>
+            <div 
+              className={`${styles.navItem} ${router.pathname === '/monitors' ? styles.navItemActive : ''}`}
+              title="Cron monitors"
+            >
+              🕒
+              <div className={styles.navItemTooltip}>Monitors</div>
+            </div>
+          </Link>
           
           <div className={styles.navDivider}></div>
 

@@ -1,11 +1,14 @@
 import crypto from 'crypto';
+import { normalizePageUrl } from '@/lib/event-normalize';
 
 /**
  * Generate a fingerprint for error grouping
  * @param {Object} eventData - The event data from Sentry
+ * @param {{ fingerprintByPageUrl?: boolean }} [options]
  * @returns {string} - SHA256 hash fingerprint
  */
-export function generateFingerprint(eventData) {
+export function generateFingerprint(eventData, options = {}) {
+  const { fingerprintByPageUrl = false } = options;
   // Extract key components for fingerprinting
   const components = [];
 
@@ -59,6 +62,13 @@ export function generateFingerprint(eventData) {
   // 4. Culprit (if available)
   if (eventData.culprit) {
     components.push(eventData.culprit);
+  }
+
+  if (fingerprintByPageUrl) {
+    const page = normalizePageUrl(eventData);
+    if (page) {
+      components.push(`page:${page}`);
+    }
   }
 
   // Create fingerprint string
