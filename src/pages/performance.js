@@ -115,6 +115,64 @@ export default function PerformancePage() {
     }
   };
 
+  const getHeaderValue = (headers, names) => {
+    if (!headers) return null;
+    const wanted = names.map((name) => name.toLowerCase());
+
+    if (Array.isArray(headers)) {
+      const match = headers.find((entry) => {
+        if (!Array.isArray(entry) || entry.length < 2) return false;
+        return wanted.includes(String(entry[0]).toLowerCase());
+      });
+      return match ? String(match[1]) : null;
+    }
+
+    if (typeof headers === 'object') {
+      const key = Object.keys(headers).find((headerName) =>
+        wanted.includes(headerName.toLowerCase())
+      );
+      return key ? String(headers[key]) : null;
+    }
+
+    return null;
+  };
+
+  const formatSourceUrl = (url) => {
+    if (!url) return null;
+    try {
+      const parsed = new URL(url);
+      return `${parsed.hostname}${parsed.pathname}${parsed.search}`;
+    } catch {
+      return String(url);
+    }
+  };
+
+  const getTransactionSourceContext = (transaction) => {
+    const data = transaction.data || {};
+    const request = data.request || {};
+    const extra = data.extra || {};
+    const sourceUrl =
+      transaction.promotedPageUrl ||
+      request.url ||
+      extra.page_url ||
+      extra.pageUrl ||
+      getHeaderValue(request.headers, ['referer', 'referrer', 'origin']);
+    const sdk = data.sdk?.name
+      ? `${data.sdk.name}${data.sdk.version ? ` ${data.sdk.version}` : ''}`
+      : null;
+
+    return {
+      endpoint: data.transaction || data.name || 'Unknown',
+      sourceUrl: sourceUrl || null,
+      sourceLabel: formatSourceUrl(sourceUrl) || 'Unknown source',
+      method: request.method || null,
+      platform: data.platform || null,
+      environment: data.environment || transaction.promotedEnv || null,
+      release: data.release || transaction.promotedRelease || null,
+      sdk
+    };
+  };
+
   const fetchTransactions = async (optionalProjectId) => {
     let projectId = optionalProjectId !== undefined ? optionalProjectId : selectedProject;
     
@@ -164,6 +222,7 @@ export default function PerformancePage() {
         
         data.transactions.forEach(transaction => {
           const transactionName = transaction.data?.transaction || 'Unknown';
+          const sourceContext = getTransactionSourceContext(transaction);
           const timestamp = transaction.data?.timestamp || transaction.createdAt;
           const startTimestamp = transaction.data?.start_timestamp;
           
@@ -234,7 +293,8 @@ export default function PerformancePage() {
             duration: duration,
             memory: memory,
             cpu: cpu,
-            eventLoopLag: eventLoopLag
+            eventLoopLag: eventLoopLag,
+            ...sourceContext
           });
         });
         
@@ -531,6 +591,11 @@ export default function PerformancePage() {
       const date = new Date(timestamp);
       return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
     };
+
+    const formatFullDate = (timestamp) => {
+      const date = new Date(timestamp);
+      return date.toLocaleString();
+    };
     
     // Get all unique timestamps and sort them
     const allTimestamps = new Set();
@@ -547,12 +612,15 @@ export default function PerformancePage() {
     
     // Transform data for Recharts - create unified dataset
     const chartData = sortedTimestamps.map(timestamp => {
-      const dataPoint = { date: formatDate(timestamp), timestamp };
+      const dataPoint = { date: formatDate(timestamp), timestamp, __points: {} };
       performanceSeries.forEach(series => {
         if (series && Array.isArray(series.data)) {
           const point = series.data.find(p => p && p.timestamp === timestamp);
           const seriesName = series.name || 'Unknown';
           dataPoint[seriesName] = point ? getMetricValue(point) : null;
+          if (point) {
+            dataPoint.__points[seriesName] = point;
+          }
         }
       });
       return dataPoint;
@@ -571,6 +639,83 @@ export default function PerformancePage() {
       getCSSVariable('--accent-primary') || '#3b82f6',
       getCSSVariable('--info') || '#06b6d4'
     ];
+
+    const DetailedTooltip = ({ active, payload }) => {
+      if (!active || !payload || payload.length === 0) return null;
+
+      const row = payload[0]?.payload;
+      const activePoints = payload
+        .filter((entry) => entry.value !== null && entry.value !== undefined)
+        .map((entry) => ({
+          ...entry,
+          point: row?.__points?.[entry.dataKey]
+        }))
+        .filter((entry) => entry.point);
+
+      if (!row || activePoints.length === 0) return null;
+
+      return (
+        <div style={{
+          backgroundColor: getCSSVariable('--bg-primary'),
+          border: `1px solid ${getCSSVariable('--border-primary')}`,
+          borderRadius: getCSSVariable('--radius-sm'),
+          boxShadow: 'var(--shadow-md)',
+          color: getCSSVariable('--text-primary'),
+          minWidth: '260px',
+          padding: 'var(--space-3)'
+        }}>
+          <div style={{
+            color: 'var(--text-secondary)',
+            fontSize: 'var(--font-xs)',
+            marginBottom: 'var(--space-2)'
+          }}>
+            {formatFullDate(row.timestamp)}
+          </div>
+          {activePoints.map((entry) => {
+            const point = entry.point;
+            return (
+              <div
+                key={entry.dataKey}
+                style={{
+                  borderTop: '1px solid var(--border-primary)',
+                  paddingTop: 'var(--space-2)',
+                  marginTop: 'var(--space-2)'
+                }}
+              >
+                <div style={{
+                  alignItems: 'center',
+                  display: 'flex',
+                  gap: 'var(--space-2)',
+                  marginBottom: 'var(--space-2)'
+                }}>
+                  <span style={{
+                    background: entry.color,
+                    borderRadius: '50%',
+                    display: 'inline-block',
+                    height: '8px',
+                    width: '8px'
+                  }} />
+                  <strong style={{ fontSize: 'var(--font-sm)' }}>{entry.dataKey}</strong>
+                </div>
+                <div style={{ display: 'grid', gap: '4px', fontSize: 'var(--font-xs)' }}>
+                  <span>Endpoint: <strong>{point.method ? `${point.method} ` : ''}{point.endpoint || entry.dataKey}</strong></span>
+                  <span>From: <strong>{point.sourceLabel || 'Unknown source'}</strong></span>
+                  {point.platform ? <span>Platform: <strong>{point.platform}</strong></span> : null}
+                  {point.environment ? <span>Environment: <strong>{point.environment}</strong></span> : null}
+                  {point.release ? <span>Release: <strong>{point.release}</strong></span> : null}
+                  {point.sdk ? <span>SDK: <strong>{point.sdk}</strong></span> : null}
+                  <span>Selected metric: <strong>{formatValue(entry.value)}</strong></span>
+                  <span>Duration: <strong>{formatDuration(point.duration || 0)}</strong></span>
+                  <span>Memory: <strong>{formatBytes(point.memory || 0)}</strong></span>
+                  <span>CPU: <strong>{Number(point.cpu || 0).toFixed(1)}%</strong></span>
+                  <span>Event loop lag: <strong>{Number(point.eventLoopLag || 0).toFixed(2)} ms</strong></span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    };
     
     return (
       <div style={{ 
@@ -606,16 +751,7 @@ export default function PerformancePage() {
                 stroke={getCSSVariable('--border-primary')}
                 tickFormatter={formatValue}
               />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: getCSSVariable('--bg-primary'),
-                  border: `1px solid ${getCSSVariable('--border-primary')}`,
-                  borderRadius: getCSSVariable('--radius-sm'),
-                  color: getCSSVariable('--text-primary')
-                }}
-                labelStyle={{ color: getCSSVariable('--text-primary') }}
-                formatter={(value) => [value !== null ? formatValue(value) : 'N/A', '']}
-              />
+              <Tooltip content={<DetailedTooltip />} />
               <Legend 
                 wrapperStyle={{ paddingTop: '20px' }}
                 iconType="line"
