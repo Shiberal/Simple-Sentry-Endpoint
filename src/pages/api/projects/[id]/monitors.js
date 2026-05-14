@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { parsePingUrlsInput, sanitizePingUrls } from '@/lib/monitor-http-ping';
 import { parse } from 'cookie';
 
 function getUser(req) {
@@ -69,7 +70,8 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { slug, name, schedule, environment, status } = req.body || {};
+    const { slug, name, schedule, environment, status, pingUrls: pingRaw, urls } =
+      req.body || {};
     const s = typeof slug === 'string' ? slug.trim() : '';
     if (!validSlug(s)) {
       return res.status(400).json({
@@ -77,6 +79,8 @@ export default async function handler(req, res) {
           'Invalid slug: use 1–128 chars of letters, numbers, hyphen, underscore (matches Sentry monitor_slug)'
       });
     }
+
+    const parsedUrls = sanitizePingUrls(parsePingUrlsInput(pingRaw ?? urls));
 
     try {
       const monitor = await prisma.cronMonitor.create({
@@ -90,7 +94,8 @@ export default async function handler(req, res) {
             environment != null && String(environment).trim()
               ? String(environment).trim()
               : null,
-          status: status != null && String(status).trim() ? String(status).trim() : 'active'
+          status: status != null && String(status).trim() ? String(status).trim() : 'active',
+          pingUrls: parsedUrls
         }
       });
       return res.status(201).json({ success: true, monitor });
@@ -104,7 +109,8 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'PATCH') {
-    const { monitorId, name, schedule, environment, status } = req.body || {};
+    const { monitorId, name, schedule, environment, status, pingUrls: pingRaw, urls } =
+      req.body || {};
     const mid = parseInt(monitorId, 10);
     if (isNaN(mid)) {
       return res.status(400).json({ error: 'monitorId required' });
@@ -127,6 +133,9 @@ export default async function handler(req, res) {
     }
     if (status !== undefined) {
       data.status = status?.trim?.() ? status.trim() : existing.status;
+    }
+    if (pingRaw !== undefined || urls !== undefined) {
+      data.pingUrls = sanitizePingUrls(parsePingUrlsInput(pingRaw ?? urls));
     }
 
     try {
