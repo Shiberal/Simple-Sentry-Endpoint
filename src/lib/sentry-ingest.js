@@ -46,10 +46,20 @@ export async function ingestPreparedEnvelopePayload(prisma, project, payload, tr
 }
 
 export async function ingestCheckInPayload(prisma, project, payload, tracker) {
-  const ev = await persistCheckInEvent(prisma, project, payload, tracker);
-  if (!ev) {
-    return { skipped: true, reason: 'missing_monitor_slug', event: null, issue: null };
+  const result = await persistCheckInEvent(prisma, project, payload, tracker);
+  if (!result.ok) {
+    return {
+      skipped: true,
+      reason: result.reason,
+      event: null,
+      issue: null
+    };
   }
   tracker.mark('save_event');
-  return { skipped: false, eventType: 'CHECK_IN', event: ev, issue: null };
+  return {
+    skipped: false,
+    eventType: 'CHECK_IN',
+    event: result.event,
+    issue: null
+  };
 }
