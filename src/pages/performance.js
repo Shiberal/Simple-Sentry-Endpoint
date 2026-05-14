@@ -7,13 +7,10 @@ import {
   Line,
   BarChart,
   Bar,
-  ScatterChart,
-  Scatter,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer
 } from 'recharts';
 import PerformancePageSkeleton from '@/components/PerformancePageSkeleton';
@@ -750,7 +747,7 @@ export default function PerformancePage() {
         </h3>
         <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+            <LineChart accessibilityLayer={false} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
               <XAxis 
                 dataKey="timestampMs"
@@ -774,29 +771,67 @@ export default function PerformancePage() {
               <Tooltip
                 content={<DetailedTooltip />}
                 cursor={{ stroke: getCSSVariable('--border-primary'), strokeDasharray: '3 3' }}
-              />
-              <Legend 
-                wrapperStyle={{ paddingTop: '20px' }}
-                iconType="line"
+                filterNull
+                shared={false}
               />
               {chartSeries.map((series) => {
                 return (
-                  <Scatter
+                  <Line
                     key={series.name}
                     name={series.name}
                     data={series.data}
                     dataKey="value"
-                    fill={series.color}
-                    line={{ stroke: series.color, strokeWidth: 3 }}
-                    lineType="joint"
-                    shape="circle"
-                    legendType="line"
+                    type="monotone"
+                    stroke={series.color}
+                    strokeWidth={3}
+                    dot={{ fill: series.color, r: 4 }}
+                    activeDot={{ r: 6 }}
+                    connectNulls={false}
                     isAnimationActive={false}
                   />
                 );
               })}
-            </ScatterChart>
+            </LineChart>
           </ResponsiveContainer>
+        </div>
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 'var(--space-2) var(--space-3)',
+          maxHeight: '64px',
+          overflowY: 'auto',
+          paddingTop: 'var(--space-2)',
+          fontSize: 'var(--font-xs)'
+        }}>
+          {chartSeries.map((series) => (
+            <span
+              key={series.name}
+              title={series.name}
+              style={{
+                alignItems: 'center',
+                color: 'var(--text-secondary)',
+                display: 'inline-flex',
+                gap: 'var(--space-1)',
+                maxWidth: '220px'
+              }}
+            >
+              <span style={{
+                background: series.color,
+                borderRadius: '50%',
+                display: 'inline-block',
+                flex: '0 0 auto',
+                height: '7px',
+                width: '7px'
+              }} />
+              <span style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}>
+                {series.name}
+              </span>
+            </span>
+          ))}
         </div>
       </div>
     );
