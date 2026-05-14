@@ -19,6 +19,7 @@ import styles from '@/styles/Dashboard.module.css';
 const DETAILED_LIVE_REFRESH_INTERVAL_MS = 1000;
 const TIMESERIES_LIVE_REFRESH_INTERVAL_MS = 5000;
 const DETAILED_CHART_WINDOW_MS = 6 * 60 * 60 * 1000;
+const DETAILED_CHART_RECENT_WINDOW_MS = 60 * 60 * 1000;
 const DETAILED_CHART_BUCKET_MINUTES = 5;
 const DETAILED_CHART_BUCKET_MS = DETAILED_CHART_BUCKET_MINUTES * 60 * 1000;
 
@@ -635,6 +636,7 @@ export default function PerformancePage() {
     const nowMs = Date.now();
     const windowEndMs = Math.ceil(nowMs / DETAILED_CHART_BUCKET_MS) * DETAILED_CHART_BUCKET_MS;
     const windowStartMs = windowEndMs - DETAILED_CHART_WINDOW_MS;
+    const recentStartMs = windowEndMs - DETAILED_CHART_RECENT_WINDOW_MS;
     const toFiniteNumber = (value) => {
       const number = Number(value);
       return Number.isFinite(number) ? number : 0;
@@ -646,6 +648,7 @@ export default function PerformancePage() {
         const seriesName = series?.name || 'Unknown';
         const color = colors[index % colors.length];
         const buckets = new Map();
+        const rawRecentPoints = [];
 
         if (Array.isArray(series?.data)) {
           series.data.forEach((point) => {
@@ -658,6 +661,30 @@ export default function PerformancePage() {
               timestampMs < windowStartMs ||
               timestampMs > windowEndMs
             ) {
+              return;
+            }
+
+            if (timestampMs >= recentStartMs) {
+              rawRecentPoints.push({
+                bucketEndMs: timestampMs,
+                bucketStartMs: timestampMs,
+                color,
+                date: formatDate(point.timestamp),
+                isAggregated: false,
+                point: {
+                  ...point,
+                  bucketEndMs: timestampMs,
+                  bucketStartMs: timestampMs,
+                  isAggregated: false,
+                  sampleCount: 1
+                },
+                sampleCount: 1,
+                seriesName,
+                timestamp: point.timestamp,
+                timestampMs,
+                transactionId: point.transactionId,
+                value
+              });
               return;
             }
 
@@ -683,7 +710,7 @@ export default function PerformancePage() {
           });
         }
 
-        const data = Array.from(buckets.entries())
+        const bucketedPoints = Array.from(buckets.entries())
           .sort(([a], [b]) => a - b)
           .map(([bucketStartMs, bucket]) => {
             const bucketEndMs = bucketStartMs + DETAILED_CHART_BUCKET_MS;
@@ -695,6 +722,7 @@ export default function PerformancePage() {
               cpu: average(bucket.cpuSum, bucket.count),
               duration: average(bucket.durationSum, bucket.count),
               eventLoopLag: average(bucket.eventLoopLagSum, bucket.count),
+              isAggregated: true,
               memory: average(bucket.memorySum, bucket.count),
               sampleCount: bucket.count,
               timestamp
@@ -705,6 +733,7 @@ export default function PerformancePage() {
               bucketStartMs,
               color,
               date: formatDate(bucketStartMs),
+              isAggregated: true,
               point,
               sampleCount: bucket.count,
               seriesName,
@@ -712,6 +741,11 @@ export default function PerformancePage() {
               timestampMs: bucketStartMs,
               value: average(bucket.valueSum, bucket.count)
             };
+          });
+        const data = [...bucketedPoints, ...rawRecentPoints]
+          .sort((a, b) => {
+            if (a.timestampMs !== b.timestampMs) return a.timestampMs - b.timestampMs;
+            return String(a.transactionId || '').localeCompare(String(b.transactionId || ''));
           });
 
         return { color, data, name: seriesName };
@@ -752,6 +786,7 @@ export default function PerformancePage() {
       if (!hoveredPoint) return null;
 
       const point = hoveredPoint.point;
+      const isAggregated = point.isAggregated || hoveredPoint.isAggregated;
       const sampleCount = point.sampleCount || hoveredPoint.sampleCount || 1;
       const bucketLabel = `${formatDate(point.bucketStartMs || hoveredPoint.bucketStartMs)} - ${formatDate(point.bucketEndMs || hoveredPoint.bucketEndMs)}`;
 
@@ -770,7 +805,7 @@ export default function PerformancePage() {
             fontSize: 'var(--font-xs)',
             marginBottom: 'var(--space-2)'
           }}>
-            {sampleCount > 1 ? `${bucketLabel} (${DETAILED_CHART_BUCKET_MINUTES}m bucket)` : formatFullDate(hoveredPoint.timestamp)}
+            {isAggregated ? `${bucketLabel} (${DETAILED_CHART_BUCKET_MINUTES}m bucket)` : formatFullDate(hoveredPoint.timestamp)}
           </div>
           <div
             style={{
@@ -795,18 +830,18 @@ export default function PerformancePage() {
               <strong style={{ fontSize: 'var(--font-sm)' }}>{hoveredPoint.seriesName}</strong>
             </div>
             <div style={{ display: 'grid', gap: '4px', fontSize: 'var(--font-xs)' }}>
-              <span>Endpoint: <strong>{sampleCount === 1 && point.method ? `${point.method} ` : ''}{point.endpoint || hoveredPoint.seriesName}</strong></span>
+              <span>Endpoint: <strong>{!isAggregated && point.method ? `${point.method} ` : ''}{point.endpoint || hoveredPoint.seriesName}</strong></span>
               <span>Samples: <strong>{sampleCount}</strong></span>
-              {sampleCount === 1 ? <span>From: <strong>{point.sourceLabel || 'Unknown source'}</strong></span> : null}
-              {sampleCount === 1 && point.platform ? <span>Platform: <strong>{point.platform}</strong></span> : null}
-              {sampleCount === 1 && point.environment ? <span>Environment: <strong>{point.environment}</strong></span> : null}
-              {sampleCount === 1 && point.release ? <span>Release: <strong>{point.release}</strong></span> : null}
-              {sampleCount === 1 && point.sdk ? <span>SDK: <strong>{point.sdk}</strong></span> : null}
-              <span>{sampleCount > 1 ? 'Avg selected metric' : 'Selected metric'}: <strong>{formatValue(hoveredPoint.value)}</strong></span>
-              <span>{sampleCount > 1 ? 'Avg duration' : 'Duration'}: <strong>{formatDuration(point.duration || 0)}</strong></span>
-              <span>{sampleCount > 1 ? 'Avg memory' : 'Memory'}: <strong>{formatBytes(point.memory || 0)}</strong></span>
-              <span>{sampleCount > 1 ? 'Avg CPU' : 'CPU'}: <strong>{Number(point.cpu || 0).toFixed(1)}%</strong></span>
-              <span>{sampleCount > 1 ? 'Avg event loop lag' : 'Event loop lag'}: <strong>{Number(point.eventLoopLag || 0).toFixed(2)} ms</strong></span>
+              {!isAggregated ? <span>From: <strong>{point.sourceLabel || 'Unknown source'}</strong></span> : null}
+              {!isAggregated && point.platform ? <span>Platform: <strong>{point.platform}</strong></span> : null}
+              {!isAggregated && point.environment ? <span>Environment: <strong>{point.environment}</strong></span> : null}
+              {!isAggregated && point.release ? <span>Release: <strong>{point.release}</strong></span> : null}
+              {!isAggregated && point.sdk ? <span>SDK: <strong>{point.sdk}</strong></span> : null}
+              <span>{isAggregated ? 'Avg selected metric' : 'Selected metric'}: <strong>{formatValue(hoveredPoint.value)}</strong></span>
+              <span>{isAggregated ? 'Avg duration' : 'Duration'}: <strong>{formatDuration(point.duration || 0)}</strong></span>
+              <span>{isAggregated ? 'Avg memory' : 'Memory'}: <strong>{formatBytes(point.memory || 0)}</strong></span>
+              <span>{isAggregated ? 'Avg CPU' : 'CPU'}: <strong>{Number(point.cpu || 0).toFixed(1)}%</strong></span>
+              <span>{isAggregated ? 'Avg event loop lag' : 'Event loop lag'}: <strong>{Number(point.eventLoopLag || 0).toFixed(2)} ms</strong></span>
             </div>
           </div>
         </div>
@@ -827,7 +862,7 @@ export default function PerformancePage() {
           fontWeight: 'var(--weight-semibold)',
           color: 'var(--text-primary)'
         }}>
-          ⚡ Performance by Transaction Type - {metricLabel} (Last 6h, {DETAILED_CHART_BUCKET_MINUTES}m avg)
+          ⚡ Performance by Transaction Type - {metricLabel} (Last 6h, raw last 1h, {DETAILED_CHART_BUCKET_MINUTES}m avg older)
         </h3>
         <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
           <ResponsiveContainer width="100%" height="100%">
