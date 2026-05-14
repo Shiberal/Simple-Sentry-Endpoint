@@ -1,5 +1,19 @@
 import prisma from '@/lib/prisma';
 import { pingUrlListSequential } from '@/lib/monitor-http-ping';
+import {
+  DEFAULT_MONITOR_PING_INTERVAL_MS,
+  isMonitorDueForHttpPing
+} from '@/lib/monitor-schedule';
+
+function envIntervalMs() {
+  const parsed = parseInt(
+    process.env.MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS || '',
+    10
+  );
+  return Number.isFinite(parsed) && parsed >= 60000
+    ? parsed
+    : DEFAULT_MONITOR_PING_INTERVAL_MS;
+}
 
 export async function runMonitorHttpPings(filters = {}) {
   const where = {};
@@ -7,12 +21,21 @@ export async function runMonitorHttpPings(filters = {}) {
   if (filters.projectId != null) where.projectId = filters.projectId;
 
   const monitors = await prisma.cronMonitor.findMany({ where });
+  const now = filters.now instanceof Date ? filters.now : new Date();
+  const fallbackIntervalMs = envIntervalMs();
 
   const summaries = [];
 
   for (const m of monitors) {
     const urls = Array.isArray(m.pingUrls) ? m.pingUrls : [];
     if (!urls.length) continue;
+    if (
+      filters.respectSchedule &&
+      !filters.force &&
+      !isMonitorDueForHttpPing(m, now, fallbackIntervalMs)
+    ) {
+      continue;
+    }
 
     const { allOk, results, totalMs } = await pingUrlListSequential(urls);
 

@@ -7,6 +7,8 @@ import {
   Line,
   BarChart,
   Bar,
+  ScatterChart,
+  Scatter,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -597,38 +599,6 @@ export default function PerformancePage() {
       return date.toLocaleString();
     };
     
-    // Get all unique timestamps and sort them
-    const allTimestamps = new Set();
-    performanceSeries.forEach(series => {
-      if (series && Array.isArray(series.data)) {
-        series.data.forEach(point => {
-          if (point && point.timestamp) {
-            allTimestamps.add(point.timestamp);
-          }
-        });
-      }
-    });
-    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => new Date(b) - new Date(a));
-    
-    // Transform data for Recharts - create unified dataset
-    const chartData = sortedTimestamps.map(timestamp => {
-      const dataPoint = { date: formatDate(timestamp), timestamp, __points: {} };
-      performanceSeries.forEach(series => {
-        if (series && Array.isArray(series.data)) {
-          const point = series.data.find(p => p && p.timestamp === timestamp);
-          const seriesName = series.name || 'Unknown';
-          dataPoint[seriesName] = point ? getMetricValue(point) : null;
-          if (point) {
-            dataPoint.__points[seriesName] = point;
-          }
-        }
-      });
-      return dataPoint;
-    });
-
-    // If we have many points, only show labels for some to avoid overlap
-    const interval = Math.ceil(chartData.length / 10);
-    
     // Generate colors for each transaction type - theme-aware
     const colors = [
       getCSSVariable('--accent-primary') || '#3b82f6',
@@ -640,19 +610,53 @@ export default function PerformancePage() {
       getCSSVariable('--info') || '#06b6d4'
     ];
 
+    const chartSeries = performanceSeries
+      .map((series, index) => {
+        const seriesName = series?.name || 'Unknown';
+        const color = colors[index % colors.length];
+        const data = Array.isArray(series?.data)
+          ? series.data
+              .map((point) => {
+                const timestampMs = point?.timestamp ? new Date(point.timestamp).getTime() : NaN;
+                const value = point ? getMetricValue(point) : NaN;
+
+                if (!Number.isFinite(timestampMs) || !Number.isFinite(value)) {
+                  return null;
+                }
+
+                return {
+                  color,
+                  date: formatDate(point.timestamp),
+                  point,
+                  seriesName,
+                  timestamp: point.timestamp,
+                  timestampMs,
+                  value
+                };
+              })
+              .filter(Boolean)
+              .sort((a, b) => a.timestampMs - b.timestampMs)
+          : [];
+
+        return { color, data, name: seriesName };
+      })
+      .filter((series) => series.data.length > 0);
+
+    const xValues = chartSeries.flatMap((series) => series.data.map((point) => point.timestampMs));
+    const xMin = xValues.length > 0 ? Math.min(...xValues) : 0;
+    const xMax = xValues.length > 0 ? Math.max(...xValues) : 0;
+    const xPadding = xMin === xMax ? 1000 : Math.max((xMax - xMin) * 0.03, 1000);
+    const xDomain = [xMin - xPadding, xMax + xPadding];
+    const xTickCount = Math.min(10, Math.max(2, xValues.length));
+
     const DetailedTooltip = ({ active, payload }) => {
       if (!active || !payload || payload.length === 0) return null;
 
-      const row = payload[0]?.payload;
-      const activePoints = payload
-        .filter((entry) => entry.value !== null && entry.value !== undefined)
-        .map((entry) => ({
-          ...entry,
-          point: row?.__points?.[entry.dataKey]
-        }))
-        .filter((entry) => entry.point);
+      const hoveredPoint = payload.find((entry) => entry?.payload?.point)?.payload;
 
-      if (!row || activePoints.length === 0) return null;
+      if (!hoveredPoint) return null;
+
+      const point = hoveredPoint.point;
 
       return (
         <div style={{
@@ -669,50 +673,44 @@ export default function PerformancePage() {
             fontSize: 'var(--font-xs)',
             marginBottom: 'var(--space-2)'
           }}>
-            {formatFullDate(row.timestamp)}
+            {formatFullDate(hoveredPoint.timestamp)}
           </div>
-          {activePoints.map((entry) => {
-            const point = entry.point;
-            return (
-              <div
-                key={entry.dataKey}
-                style={{
-                  borderTop: '1px solid var(--border-primary)',
-                  paddingTop: 'var(--space-2)',
-                  marginTop: 'var(--space-2)'
-                }}
-              >
-                <div style={{
-                  alignItems: 'center',
-                  display: 'flex',
-                  gap: 'var(--space-2)',
-                  marginBottom: 'var(--space-2)'
-                }}>
-                  <span style={{
-                    background: entry.color,
-                    borderRadius: '50%',
-                    display: 'inline-block',
-                    height: '8px',
-                    width: '8px'
-                  }} />
-                  <strong style={{ fontSize: 'var(--font-sm)' }}>{entry.dataKey}</strong>
-                </div>
-                <div style={{ display: 'grid', gap: '4px', fontSize: 'var(--font-xs)' }}>
-                  <span>Endpoint: <strong>{point.method ? `${point.method} ` : ''}{point.endpoint || entry.dataKey}</strong></span>
-                  <span>From: <strong>{point.sourceLabel || 'Unknown source'}</strong></span>
-                  {point.platform ? <span>Platform: <strong>{point.platform}</strong></span> : null}
-                  {point.environment ? <span>Environment: <strong>{point.environment}</strong></span> : null}
-                  {point.release ? <span>Release: <strong>{point.release}</strong></span> : null}
-                  {point.sdk ? <span>SDK: <strong>{point.sdk}</strong></span> : null}
-                  <span>Selected metric: <strong>{formatValue(entry.value)}</strong></span>
-                  <span>Duration: <strong>{formatDuration(point.duration || 0)}</strong></span>
-                  <span>Memory: <strong>{formatBytes(point.memory || 0)}</strong></span>
-                  <span>CPU: <strong>{Number(point.cpu || 0).toFixed(1)}%</strong></span>
-                  <span>Event loop lag: <strong>{Number(point.eventLoopLag || 0).toFixed(2)} ms</strong></span>
-                </div>
-              </div>
-            );
-          })}
+          <div
+            style={{
+              borderTop: '1px solid var(--border-primary)',
+              paddingTop: 'var(--space-2)',
+              marginTop: 'var(--space-2)'
+            }}
+          >
+            <div style={{
+              alignItems: 'center',
+              display: 'flex',
+              gap: 'var(--space-2)',
+              marginBottom: 'var(--space-2)'
+            }}>
+              <span style={{
+                background: hoveredPoint.color,
+                borderRadius: '50%',
+                display: 'inline-block',
+                height: '8px',
+                width: '8px'
+              }} />
+              <strong style={{ fontSize: 'var(--font-sm)' }}>{hoveredPoint.seriesName}</strong>
+            </div>
+            <div style={{ display: 'grid', gap: '4px', fontSize: 'var(--font-xs)' }}>
+              <span>Endpoint: <strong>{point.method ? `${point.method} ` : ''}{point.endpoint || hoveredPoint.seriesName}</strong></span>
+              <span>From: <strong>{point.sourceLabel || 'Unknown source'}</strong></span>
+              {point.platform ? <span>Platform: <strong>{point.platform}</strong></span> : null}
+              {point.environment ? <span>Environment: <strong>{point.environment}</strong></span> : null}
+              {point.release ? <span>Release: <strong>{point.release}</strong></span> : null}
+              {point.sdk ? <span>SDK: <strong>{point.sdk}</strong></span> : null}
+              <span>Selected metric: <strong>{formatValue(hoveredPoint.value)}</strong></span>
+              <span>Duration: <strong>{formatDuration(point.duration || 0)}</strong></span>
+              <span>Memory: <strong>{formatBytes(point.memory || 0)}</strong></span>
+              <span>CPU: <strong>{Number(point.cpu || 0).toFixed(1)}%</strong></span>
+              <span>Event loop lag: <strong>{Number(point.eventLoopLag || 0).toFixed(2)} ms</strong></span>
+            </div>
+          </div>
         </div>
       );
     };
@@ -735,43 +733,51 @@ export default function PerformancePage() {
         </h3>
         <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+            <ScatterChart margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
               <XAxis 
-                dataKey="date" 
+                dataKey="timestampMs"
+                type="number"
+                domain={xDomain}
+                tickCount={xTickCount}
+                tickFormatter={(value) => formatDate(value)}
                 tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 11 }}
                 stroke={getCSSVariable('--border-primary')}
                 angle={-45}
                 textAnchor="end"
                 height={60}
-                interval={interval}
               />
               <YAxis 
+                dataKey="value"
+                type="number"
                 tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 12 }}
                 stroke={getCSSVariable('--border-primary')}
                 tickFormatter={formatValue}
               />
-              <Tooltip content={<DetailedTooltip />} />
+              <Tooltip
+                content={<DetailedTooltip />}
+                cursor={{ stroke: getCSSVariable('--border-primary'), strokeDasharray: '3 3' }}
+              />
               <Legend 
                 wrapperStyle={{ paddingTop: '20px' }}
                 iconType="line"
               />
-              {performanceSeries.map((series, index) => {
-                const seriesName = series?.name || 'Unknown';
+              {chartSeries.map((series) => {
                 return (
-                  <Line
-                    key={seriesName}
-                    type="monotone"
-                    dataKey={seriesName}
-                    stroke={colors[index % colors.length]}
-                    strokeWidth={3}
-                    dot={{ fill: colors[index % colors.length], r: 4 }}
-                    activeDot={{ r: 6 }}
-                    connectNulls={false}
+                  <Scatter
+                    key={series.name}
+                    name={series.name}
+                    data={series.data}
+                    dataKey="value"
+                    fill={series.color}
+                    line={{ stroke: series.color, strokeWidth: 3 }}
+                    lineType="joint"
+                    shape="circle"
+                    legendType="line"
                   />
                 );
               })}
-            </LineChart>
+            </ScatterChart>
           </ResponsiveContainer>
         </div>
       </div>

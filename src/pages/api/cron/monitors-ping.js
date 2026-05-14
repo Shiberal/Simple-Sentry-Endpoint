@@ -25,10 +25,18 @@ export default async function handler(req, res) {
 
   try {
     const { runMonitorHttpPings } = await import('@/lib/monitor-ping-runner');
-    const summaries = await runMonitorHttpPings();
+    const force =
+      req.query.force === '1' ||
+      req.query.force === 'true' ||
+      req.headers['x-monitor-force'] === 'true';
+    const summaries = await runMonitorHttpPings({
+      force,
+      respectSchedule: !force
+    });
     return res.status(200).json({
       success: true,
       ranMonitors: summaries.length,
+      scheduled: !force,
       summaries
     });
   } catch (e) {

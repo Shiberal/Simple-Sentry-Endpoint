@@ -266,8 +266,8 @@ export default function MonitorsPage() {
                 <p className={monitorStyles.heroText}>
                   Configure your Sentry SDK with the same{' '}
                   <code className={monitorStyles.code}>monitor_slug</code>. Unknown slugs are ignored from
-                  ingestion. Add ping URLs when you want the server to GET health endpoints on demand or from
-                  <code className={monitorStyles.code}> /api/cron/monitors-ping</code>.
+                  ingestion. Add ping URLs when you want the server to GET health endpoints on schedule, on
+                  demand, or from <code className={monitorStyles.code}> /api/cron/monitors-ping</code>.
                 </p>
               </div>
             </section>
@@ -279,7 +279,7 @@ export default function MonitorsPage() {
                 <div className={monitorStyles.cardHeader}>
                   <h2 className={monitorStyles.cardTitle}>Create monitor</h2>
                   <p className={monitorStyles.cardDescription}>
-                    Create the slug first, then send SDK check-ins or add health-check URLs.
+                    Create the slug first, then send SDK check-ins or add health-check URLs for scheduled pings.
                   </p>
                 </div>
 

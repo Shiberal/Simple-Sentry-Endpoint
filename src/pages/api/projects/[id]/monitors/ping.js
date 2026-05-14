@@ -41,8 +41,8 @@ export default async function handler(req, res) {
   try {
     const summaries = await runMonitorHttpPings(
       Number.isFinite(mid) && !isNaN(mid)
-        ? { monitorId: mid, projectId }
-        : { projectId }
+        ? { monitorId: mid, projectId, force: true }
+        : { projectId, force: true }
     );
 
     return res.status(200).json({

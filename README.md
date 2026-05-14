@@ -35,6 +35,10 @@ Create a `.env` file in the project root:
 | `TELEGRAM_BOT_TOKEN` | No | Telegram bot token for notifications |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | Mail server settings for email alerts |
 | `EMAIL_FROM` | No | Sender address for mail (if omitted, `SMTP_USER` is used) |
+| `ENABLE_MONITOR_HTTP_PINGER` | No | Set to `true` to run scheduled monitor HTTP pings from the Next.js server process |
+| `MONITOR_HTTP_PINGER_INTERVAL_MS` | No | How often the server checks for due monitor pings; defaults to `60000` when enabled |
+| `MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS` | No | Fallback interval for monitors without a valid cron schedule; defaults to 5 minutes |
+| `MONITOR_CRON_SECRET` | No | Secret for external calls to `/api/cron/monitors-ping` |
 
 ## Local setup
 
@@ -96,6 +100,25 @@ Main ingestion paths (the SDK usually picks these for you):
 - `POST /api/[id]/store` — older store API
 - `POST /api/[id]/minidump` — native crash dumps
 - `POST /api/[id]/security` — CSP and security reports
+
+## Cron monitors
+
+Create monitor slugs in the Monitors page before sending SDK check-ins or adding HTTP ping URLs. The `schedule` field is a 5-field cron expression such as `*/5 * * * *`.
+
+For Docker deployments, scheduled HTTP pings are enabled by default and the server checks once per minute for monitors that are due. For non-Docker Node deployments, set:
+
+```bash
+ENABLE_MONITOR_HTTP_PINGER=true
+MONITOR_HTTP_PINGER_INTERVAL_MS=60000
+```
+
+If you prefer an external scheduler, set `MONITOR_CRON_SECRET` and call:
+
+```text
+GET /api/cron/monitors-ping?secret=<MONITOR_CRON_SECRET>
+```
+
+Add `force=1` to that URL when you want to ping all configured URLs immediately instead of only monitors whose schedule is due.
 
 ## Database helpers
 
