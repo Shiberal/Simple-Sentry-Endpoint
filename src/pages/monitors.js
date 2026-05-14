@@ -151,7 +151,15 @@ export default function MonitorsPage() {
       <Head>
         <title>Monitors - Sentry Monitor</title>
       </Head>
-      <div className={styles.container} style={{ padding: 24 }}>
+      <div
+        className={styles.container}
+        style={{
+          padding: 24,
+          flexDirection: 'column',
+          alignItems: 'stretch',
+          overflow: 'auto'
+        }}
+      >
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
           <Link href="/dashboard">← Dashboard</Link>
           <h1 style={{ margin: 0 }}>Cron monitors</h1>
