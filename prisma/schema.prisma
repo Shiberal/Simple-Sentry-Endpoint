@@ -189,6 +189,7 @@ model CronMonitor {
   status        String            @default("active")
   schedule      String?
   environment   String?
+  pingUrls      String[]          @default([])
   lastCheckInAt DateTime?
   checkIns      MonitorCheckIn[]
   createdAt     DateTime          @default(now())
