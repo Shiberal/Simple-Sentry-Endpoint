@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId, pageUrl } = req.query;
+    const { projectId, pageUrl, startDate, endDate } = req.query;
 
     if (!projectId || projectId === '[object Object]') {
       return res.status(400).json({ error: 'Valid projectId is required' });
@@ -26,10 +26,33 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid projectId format' });
     }
 
+    const createdAtFilter = {};
+    if (startDate) {
+      const start = new Date(String(startDate));
+      if (Number.isNaN(start.getTime())) {
+        return res.status(400).json({ error: 'Invalid startDate format' });
+      }
+      createdAtFilter.gte = start;
+    }
+
+    if (endDate) {
+      const end = new Date(String(endDate));
+      if (Number.isNaN(end.getTime())) {
+        return res.status(400).json({ error: 'Invalid endDate format' });
+      }
+      createdAtFilter.lte = end;
+    }
+
+    const hasCreatedAtFilter = Object.keys(createdAtFilter).length > 0;
+
     const whereEvt = {
       projectId: id,
       eventType: 'TRANSACTION'
     };
+
+    if (hasCreatedAtFilter) {
+      whereEvt.createdAt = createdAtFilter;
+    }
 
     if (pageUrl && String(pageUrl).trim()) {
       whereEvt.promotedPageUrl = {
@@ -38,20 +61,28 @@ export default async function handler(req, res) {
       };
     }
 
+    const monitorWhere = {
+      monitor: {
+        projectId: id
+      }
+    };
+
+    if (hasCreatedAtFilter) {
+      monitorWhere.createdAt = createdAtFilter;
+    }
+
+    const resultLimit = hasCreatedAtFilter ? 2000 : 100;
+
     const [transactions, monitorCheckIns] = await Promise.all([
       prisma.event.findMany({
         where: whereEvt,
         orderBy: {
           createdAt: 'desc'
         },
-        take: 100 // Limit to last 100 transactions
+        take: resultLimit
       }),
       prisma.monitorCheckIn.findMany({
-        where: {
-          monitor: {
-            projectId: id
-          }
-        },
+        where: monitorWhere,
         select: {
           id: true,
           status: true,
@@ -70,7 +101,7 @@ export default async function handler(req, res) {
         orderBy: {
           createdAt: 'desc'
         },
-        take: 100
+        take: resultLimit
       })
     ]);
 

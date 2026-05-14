@@ -18,6 +18,9 @@ import styles from '@/styles/Dashboard.module.css';
 
 const DETAILED_LIVE_REFRESH_INTERVAL_MS = 1000;
 const TIMESERIES_LIVE_REFRESH_INTERVAL_MS = 5000;
+const DETAILED_CHART_WINDOW_MS = 6 * 60 * 60 * 1000;
+const DETAILED_CHART_BUCKET_MINUTES = 5;
+const DETAILED_CHART_BUCKET_MS = DETAILED_CHART_BUCKET_MINUTES * 60 * 1000;
 
 export default function PerformancePage() {
   const router = useRouter();
@@ -215,13 +218,17 @@ export default function PerformancePage() {
     setError(null);
     try {
       console.log(`[fetchTransactions] Fetching for project ${projectId}`);
-      const pq =
-        typeof pageUrlFilter === 'string' && pageUrlFilter.trim()
-          ? `&pageUrl=${encodeURIComponent(pageUrlFilter.trim())}`
-          : '';
-      const response = await fetch(
-        `/api/analytics/performance?projectId=${projectId}${pq}`
-      );
+      const end = new Date();
+      const start = new Date(end.getTime() - DETAILED_CHART_WINDOW_MS);
+      const params = new URLSearchParams({
+        projectId: String(projectId),
+        startDate: start.toISOString(),
+        endDate: end.toISOString()
+      });
+      const pageUrl = typeof pageUrlFilter === 'string' ? pageUrlFilter.trim() : '';
+      if (pageUrl) params.set('pageUrl', pageUrl);
+
+      const response = await fetch(`/api/analytics/performance?${params}`);
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch: ${response.statusText}`);
@@ -606,7 +613,7 @@ export default function PerformancePage() {
     // Format dates for labels
     const formatDate = (timestamp) => {
       const date = new Date(timestamp);
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
     };
 
     const formatFullDate = (timestamp) => {
@@ -625,65 +632,117 @@ export default function PerformancePage() {
       getCSSVariable('--info') || '#06b6d4'
     ];
 
+    const nowMs = Date.now();
+    const windowEndMs = Math.ceil(nowMs / DETAILED_CHART_BUCKET_MS) * DETAILED_CHART_BUCKET_MS;
+    const windowStartMs = windowEndMs - DETAILED_CHART_WINDOW_MS;
+    const toFiniteNumber = (value) => {
+      const number = Number(value);
+      return Number.isFinite(number) ? number : 0;
+    };
+    const average = (sum, count) => (count > 0 ? sum / count : 0);
+
     const chartSeries = performanceSeries
       .map((series, index) => {
         const seriesName = series?.name || 'Unknown';
         const color = colors[index % colors.length];
-        const data = Array.isArray(series?.data)
-          ? series.data
-              .map((point) => {
-                const timestampMs = point?.timestamp ? new Date(point.timestamp).getTime() : NaN;
-                const value = point ? getMetricValue(point) : NaN;
+        const buckets = new Map();
 
-                if (!Number.isFinite(timestampMs) || !Number.isFinite(value)) {
-                  return null;
-                }
+        if (Array.isArray(series?.data)) {
+          series.data.forEach((point) => {
+            const timestampMs = point?.timestamp ? new Date(point.timestamp).getTime() : NaN;
+            const value = point ? getMetricValue(point) : NaN;
 
-                return {
-                  color,
-                  date: formatDate(point.timestamp),
-                  point,
-                  seriesName,
-                  timestamp: point.timestamp,
-                  timestampMs,
-                  transactionId: point.transactionId,
-                  value
-                };
-              })
-              .filter(Boolean)
-              .sort((a, b) => a.timestampMs - b.timestampMs)
-          : [];
+            if (
+              !Number.isFinite(timestampMs) ||
+              !Number.isFinite(value) ||
+              timestampMs < windowStartMs ||
+              timestampMs > windowEndMs
+            ) {
+              return;
+            }
+
+            const bucketStartMs = Math.floor(timestampMs / DETAILED_CHART_BUCKET_MS) * DETAILED_CHART_BUCKET_MS;
+            const bucket = buckets.get(bucketStartMs) || {
+              count: 0,
+              durationSum: 0,
+              eventLoopLagSum: 0,
+              lastPoint: point,
+              memorySum: 0,
+              cpuSum: 0,
+              valueSum: 0
+            };
+
+            bucket.count += 1;
+            bucket.durationSum += toFiniteNumber(point.duration);
+            bucket.eventLoopLagSum += toFiniteNumber(point.eventLoopLag);
+            bucket.memorySum += toFiniteNumber(point.memory);
+            bucket.cpuSum += toFiniteNumber(point.cpu);
+            bucket.valueSum += value;
+            bucket.lastPoint = point;
+            buckets.set(bucketStartMs, bucket);
+          });
+        }
+
+        const data = Array.from(buckets.entries())
+          .sort(([a], [b]) => a - b)
+          .map(([bucketStartMs, bucket]) => {
+            const bucketEndMs = bucketStartMs + DETAILED_CHART_BUCKET_MS;
+            const timestamp = new Date(bucketStartMs).toISOString();
+            const point = {
+              ...bucket.lastPoint,
+              bucketEndMs,
+              bucketStartMs,
+              cpu: average(bucket.cpuSum, bucket.count),
+              duration: average(bucket.durationSum, bucket.count),
+              eventLoopLag: average(bucket.eventLoopLagSum, bucket.count),
+              memory: average(bucket.memorySum, bucket.count),
+              sampleCount: bucket.count,
+              timestamp
+            };
+
+            return {
+              bucketEndMs,
+              bucketStartMs,
+              color,
+              date: formatDate(bucketStartMs),
+              point,
+              sampleCount: bucket.count,
+              seriesName,
+              timestamp,
+              timestampMs: bucketStartMs,
+              value: average(bucket.valueSum, bucket.count)
+            };
+          });
 
         return { color, data, name: seriesName };
       })
       .filter((series) => series.data.length > 0);
 
-    const sortedChartPoints = chartSeries
-      .flatMap((series) => series.data)
-      .sort((a, b) => {
-        if (a.timestampMs !== b.timestampMs) return a.timestampMs - b.timestampMs;
-        const idCompare = String(a.transactionId || '').localeCompare(String(b.transactionId || ''));
-        if (idCompare !== 0) return idCompare;
-        return a.seriesName.localeCompare(b.seriesName);
-      });
-    const sampleIndexByPoint = new Map(
-      sortedChartPoints.map((point, index) => [point, index])
-    );
-    const normalizedChartSeries = chartSeries.map((series) => ({
-      ...series,
-      data: series.data.map((point) => ({
-        ...point,
-        sampleIndex: sampleIndexByPoint.get(point) ?? 0
-      }))
-    }));
-    const sampleCount = sortedChartPoints.length;
-    const xDomain = sampleCount > 1 ? [-0.5, sampleCount - 0.5] : [-1, 1];
-    const xTickCount = Math.min(10, Math.max(2, sampleCount));
-    const formatSampleTick = (value) => {
-      if (sampleCount === 0) return '';
-      const index = Math.max(0, Math.min(sampleCount - 1, Math.round(value)));
-      return formatDate(sortedChartPoints[index].timestamp);
-    };
+    if (chartSeries.length === 0) {
+      return (
+        <div style={{
+          background: 'var(--bg-primary)',
+          border: '1px solid var(--border-primary)',
+          borderRadius: 'var(--radius-md)',
+          padding: 'var(--space-4)',
+          marginBottom: 'var(--space-4)',
+          textAlign: 'center',
+          color: 'var(--text-secondary)'
+        }}>
+          <h3 style={{
+            margin: '0 0 var(--space-3) 0',
+            fontSize: 'var(--font-base)',
+            fontWeight: 'var(--weight-semibold)',
+            color: 'var(--text-primary)'
+          }}>
+            ⚡ Performance by Transaction Type - {metricLabel}
+          </h3>
+          <p>No performance data available in the last 6 hours.</p>
+        </div>
+      );
+    }
+
+    const xTickCount = 7;
 
     const DetailedTooltip = ({ active, payload }) => {
       if (!active || !payload || payload.length === 0) return null;
@@ -693,6 +752,8 @@ export default function PerformancePage() {
       if (!hoveredPoint) return null;
 
       const point = hoveredPoint.point;
+      const sampleCount = point.sampleCount || hoveredPoint.sampleCount || 1;
+      const bucketLabel = `${formatDate(point.bucketStartMs || hoveredPoint.bucketStartMs)} - ${formatDate(point.bucketEndMs || hoveredPoint.bucketEndMs)}`;
 
       return (
         <div style={{
@@ -709,7 +770,7 @@ export default function PerformancePage() {
             fontSize: 'var(--font-xs)',
             marginBottom: 'var(--space-2)'
           }}>
-            {formatFullDate(hoveredPoint.timestamp)}
+            {sampleCount > 1 ? `${bucketLabel} (${DETAILED_CHART_BUCKET_MINUTES}m bucket)` : formatFullDate(hoveredPoint.timestamp)}
           </div>
           <div
             style={{
@@ -734,17 +795,18 @@ export default function PerformancePage() {
               <strong style={{ fontSize: 'var(--font-sm)' }}>{hoveredPoint.seriesName}</strong>
             </div>
             <div style={{ display: 'grid', gap: '4px', fontSize: 'var(--font-xs)' }}>
-              <span>Endpoint: <strong>{point.method ? `${point.method} ` : ''}{point.endpoint || hoveredPoint.seriesName}</strong></span>
-              <span>From: <strong>{point.sourceLabel || 'Unknown source'}</strong></span>
-              {point.platform ? <span>Platform: <strong>{point.platform}</strong></span> : null}
-              {point.environment ? <span>Environment: <strong>{point.environment}</strong></span> : null}
-              {point.release ? <span>Release: <strong>{point.release}</strong></span> : null}
-              {point.sdk ? <span>SDK: <strong>{point.sdk}</strong></span> : null}
-              <span>Selected metric: <strong>{formatValue(hoveredPoint.value)}</strong></span>
-              <span>Duration: <strong>{formatDuration(point.duration || 0)}</strong></span>
-              <span>Memory: <strong>{formatBytes(point.memory || 0)}</strong></span>
-              <span>CPU: <strong>{Number(point.cpu || 0).toFixed(1)}%</strong></span>
-              <span>Event loop lag: <strong>{Number(point.eventLoopLag || 0).toFixed(2)} ms</strong></span>
+              <span>Endpoint: <strong>{sampleCount === 1 && point.method ? `${point.method} ` : ''}{point.endpoint || hoveredPoint.seriesName}</strong></span>
+              <span>Samples: <strong>{sampleCount}</strong></span>
+              {sampleCount === 1 ? <span>From: <strong>{point.sourceLabel || 'Unknown source'}</strong></span> : null}
+              {sampleCount === 1 && point.platform ? <span>Platform: <strong>{point.platform}</strong></span> : null}
+              {sampleCount === 1 && point.environment ? <span>Environment: <strong>{point.environment}</strong></span> : null}
+              {sampleCount === 1 && point.release ? <span>Release: <strong>{point.release}</strong></span> : null}
+              {sampleCount === 1 && point.sdk ? <span>SDK: <strong>{point.sdk}</strong></span> : null}
+              <span>{sampleCount > 1 ? 'Avg selected metric' : 'Selected metric'}: <strong>{formatValue(hoveredPoint.value)}</strong></span>
+              <span>{sampleCount > 1 ? 'Avg duration' : 'Duration'}: <strong>{formatDuration(point.duration || 0)}</strong></span>
+              <span>{sampleCount > 1 ? 'Avg memory' : 'Memory'}: <strong>{formatBytes(point.memory || 0)}</strong></span>
+              <span>{sampleCount > 1 ? 'Avg CPU' : 'CPU'}: <strong>{Number(point.cpu || 0).toFixed(1)}%</strong></span>
+              <span>{sampleCount > 1 ? 'Avg event loop lag' : 'Event loop lag'}: <strong>{Number(point.eventLoopLag || 0).toFixed(2)} ms</strong></span>
             </div>
           </div>
         </div>
@@ -765,18 +827,18 @@ export default function PerformancePage() {
           fontWeight: 'var(--weight-semibold)',
           color: 'var(--text-primary)'
         }}>
-          ⚡ Performance by Transaction Type - {metricLabel}
+          ⚡ Performance by Transaction Type - {metricLabel} (Last 6h, {DETAILED_CHART_BUCKET_MINUTES}m avg)
         </h3>
         <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart accessibilityLayer={false} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
               <XAxis 
-                dataKey="sampleIndex"
+                dataKey="timestampMs"
                 type="number"
-                domain={xDomain}
+                domain={[windowStartMs, windowEndMs]}
                 tickCount={xTickCount}
-                tickFormatter={formatSampleTick}
+                tickFormatter={formatDate}
                 tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 11 }}
                 stroke={getCSSVariable('--border-primary')}
                 angle={-45}
@@ -796,7 +858,7 @@ export default function PerformancePage() {
                 filterNull
                 shared={false}
               />
-              {normalizedChartSeries.map((series) => {
+              {chartSeries.map((series) => {
                 return (
                   <Line
                     key={series.name}
