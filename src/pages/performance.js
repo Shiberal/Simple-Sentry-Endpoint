@@ -19,6 +19,9 @@ import {
 import PerformancePageSkeleton from '@/components/PerformancePageSkeleton';
 import styles from '@/styles/Dashboard.module.css';
 
+const DETAILED_LIVE_REFRESH_INTERVAL_MS = 1000;
+const TIMESERIES_LIVE_REFRESH_INTERVAL_MS = 5000;
+
 export default function PerformancePage() {
   const router = useRouter();
   const [transactions, setTransactions] = useState([]);
@@ -43,6 +46,7 @@ export default function PerformancePage() {
   const [error, setError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const refreshFnRef = useRef(null);
+  const refreshInFlightRef = useRef(false);
   const selectedProjectRef = useRef(selectedProject);
   selectedProjectRef.current = selectedProject;
 
@@ -86,18 +90,31 @@ export default function PerformancePage() {
 
   useEffect(() => {
     if (!autoRefresh || selectedProject == null) return;
-    
-    const refreshIntervalMs = 5000;
-    const id = setInterval(() => {
+
+    const refreshIntervalMs = viewMode === 'detailed'
+      ? DETAILED_LIVE_REFRESH_INTERVAL_MS
+      : TIMESERIES_LIVE_REFRESH_INTERVAL_MS;
+
+    const refreshLiveData = async () => {
+      if (refreshInFlightRef.current) return;
+
       const projectId = selectedProjectRef.current;
       if (projectId == null) return;
-      
+
       const fn = refreshFnRef.current;
       if (fn) {
-        console.log(`[AutoRefresh] Triggering refresh for project ${projectId} in ${viewMode} mode`);
-        fn(projectId);
+        refreshInFlightRef.current = true;
+        try {
+          console.log(`[AutoRefresh] Triggering refresh for project ${projectId} in ${viewMode} mode`);
+          await fn(projectId);
+        } finally {
+          refreshInFlightRef.current = false;
+        }
       }
-    }, refreshIntervalMs);
+    };
+
+    refreshLiveData();
+    const id = setInterval(refreshLiveData, refreshIntervalMs);
     
     return () => clearInterval(id);
   }, [autoRefresh, selectedProject == null, viewMode]); // Only restart if autoRefresh, project presence, or viewMode changes
@@ -774,6 +791,7 @@ export default function PerformancePage() {
                     lineType="joint"
                     shape="circle"
                     legendType="line"
+                    isAnimationActive={false}
                   />
                 );
               })}
