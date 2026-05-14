@@ -38,27 +38,55 @@ export default async function handler(req, res) {
       };
     }
 
-    // Fetch all transaction events for this project
-    const transactions = await prisma.event.findMany({
-      where: whereEvt,
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: 100 // Limit to last 100 transactions
-    });
+    const [transactions, monitorCheckIns] = await Promise.all([
+      prisma.event.findMany({
+        where: whereEvt,
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 100 // Limit to last 100 transactions
+      }),
+      prisma.monitorCheckIn.findMany({
+        where: {
+          monitor: {
+            projectId: id
+          }
+        },
+        select: {
+          id: true,
+          status: true,
+          environment: true,
+          durationMs: true,
+          createdAt: true,
+          data: true,
+          monitor: {
+            select: {
+              slug: true,
+              name: true,
+              environment: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: 100
+      })
+    ]);
 
-    if (transactions.length === 0) {
+    if (transactions.length === 0 && monitorCheckIns.length === 0) {
       return res.status(200).json({
         transactions: [],
+        monitorCheckIns: [],
         analytics: null
       });
     }
 
-    // Analyze transaction data
-    const analytics = analyzeTransactions(transactions);
+    const analytics = analyzePerformance(transactions, monitorCheckIns);
 
     res.status(200).json({
       transactions,
+      monitorCheckIns,
       analytics
     });
   } catch (error) {
@@ -67,7 +95,20 @@ export default async function handler(req, res) {
   }
 }
 
-function analyzeTransactions(transactions) {
+function average(values) {
+  if (!values.length) return 0;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function percentile(values, p) {
+  if (!values.length) return 0;
+
+  const sorted = [...values].sort((a, b) => a - b);
+  const index = Math.ceil((p / 100) * sorted.length) - 1;
+  return sorted[Math.max(0, Math.min(index, sorted.length - 1))];
+}
+
+function analyzePerformance(transactions, monitorCheckIns) {
   const durations = [];
   const memoryTimeline = [];
   const cpuTimeline = [];
@@ -145,6 +186,12 @@ function analyzeTransactions(transactions) {
     ? arr.reduce((a, b) => a + b, 0) / arr.length 
     : null;
 
+  const pingDurations = monitorCheckIns
+    .map((checkIn) => Number(checkIn.durationMs))
+    .filter((duration) => Number.isFinite(duration) && duration >= 0);
+  const successfulCheckIns = monitorCheckIns.filter((checkIn) => checkIn.status === 'ok').length;
+  const failedCheckIns = monitorCheckIns.filter((checkIn) => checkIn.status !== 'ok').length;
+
   return {
     totalTransactions: transactions.length,
     avgDuration: durations.length > 0 ? totalDuration / durations.length : 0,
@@ -169,6 +216,20 @@ function analyzeTransactions(transactions) {
       fid: webVitals.fid,
       cls: webVitals.cls,
       ttfb: webVitals.ttfb
+    },
+    ping: {
+      totalCheckIns: monitorCheckIns.length,
+      successfulCheckIns,
+      failedCheckIns,
+      uptimePercent: monitorCheckIns.length > 0 ? (successfulCheckIns / monitorCheckIns.length) * 100 : null,
+      avgDurationMs: average(pingDurations),
+      minDurationMs: pingDurations.length > 0 ? Math.min(...pingDurations) : 0,
+      maxDurationMs: pingDurations.length > 0 ? Math.max(...pingDurations) : 0,
+      p95DurationMs: percentile(pingDurations, 95),
+      durationsMs: pingDurations,
+      labels: monitorCheckIns
+        .filter((checkIn) => Number.isFinite(Number(checkIn.durationMs)) && Number(checkIn.durationMs) >= 0)
+        .map((checkIn) => checkIn.monitor?.slug || 'monitor')
     }
   };
 }

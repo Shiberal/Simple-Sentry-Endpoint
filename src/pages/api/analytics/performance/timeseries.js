@@ -44,15 +44,37 @@ export default async function handler(req, res) {
       };
     }
 
-    // Fetch all transaction events for this project within the date range
-    const transactions = await prisma.event.findMany({
-      where: whereEvt,
-      orderBy: {
-        createdAt: 'asc'
-      }
-    });
+    const projectIdInt = parseInt(projectId, 10);
+    const [transactions, monitorCheckIns] = await Promise.all([
+      prisma.event.findMany({
+        where: whereEvt,
+        orderBy: {
+          createdAt: 'asc'
+        }
+      }),
+      prisma.monitorCheckIn.findMany({
+        where: {
+          createdAt: {
+            gte: start,
+            lte: end
+          },
+          monitor: {
+            projectId: projectIdInt
+          }
+        },
+        select: {
+          id: true,
+          status: true,
+          durationMs: true,
+          createdAt: true
+        },
+        orderBy: {
+          createdAt: 'asc'
+        }
+      })
+    ]);
 
-    if (transactions.length === 0) {
+    if (transactions.length === 0 && monitorCheckIns.length === 0) {
       return res.status(200).json({
         series: [],
         interval: validInterval,
@@ -61,8 +83,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Group transactions by time interval and calculate metrics
-    const series = groupAndAggregateTransactions(transactions, validInterval);
+    const series = groupAndAggregatePerformance(transactions, monitorCheckIns, validInterval);
 
     res.status(200).json({
       series,
@@ -76,7 +97,7 @@ export default async function handler(req, res) {
   }
 }
 
-function groupAndAggregateTransactions(transactions, interval) {
+function groupAndAggregatePerformance(transactions, monitorCheckIns, interval) {
   const grouped = new Map();
 
   transactions.forEach(transaction => {
@@ -84,20 +105,34 @@ function groupAndAggregateTransactions(transactions, interval) {
     const intervalKey = truncateToInterval(timestamp, interval);
     
     if (!grouped.has(intervalKey)) {
-      grouped.set(intervalKey, []);
+      grouped.set(intervalKey, { transactions: [], monitorCheckIns: [] });
     }
-    grouped.get(intervalKey).push(transaction);
+    grouped.get(intervalKey).transactions.push(transaction);
+  });
+
+  monitorCheckIns.forEach((checkIn) => {
+    const timestamp = new Date(checkIn.createdAt);
+    const intervalKey = truncateToInterval(timestamp, interval);
+
+    if (!grouped.has(intervalKey)) {
+      grouped.set(intervalKey, { transactions: [], monitorCheckIns: [] });
+    }
+    grouped.get(intervalKey).monitorCheckIns.push(checkIn);
   });
 
   // Convert to array and calculate metrics for each interval
   const series = Array.from(grouped.entries())
-    .map(([intervalKey, intervalTransactions]) => {
-      const metrics = calculateIntervalMetrics(intervalTransactions);
+    .map(([intervalKey, intervalData]) => {
+      const metrics = calculateIntervalMetrics(
+        intervalData.transactions,
+        intervalData.monitorCheckIns
+      );
       return {
         timestamp: intervalKey,
         interval,
         metrics,
-        count: intervalTransactions.length
+        count: intervalData.transactions.length,
+        pingCount: intervalData.monitorCheckIns.length
       };
     })
     .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -124,7 +159,7 @@ function truncateToInterval(date, interval) {
   return d.toISOString();
 }
 
-function calculateIntervalMetrics(transactions) {
+function calculateIntervalMetrics(transactions, monitorCheckIns) {
   const durations = [];
   const memoryHeapUsed = [];
   const memoryHeapTotal = [];
@@ -195,6 +230,13 @@ function calculateIntervalMetrics(transactions) {
   const memoryRSSStats = calculateStats(memoryRSS);
   const cpuStats = calculateStats(cpuValues);
   const eventLoopLagStats = calculateStats(eventLoopLagValues);
+  const pingDurationStats = calculateStats(
+    monitorCheckIns
+      .map((checkIn) => Number(checkIn.durationMs))
+      .filter((duration) => Number.isFinite(duration) && duration >= 0)
+  );
+  const successfulCheckIns = monitorCheckIns.filter((checkIn) => checkIn.status === 'ok').length;
+  const failedCheckIns = monitorCheckIns.filter((checkIn) => checkIn.status !== 'ok').length;
 
   // Calculate Web Vitals stats
   const fcpStats = calculateStats(webVitals.fcp);
@@ -220,6 +262,13 @@ function calculateIntervalMetrics(transactions) {
     avgEventLoopLag: eventLoopLagStats.avg,
     minEventLoopLag: eventLoopLagStats.min,
     maxEventLoopLag: eventLoopLagStats.max,
+    pingCount: monitorCheckIns.length,
+    successfulPings: successfulCheckIns,
+    failedPings: failedCheckIns,
+    uptimePercent: monitorCheckIns.length > 0 ? (successfulCheckIns / monitorCheckIns.length) * 100 : 0,
+    avgPingDurationMs: pingDurationStats.avg,
+    minPingDurationMs: pingDurationStats.min,
+    maxPingDurationMs: pingDurationStats.max,
     // Web Vitals
     avgFcp: fcpStats.avg,
     minFcp: fcpStats.min,

@@ -20,6 +20,7 @@ import styles from '@/styles/Dashboard.module.css';
 export default function PerformancePage() {
   const router = useRouter();
   const [transactions, setTransactions] = useState([]);
+  const [monitorCheckIns, setMonitorCheckIns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -54,6 +55,15 @@ export default function PerformancePage() {
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    if (!router.isReady || !projects.length || !router.query.projectId) return;
+
+    const projectId = parseInt(router.query.projectId, 10);
+    if (!isNaN(projectId) && projects.some((project) => project.id === projectId)) {
+      setSelectedProject(projectId);
+    }
+  }, [projects, router.isReady, router.query.projectId]);
 
   useEffect(() => {
     if (viewMode === 'timeseries') {
@@ -116,6 +126,7 @@ export default function PerformancePage() {
 
     if (projectId === null || projectId === undefined || projectId === '[object Object]') {
       setTransactions([]);
+      setMonitorCheckIns([]);
       setAnalytics(null);
       setPerformanceSeries([]);
       setAvailableEndpoints([]);
@@ -144,6 +155,7 @@ export default function PerformancePage() {
       const data = await response.json();
       console.log(`[fetchTransactions] Received ${data.transactions?.length || 0} transactions`);
       setTransactions(data.transactions || []);
+      setMonitorCheckIns(data.monitorCheckIns || []);
       setAnalytics(data.analytics || null);
       
       // Group transactions by transaction type for line chart
@@ -245,6 +257,7 @@ export default function PerformancePage() {
       console.error('Error fetching transactions:', error);
       setError(error.message || 'Failed to load performance data');
       setTransactions([]);
+      setMonitorCheckIns([]);
       setAnalytics(null);
       setPerformanceSeries([]);
       setAvailableEndpoints([]);
@@ -319,6 +332,12 @@ export default function PerformancePage() {
   const formatDuration = (seconds) => {
     if (seconds < 1) return `${Math.round(seconds * 1000)}ms`;
     return `${seconds.toFixed(2)}s`;
+  };
+
+  const formatPingDuration = (ms) => {
+    if (!Number.isFinite(ms) || ms <= 0) return '0ms';
+    if (ms < 1000) return `${Math.round(ms)}ms`;
+    return `${(ms / 1000).toFixed(2)}s`;
   };
 
   const renderBarChart = (data, labels, color, unit = '') => {
@@ -629,6 +648,7 @@ export default function PerformancePage() {
         ? performanceSeries 
         : performanceSeries.filter(series => series && series.name === selectedEndpoint))
     : [];
+  const pingStats = analytics?.ping;
 
   if (loading && !analytics && !timeSeriesData) {
     return (
@@ -645,6 +665,15 @@ export default function PerformancePage() {
     <div className={styles.container}>
       {/* Left Navigation Sidebar */}
       <nav className={styles.navSidebar}>
+        <Link href="/projects" style={{ textDecoration: 'none' }}>
+          <div
+            className={`${styles.navItem} ${router.pathname === '/projects' ? styles.navItemActive : ''}`}
+            title="Projects"
+          >
+            PR
+            <div className={styles.navItemTooltip}>Projects</div>
+          </div>
+        </Link>
         <Link href="/dashboard" style={{ textDecoration: 'none' }}>
           <div 
             className={`${styles.navItem} ${router.pathname === '/dashboard' ? styles.navItemActive : ''}`}
@@ -1016,6 +1045,18 @@ export default function PerformancePage() {
                     {timeSeriesData.series.reduce((sum, s) => sum + s.count, 0)}
                   </p>
                 </div>
+                <div style={{
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Total Monitor Pings</h3>
+                  <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--info)' }}>
+                    {timeSeriesData.series.reduce((sum, s) => sum + (s.pingCount || 0), 0)}
+                  </p>
+                </div>
               </div>
 
               {/* Time Series Charts */}
@@ -1123,6 +1164,37 @@ export default function PerformancePage() {
                   (v) => Math.round(v)
                 )}
               </div>
+
+              {timeSeriesData.series.some(s => (s.metrics?.pingCount || 0) > 0) && (
+                <div style={{
+                  background: 'var(--bg-primary)',
+                  padding: 'var(--space-4)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-primary)',
+                  boxShadow: 'var(--shadow-sm)',
+                  marginBottom: 'var(--space-4)'
+                }}>
+                  <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Monitor Ping Performance</h2>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                    {renderTimeSeriesChart(
+                      timeSeriesData.series,
+                      'avgPingDurationMs',
+                      'Average Ping Duration',
+                      'var(--info)',
+                      '',
+                      (v) => formatPingDuration(v)
+                    )}
+                    {renderTimeSeriesChart(
+                      timeSeriesData.series,
+                      'uptimePercent',
+                      'Ping Uptime',
+                      'var(--success)',
+                      '%',
+                      (v) => v.toFixed(1)
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Web Vitals Charts */}
               {(timeSeriesData.series.some(s => s.metrics?.avgFcp !== undefined) ||
@@ -1284,6 +1356,132 @@ export default function PerformancePage() {
                   </p>
                 </div>
                 </div>
+
+                {pingStats && pingStats.totalCheckIns > 0 && (
+                  <div style={{ marginBottom: '30px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: '20px',
+                      marginBottom: 'var(--space-5)'
+                    }}>
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Monitor Pings</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--info)' }}>
+                          {pingStats.totalCheckIns}
+                        </p>
+                      </div>
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Ping Uptime</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--success)' }}>
+                          {pingStats.uptimePercent === null ? 'N/A' : `${pingStats.uptimePercent.toFixed(1)}%`}
+                        </p>
+                      </div>
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Avg Ping Duration</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: 'var(--accent-primary)' }}>
+                          {formatPingDuration(pingStats.avgDurationMs)}
+                        </p>
+                      </div>
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-4)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)'
+                      }}>
+                        <h3 style={{ margin: '0 0 var(--space-2) 0', fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Failed Pings</h3>
+                        <p style={{ margin: 0, fontSize: 'var(--font-2xl)', fontWeight: 'var(--weight-bold)', color: pingStats.failedCheckIns > 0 ? 'var(--error)' : 'var(--success)' }}>
+                          {pingStats.failedCheckIns}
+                        </p>
+                      </div>
+                    </div>
+
+                    {Array.isArray(pingStats.durationsMs) && pingStats.durationsMs.length > 0 && (
+                      <div style={{
+                        background: 'var(--bg-primary)',
+                        padding: 'var(--space-5)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)',
+                        boxShadow: 'var(--shadow-sm)',
+                        marginBottom: 'var(--space-5)'
+                      }}>
+                        <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Monitor Ping Duration</h2>
+                        {renderBarChart(
+                          pingStats.durationsMs,
+                          pingStats.labels || pingStats.durationsMs.map((unused, i) => `P${i + 1}`),
+                          'var(--info)',
+                          ' ms'
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{
+                      background: 'var(--bg-primary)',
+                      padding: 'var(--space-4)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-primary)',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}>
+                      <h2 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: 'var(--font-lg)' }}>Recent Monitor Pings</h2>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '2px solid var(--border-primary)' }}>
+                              <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Monitor</th>
+                              <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Status</th>
+                              <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Duration</th>
+                              <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Environment</th>
+                              <th style={{ padding: 'var(--space-3)', textAlign: 'left', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)', fontWeight: 'var(--weight-semibold)' }}>Timestamp</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {monitorCheckIns.map((checkIn) => {
+                              const duration = Number(checkIn.durationMs);
+                              return (
+                                <tr key={checkIn.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                  <td style={{ padding: 'var(--space-3)', color: 'var(--text-primary)' }}>
+                                    {checkIn.monitor?.name || checkIn.monitor?.slug || 'Monitor'}
+                                  </td>
+                                  <td style={{ padding: 'var(--space-3)', color: checkIn.status === 'ok' ? 'var(--success)' : 'var(--error)', fontWeight: 'var(--weight-semibold)' }}>
+                                    {checkIn.status}
+                                  </td>
+                                  <td style={{ padding: 'var(--space-3)', color: 'var(--text-primary)' }}>
+                                    {Number.isFinite(duration) ? formatPingDuration(duration) : 'N/A'}
+                                  </td>
+                                  <td style={{ padding: 'var(--space-3)', color: 'var(--text-primary)' }}>
+                                    {checkIn.environment || checkIn.monitor?.environment || 'N/A'}
+                                  </td>
+                                  <td style={{ padding: 'var(--space-3)', color: 'var(--text-secondary)', fontSize: 'var(--font-xs)' }}>
+                                    {new Date(checkIn.createdAt).toLocaleString()}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Web Vitals Cards */}
                 {analytics.webVitals && (

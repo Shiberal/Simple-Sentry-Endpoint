@@ -49,6 +49,15 @@ export default function Dashboard() {
     checkAuth();
   }, []);
 
+  useEffect(() => {
+    if (!router.isReady || !router.query.projectId) return;
+
+    const projectId = parseInt(router.query.projectId, 10);
+    if (!isNaN(projectId)) {
+      setSelectedProject(projectId);
+    }
+  }, [router.isReady, router.query.projectId]);
+
   // Reset prettified states when selected event changes
   useEffect(() => {
     setPrettifiedError(false);
@@ -2331,6 +2340,15 @@ export default function Dashboard() {
       <div className={styles.container}>
         {/* Left Navigation Sidebar */}
         <nav className={styles.navSidebar}>
+          <Link href="/projects" style={{ textDecoration: 'none' }}>
+            <div
+              className={`${styles.navItem} ${router.pathname === '/projects' ? styles.navItemActive : ''}`}
+              title="Projects"
+            >
+              PR
+              <div className={styles.navItemTooltip}>Projects</div>
+            </div>
+          </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <div 
               className={`${styles.navItem} ${router.pathname === '/dashboard' && !selectedProject ? styles.navItemActive : ''}`}

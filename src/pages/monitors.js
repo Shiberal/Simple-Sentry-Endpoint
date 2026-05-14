@@ -53,6 +53,15 @@ export default function MonitorsPage() {
   }, []);
 
   useEffect(() => {
+    if (!router.isReady || !projects.length || !router.query.projectId) return;
+
+    const projectId = parseInt(router.query.projectId, 10);
+    if (!isNaN(projectId) && projects.some((project) => project.id === projectId)) {
+      setPid(projectId);
+    }
+  }, [projects, router.isReady, router.query.projectId]);
+
+  useEffect(() => {
     if (!pid) return;
     setError('');
     loadMonitors(pid);
@@ -156,6 +165,12 @@ export default function MonitorsPage() {
       </Head>
       <div className={styles.container}>
         <nav className={styles.navSidebar}>
+          <Link href="/projects" style={{ textDecoration: 'none' }}>
+            <div className={styles.navItem} title="Projects">
+              PR
+              <div className={styles.navItemTooltip}>Projects</div>
+            </div>
+          </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Global Dashboard">
               📊
