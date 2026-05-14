@@ -38,6 +38,8 @@ Create a `.env` file in the project root:
 | `ENABLE_MONITOR_HTTP_PINGER` | No | Set to `true` to run scheduled monitor HTTP pings from the Next.js server process |
 | `MONITOR_HTTP_PINGER_INTERVAL_MS` | No | How often the server checks for due monitor pings; defaults to `60000` when enabled |
 | `MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS` | No | Fallback interval for monitors without a valid cron schedule; defaults to 5 minutes |
+| `MONITOR_HTTP_RETRY_COUNT` | No | Failed monitor HTTP pings are retried this many times before recording an error; defaults to `2` |
+| `MONITOR_HTTP_RETRY_DELAY_MS` | No | Delay between monitor HTTP ping retries; defaults to `10000` |
 | `MONITOR_CRON_SECRET` | No | Secret for external calls to `/api/cron/monitors-ping` |
 
 ## Local setup

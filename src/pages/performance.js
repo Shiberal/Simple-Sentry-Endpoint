@@ -29,7 +29,7 @@ export default function PerformancePage() {
   const [projects, setProjects] = useState([]);
   const [viewMode, setViewMode] = useState('detailed'); // 'detailed' or 'timeseries'
   const [timeRange, setTimeRange] = useState('30d'); // '7d', '30d', 'custom'
-  const [interval, setInterval] = useState('day'); // 'hour' or 'day'
+  const [interval, setAggregationInterval] = useState('day'); // 'hour' or 'day'
   const [timeSeriesData, setTimeSeriesData] = useState(null);
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -111,7 +111,7 @@ export default function PerformancePage() {
     };
 
     refreshLiveData();
-    const id = setInterval(refreshLiveData, refreshIntervalMs);
+    const id = window.setInterval(refreshLiveData, refreshIntervalMs);
     
     return () => clearInterval(id);
   }, [autoRefresh, selectedProject == null, viewMode]); // Only restart if autoRefresh, project presence, or viewMode changes
@@ -1189,7 +1189,7 @@ export default function PerformancePage() {
                 
                 <select
                   value={interval}
-                  onChange={(e) => setInterval(e.target.value)}
+                  onChange={(e) => setAggregationInterval(e.target.value)}
                   style={{
                     padding: 'var(--space-2) var(--space-3)',
                     borderRadius: 'var(--radius-sm)',
