@@ -306,6 +306,7 @@ export default function PerformancePage() {
           grouped[transactionName].push({
             date: new Date(transaction.createdAt).toISOString().split('T')[0],
             timestamp: transaction.createdAt,
+            transactionId: transaction.id,
             duration: duration,
             memory: memory,
             cpu: cpu,
@@ -645,6 +646,7 @@ export default function PerformancePage() {
                   seriesName,
                   timestamp: point.timestamp,
                   timestampMs,
+                  transactionId: point.transactionId,
                   value
                 };
               })
@@ -656,12 +658,32 @@ export default function PerformancePage() {
       })
       .filter((series) => series.data.length > 0);
 
-    const xValues = chartSeries.flatMap((series) => series.data.map((point) => point.timestampMs));
-    const xMin = xValues.length > 0 ? Math.min(...xValues) : 0;
-    const xMax = xValues.length > 0 ? Math.max(...xValues) : 0;
-    const xPadding = xMin === xMax ? 1000 : Math.max((xMax - xMin) * 0.03, 1000);
-    const xDomain = [xMin - xPadding, xMax + xPadding];
-    const xTickCount = Math.min(10, Math.max(2, xValues.length));
+    const sortedChartPoints = chartSeries
+      .flatMap((series) => series.data)
+      .sort((a, b) => {
+        if (a.timestampMs !== b.timestampMs) return a.timestampMs - b.timestampMs;
+        const idCompare = String(a.transactionId || '').localeCompare(String(b.transactionId || ''));
+        if (idCompare !== 0) return idCompare;
+        return a.seriesName.localeCompare(b.seriesName);
+      });
+    const sampleIndexByPoint = new Map(
+      sortedChartPoints.map((point, index) => [point, index])
+    );
+    const normalizedChartSeries = chartSeries.map((series) => ({
+      ...series,
+      data: series.data.map((point) => ({
+        ...point,
+        sampleIndex: sampleIndexByPoint.get(point) ?? 0
+      }))
+    }));
+    const sampleCount = sortedChartPoints.length;
+    const xDomain = sampleCount > 1 ? [-0.5, sampleCount - 0.5] : [-1, 1];
+    const xTickCount = Math.min(10, Math.max(2, sampleCount));
+    const formatSampleTick = (value) => {
+      if (sampleCount === 0) return '';
+      const index = Math.max(0, Math.min(sampleCount - 1, Math.round(value)));
+      return formatDate(sortedChartPoints[index].timestamp);
+    };
 
     const DetailedTooltip = ({ active, payload }) => {
       if (!active || !payload || payload.length === 0) return null;
@@ -750,11 +772,11 @@ export default function PerformancePage() {
             <LineChart accessibilityLayer={false} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={getCSSVariable('--border-primary')} opacity={0.3} />
               <XAxis 
-                dataKey="timestampMs"
+                dataKey="sampleIndex"
                 type="number"
                 domain={xDomain}
                 tickCount={xTickCount}
-                tickFormatter={(value) => formatDate(value)}
+                tickFormatter={formatSampleTick}
                 tick={{ fill: getCSSVariable('--text-secondary'), fontSize: 11 }}
                 stroke={getCSSVariable('--border-primary')}
                 angle={-45}
@@ -774,7 +796,7 @@ export default function PerformancePage() {
                 filterNull
                 shared={false}
               />
-              {chartSeries.map((series) => {
+              {normalizedChartSeries.map((series) => {
                 return (
                   <Line
                     key={series.name}
