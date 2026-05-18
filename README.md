@@ -35,8 +35,8 @@ Create a `.env` file in the project root:
 | `TELEGRAM_BOT_TOKEN` | No | Telegram bot token for notifications |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | Mail server settings for email alerts |
 | `EMAIL_FROM` | No | Sender address for mail (if omitted, `SMTP_USER` is used) |
-| `ENABLE_MONITOR_HTTP_PINGER` | No | Set to `true` to run scheduled monitor HTTP pings from the Next.js server process |
-| `MONITOR_HTTP_PINGER_INTERVAL_MS` | No | How often the server checks for due monitor pings; defaults to `60000` when enabled |
+| `ENABLE_MONITOR_HTTP_PINGER` | No | Set to `true` to run scheduled monitor HTTP pings inside the Next.js server process (off by default; use `npm run worker:ping` or a separate container instead) |
+| `MONITOR_HTTP_PINGER_INTERVAL_MS` | No | How often the ping worker checks for due monitors; defaults to `60000` |
 | `MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS` | No | Fallback interval for monitors without a valid cron schedule; defaults to 5 minutes |
 | `MONITOR_HTTP_RETRY_COUNT` | No | Failed monitor HTTP pings are retried this many times before recording an error; defaults to `2` |
 | `MONITOR_HTTP_RETRY_DELAY_MS` | No | Delay between monitor HTTP ping retries; defaults to `10000` |
@@ -107,7 +107,15 @@ Main ingestion paths (the SDK usually picks these for you):
 
 Create monitor slugs in the Monitors page before sending SDK check-ins or adding HTTP ping URLs. The `schedule` field is a 5-field cron expression such as `*/5 * * * *`.
 
-For Docker deployments, scheduled HTTP pings are enabled by default and the server checks once per minute for monitors that are due. For non-Docker Node deployments, set:
+Run monitor HTTP pings in a dedicated worker process (recommended):
+
+```bash
+npm run worker:ping
+```
+
+The worker needs `DATABASE_URL` and polls every `MONITOR_HTTP_PINGER_INTERVAL_MS` (default 60s) for monitors that are due.
+
+To run pings inside the Next.js server instead (single-process deployments), set:
 
 ```bash
 ENABLE_MONITOR_HTTP_PINGER=true
@@ -140,6 +148,17 @@ docker build -t sentry-monitor .
 docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." sentry-monitor
 ```
 
+Run the ping worker as a second container from the same image (web handles migrations; worker only pings):
+
+```bash
+docker run --rm \
+  -e DATABASE_URL="postgresql://..." \
+  --entrypoint node \
+  sentry-monitor scripts/monitor-ping-worker.mjs
+```
+
+Or use `docker compose up` with the included `docker-compose.yml` (`web` + `ping-worker`).
+
 `db push` syncs the schema to the database without using migration files. For production where you rely on migrations, prefer `npm run start:migrate` on a normal Node deployment instead of relying on `db push` in Docker unless you accept that tradeoff.
 
 ## npm scripts
@@ -150,6 +169,7 @@ docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." sentry-monitor
 | `npm run build` | Generate Prisma client and build Next.js |
 | `npm run start` | Production server |
 | `npm run start:migrate` | Run migrations, then production server |
+| `npm run worker:ping` | Dedicated monitor HTTP ping worker |
 | `npm run lint` | ESLint |
 
 ## Folder map

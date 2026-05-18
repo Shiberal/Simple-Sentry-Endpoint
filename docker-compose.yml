@@ -1,0 +1,18 @@
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      ENABLE_MONITOR_HTTP_PINGER: "false"
+
+  ping-worker:
+    build: .
+    entrypoint: ["node", "scripts/monitor-ping-worker.mjs"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      MONITOR_HTTP_PINGER_INTERVAL_MS: ${MONITOR_HTTP_PINGER_INTERVAL_MS:-60000}
+    restart: unless-stopped
+    depends_on:
+      - web

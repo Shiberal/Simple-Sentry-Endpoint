@@ -1,9 +1,9 @@
-import prisma from '@/lib/prisma';
-import { pingUrlListSequential } from '@/lib/monitor-http-ping';
+import prisma from './prisma.js';
+import { pingUrlListSequential } from './monitor-http-ping.js';
 import {
   DEFAULT_MONITOR_PING_INTERVAL_MS,
   isMonitorDueForHttpPing
-} from '@/lib/monitor-schedule';
+} from './monitor-schedule.js';
 
 function envIntervalMs() {
   const parsed = parseInt(

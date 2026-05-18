@@ -59,6 +59,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=nextjs:nodejs /app/src/generated ./src/generated
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib ./src/lib
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 
 # Copy node_modules for prisma CLI
 COPY --from=builder /app/node_modules ./node_modules
@@ -73,7 +75,7 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
-ENV ENABLE_MONITOR_HTTP_PINGER=true
+ENV ENABLE_MONITOR_HTTP_PINGER=false
 ENV MONITOR_HTTP_PINGER_INTERVAL_MS=60000
 
 # Run migrations and start server

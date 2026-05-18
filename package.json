@@ -8,6 +8,7 @@
     "build:docker": "prisma generate && next build",
     "start": "next start",
     "start:migrate": "prisma migrate deploy && next start",
+    "worker:ping": "node scripts/monitor-ping-worker.mjs",
     "lint": "eslint",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
