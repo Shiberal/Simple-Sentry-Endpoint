@@ -1,84 +1,110 @@
 import crypto from 'crypto';
-import { normalizePageUrl } from '@/lib/event-normalize';
+import { normalizePageUrl } from './event-normalize.js';
+
+const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
 /**
- * Generate a fingerprint for error grouping
- * @param {Object} eventData - The event data from Sentry
- * @param {{ fingerprintByPageUrl?: boolean }} [options]
- * @returns {string} - SHA256 hash fingerprint
+ * Replace the variable parts of a message (ids, hashes, urls, numbers, quoted
+ * values) so "User 42 not found" and "User 97 not found" group together.
  */
-export function generateFingerprint(eventData, options = {}) {
-  const { fingerprintByPageUrl = false } = options;
-  // Extract key components for fingerprinting
-  const components = [];
-
-  // 1. Error type/name
-  if (eventData.exception?.values?.[0]?.type) {
-    components.push(eventData.exception.values[0].type);
-  }
-
-  // 2. Error message (normalized)
-  let message = eventData.message || eventData.exception?.values?.[0]?.value || '';
-  
-  // Normalize message by removing variable parts
-  message = message
-    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>')  // UUIDs first
-    .replace(/\b(https?:\/\/[^\s]+)/g, '<url>')  // Full URLs
-    .replace(/\/[^\s,;]*(\.php|\.js|\.css|\.ico|\.png|\.jpg|\.svg)/gi, '<path>')  // File paths
-    .replace(/\d{4,}/g, '<num>')  // Large numbers (IDs, timestamps)
-    .replace(/\s+\d+\s+/g, ' <num> ')  // Numbers with spaces
-    .replace(/["']([^"']+)["']/g, '<str>')  // String literals
-    .replace(/\s+/g, ' ')  // Normalize whitespace
+export function normalizeMessage(message) {
+  return String(message || '')
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>')
+    .replace(/\b[\w.+-]+@[\w-]+\.[\w.-]+\b/g, '<email>')
+    .replace(/\bhttps?:\/\/[^\s"')]+/gi, '<url>')
+    .replace(/\b\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?\b/g, '<ip>')
+    .replace(/\b0x[0-9a-f]+\b/gi, '<hex>')
+    .replace(/\b[0-9a-f]{12,}\b/gi, '<hash>')
+    .replace(/(?:\/[\w.@~-]+){2,}/g, '<path>')
+    .replace(/["'`][^"'`]*["'`]/g, '<str>')
+    .replace(/\b\d+(?:\.\d+)?\b/g, '<num>')
+    .replace(/\s+/g, ' ')
     .toLowerCase()
     .trim();
-  
-  components.push(message);
+}
 
-  // 3. Stack trace (first 2-3 frames for signature)
-  if (eventData.exception?.values?.[0]?.stacktrace?.frames && 
-      eventData.exception.values[0].stacktrace.frames.length > 0) {
-    const frames = eventData.exception.values[0].stacktrace.frames;
-    // Get last few frames (most relevant) or first few if reversed
-    const relevantFrames = frames.slice(-3).map(frame => {
-      // Normalize file paths
-      let filename = (frame.filename || frame.module || '').replace(/^.*\/(vendor|node_modules)\//, '<vendor>/');
-      const func = frame.function || '';
-      // Don't include line numbers in fingerprint as they can change
-      return `${filename}:${func}`;
-    });
-    components.push(...relevantFrames);
-  } else {
-    // For errors without stack traces, use additional context
-    // Include platform to differentiate similar errors from different sources
-    if (eventData.platform) {
-      components.push(`platform:${eventData.platform}`);
-    }
-    // Include environment to separate prod/dev issues
-    if (eventData.environment) {
-      components.push(`env:${eventData.environment}`);
-    }
+/**
+ * Strip host, query string and content hashes from a filename so the same code
+ * groups together across deploys (main.4f9a2c1b.js -> main.js).
+ */
+export function normalizeFilename(filename) {
+  return String(filename || '')
+    .replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '')
+    .replace(/[?#].*$/, '')
+    .replace(/^.*\/(node_modules|vendor)\//, '<vendor>/')
+    .replace(/[.-][0-9a-f]{8,}(?=\.[a-z]+$)/i, '')
+    .replace(/^\/+/, '');
+}
+
+function frameSignature(frame) {
+  const file = normalizeFilename(frame.module || frame.filename || frame.abs_path);
+  const func = frame.function || '<anonymous>';
+  // Line numbers are deliberately left out: they shift with every edit
+  return `${file}:${func}`;
+}
+
+/**
+ * Most relevant frames: prefer the application's own code; frames are ordered
+ * oldest to newest so the newest ones are at the end.
+ */
+export function relevantFrames(frames, max = 3) {
+  if (!Array.isArray(frames) || frames.length === 0) return [];
+  const inApp = frames.filter((f) => f.in_app === true);
+  const source = inApp.length > 0 ? inApp : frames;
+  return source.slice(-max).map(frameSignature);
+}
+
+/**
+ * Default grouping key. Follows the same precedence as Sentry: the stack trace
+ * when there is one (the message often carries variable data), otherwise the
+ * exception type and normalized message.
+ */
+export function defaultFingerprintComponents(eventData) {
+  const exception = eventData.exception?.values?.[0];
+  const frames = relevantFrames(exception?.stacktrace?.frames);
+  const components = [];
+
+  if (exception?.type) components.push(exception.type);
+
+  if (frames.length > 0) {
+    components.push(...frames);
+    return components;
   }
 
-  // 4. Culprit (if available)
-  if (eventData.culprit) {
-    components.push(eventData.culprit);
-  }
+  components.push(normalizeMessage(eventData.message || exception?.value || ''));
 
-  if (fingerprintByPageUrl) {
+  // Without a stack, the source of the event separates otherwise-identical messages
+  if (eventData.logger) components.push(`logger:${eventData.logger}`);
+  if (eventData.platform) components.push(`platform:${eventData.platform}`);
+  if (eventData.culprit) components.push(eventData.culprit);
+  return components;
+}
+
+/**
+ * Generate a fingerprint for error grouping.
+ * Honors an SDK-provided `fingerprint` array, where "{{ default }}" stands for
+ * the default grouping key.
+ *
+ * @param {Object} eventData
+ * @param {{ fingerprintByPageUrl?: boolean }} [options] Project setting: also split issues per page URL
+ */
+export function generateFingerprint(eventData, options = {}) {
+  const components = defaultFingerprintComponents(eventData);
+
+  if (options.fingerprintByPageUrl) {
     const page = normalizePageUrl(eventData);
-    if (page) {
-      components.push(`page:${page}`);
-    }
+    if (page) components.push(`page:${page}`);
   }
 
-  // Create fingerprint string
-  const fingerprintString = components.filter(Boolean).join('||');
+  const defaultKey = components.filter(Boolean).join('||');
 
-  // Return SHA256 hash
-  return crypto
-    .createHash('sha256')
-    .update(fingerprintString)
-    .digest('hex');
+  const custom = eventData.fingerprint;
+  if (Array.isArray(custom) && custom.length > 0 && !custom.every((part) => part === '{{ default }}')) {
+    const parts = custom.map((part) => (part === '{{ default }}' ? defaultKey : String(part)));
+    return sha256(`custom||${parts.join('||')}`);
+  }
+
+  return sha256(defaultKey);
 }
 
 /**

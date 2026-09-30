@@ -86,6 +86,7 @@ model Issue {
   violatedDirective  String?
   blockedUri         String?
   sourceFile         String?
+  regressedAt        DateTime?
   mergedIntoId       Int?
   mergedInto         Issue?        @relation("IssueMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFromIssues   Issue[]       @relation("IssueMerge")

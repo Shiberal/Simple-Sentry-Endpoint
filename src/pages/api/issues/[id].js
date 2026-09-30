@@ -133,6 +133,8 @@ export default async function handler(req, res) {
             });
           }
           updateData.status = status;
+          // A fresh resolve clears the regression marker
+          if (status === 'RESOLVED') updateData.regressedAt = null;
 
           // Check if we need to update GitHub issue state
           if (currentIssue.githubIssueNumber && currentIssue.project.githubRepo) {

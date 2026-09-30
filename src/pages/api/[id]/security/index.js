@@ -1,6 +1,7 @@
 import { promisify } from 'util';
 import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
+import { upsertIssueForEvent } from '@/lib/issues';
 import crypto from 'crypto';
 import { sendErrorNotification } from '@/lib/telegram';
 import { createTracker, withPerformance } from '@/lib/server-performance';
@@ -144,51 +145,17 @@ export default async function handler(req, res) {
         const title = `CSP Violation: ${violatedDirective} blocked ${blockedUri}`;
         tracker.mark('extract_metadata');
         
-        // Find or create issue
-        let issue = await prisma.issue.findUnique({
-          where: {
-            projectId_fingerprint: {
-              projectId: project.id,
-              fingerprint: fingerprint
-            }
-          }
+        let issue;
+        const upserted = await upsertIssueForEvent({
+          projectId: project.id,
+          fingerprint,
+          level: 'warning', // CSP violations are typically warnings
+          create: { title, culprit: sourceFile, violatedDirective, blockedUri, sourceFile }
         });
-        tracker.mark('issue_lookup');
-
-        let isNewIssue = false;
-
-        if (issue) {
-          // Update existing issue
-          console.log('🔄 Updating existing CSP issue:', issue.title);
-          issue = await prisma.issue.update({
-            where: { id: issue.id },
-            data: {
-              count: { increment: 1 },
-              lastSeen: new Date()
-            }
-          });
-          tracker.mark('issue_update');
-        } else {
-          // Create new issue
-          console.log('🆕 Creating NEW CSP issue:', title);
-          isNewIssue = true;
-          issue = await prisma.issue.create({
-            data: {
-              projectId: project.id,
-              fingerprint,
-              title,
-              culprit: sourceFile,
-              level: 'warning', // CSP violations are typically warnings
-              violatedDirective,
-              blockedUri,
-              sourceFile,
-              count: 1,
-              firstSeen: new Date(),
-              lastSeen: new Date()
-            }
-          });
-          tracker.mark('issue_create');
-        }
+        issue = upserted.issue;
+        const isNewIssue = upserted.isNewIssue;
+        const reopened = upserted.reopened;
+        tracker.mark(isNewIssue ? 'issue_create' : 'issue_update');
 
         // Transform CSP report into Sentry-like event data for storage
         const eventData = {
@@ -230,7 +197,7 @@ export default async function handler(req, res) {
         console.log('💾 CSP violation saved to database (ID:', event.id, ')');
 
         // Send Telegram notification for new issues
-        if (isNewIssue && project.telegramChatId && issue.status !== 'IGNORED') {
+        if ((isNewIssue || reopened) && project.telegramChatId && issue.status !== 'IGNORED') {
           console.log('📱 Sending Telegram notification...');
           try {
             const telegramResult = await sendErrorNotification(issue, event, project);

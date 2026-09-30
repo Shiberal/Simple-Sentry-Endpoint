@@ -1,20 +1,11 @@
 import { upsertRelease } from '@/lib/release-service';
+import { upsertIssueForEvent } from '@/lib/issues';
 import { generateFingerprint, extractTitle, extractCulprit, extractLevel } from '@/lib/fingerprint';
 import { promoteEventFacets } from '@/lib/event-normalize';
 import { withPerformance } from '@/lib/server-performance';
 import {
   persistAlertAndIntegrationsAfterError
 } from '@/lib/sentry-ingest-alerting';
-
-async function mergeChainIssue(prisma, issue) {
-  let cur = issue;
-  const visited = new Set();
-  while (cur?.mergedIntoId && !visited.has(cur.id)) {
-    visited.add(cur.id);
-    cur = await prisma.issue.findUnique({ where: { id: cur.mergedIntoId } });
-  }
-  return cur || issue;
-}
 
 export async function persistErrorLikeEvent(prisma, project, preparedData, tracker, req) {
   const eventData = preparedData;
@@ -28,51 +19,22 @@ export async function persistErrorLikeEvent(prisma, project, preparedData, track
     fingerprintByPageUrl: project.fingerprintByPageUrl === true
   });
 
-  let issue = await prisma.issue.findUnique({
-    where: {
-      projectId_fingerprint: { projectId: project.id, fingerprint }
-    }
-  });
-  tracker.mark('issue_lookup');
-
-  let isNewIssue = false;
-  let wasRegression = false;
-
   const title = extractTitle(eventData);
   const culprit = extractCulprit(eventData);
   const level = extractLevel(eventData);
 
-  if (issue) {
-    issue = await mergeChainIssue(prisma, issue);
-    const prevResolved = issue.status === 'RESOLVED';
-    issue = await prisma.issue.update({
-      where: { id: issue.id },
-      data: {
-        count: { increment: 1 },
-        lastSeen: new Date(),
-        ...(prevResolved ? { status: 'UNRESOLVED' } : {}),
-        culprit: culprit || undefined,
-        level
-      }
-    });
-    wasRegression = prevResolved;
-    tracker.mark('issue_update');
-  } else {
-    isNewIssue = true;
-    issue = await prisma.issue.create({
-      data: {
-        projectId: project.id,
-        fingerprint,
-        title,
-        culprit,
-        level,
-        count: 1,
-        firstSeen: new Date(),
-        lastSeen: new Date()
-      }
-    });
-    tracker.mark('issue_create');
-  }
+  // Find or create the issue: follows merges, survives concurrent events, and
+  // reopens a resolved issue (regression)
+  const upserted = await upsertIssueForEvent({
+    projectId: project.id,
+    fingerprint,
+    level,
+    culprit: culprit || undefined,
+    create: { title }
+  });
+  const { issue, isNewIssue } = upserted;
+  const wasRegression = upserted.reopened;
+  tracker.mark(isNewIssue ? 'issue_create' : 'issue_update');
 
   const event = await prisma.event.create({
     data: {

@@ -1,6 +1,7 @@
 import { promisify } from 'util';
 import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
+import { upsertIssueForEvent } from '@/lib/issues';
 import crypto from 'crypto';
 import { sendErrorNotification } from '@/lib/telegram';
 import { createTracker, withPerformance } from '@/lib/server-performance';
@@ -171,48 +172,17 @@ export default async function handler(req, res) {
         const title = `Native Crash: ${crashReason} on ${platform}`;
         tracker.mark('extract_metadata');
         
-        // Find or create issue
-        let issue = await prisma.issue.findUnique({
-          where: {
-            projectId_fingerprint: {
-              projectId: project.id,
-              fingerprint: fingerprint
-            }
-          }
+        let issue;
+        const upserted = await upsertIssueForEvent({
+          projectId: project.id,
+          fingerprint,
+          level: 'fatal', // Crashes are fatal
+          create: { title, culprit: crashAddress || 'Unknown address' }
         });
-        tracker.mark('issue_lookup');
-
-        let isNewIssue = false;
-
-        if (issue) {
-          // Update existing issue
-          console.log('🔄 Updating existing minidump issue:', issue.title);
-          issue = await prisma.issue.update({
-            where: { id: issue.id },
-            data: {
-              count: { increment: 1 },
-              lastSeen: new Date()
-            }
-          });
-          tracker.mark('issue_update');
-        } else {
-          // Create new issue
-          console.log('🆕 Creating NEW minidump issue:', title);
-          isNewIssue = true;
-          issue = await prisma.issue.create({
-            data: {
-              projectId: project.id,
-              fingerprint,
-              title,
-              culprit: crashAddress || 'Unknown address',
-              level: 'fatal', // Crashes are fatal
-              count: 1,
-              firstSeen: new Date(),
-              lastSeen: new Date()
-            }
-          });
-          tracker.mark('issue_create');
-        }
+        issue = upserted.issue;
+        const isNewIssue = upserted.isNewIssue;
+        const reopened = upserted.reopened;
+        tracker.mark(isNewIssue ? 'issue_create' : 'issue_update');
 
         // Transform minidump metadata into event data
         const eventData = {
@@ -261,7 +231,7 @@ export default async function handler(req, res) {
         console.log('ℹ️  Note: Full minidump binary analysis is not implemented');
 
         // Send Telegram notification for new issues
-        if (isNewIssue && project.telegramChatId && issue.status !== 'IGNORED') {
+        if ((isNewIssue || reopened) && project.telegramChatId && issue.status !== 'IGNORED') {
           console.log('📱 Sending Telegram notification...');
           try {
             const telegramResult = await sendErrorNotification(issue, event, project);

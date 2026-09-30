@@ -10,6 +10,7 @@
     "start:migrate": "prisma migrate deploy && next start",
     "worker:ping": "node scripts/monitor-ping-worker.mjs",
     "lint": "eslint",
+    "test": "node --test src/lib/*.test.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",

@@ -1,6 +1,6 @@
 import { extractLevel } from '@/lib/fingerprint';
 import { sendNewIssueAlert } from '@/lib/email';
-import { createGitHubIssue, shouldAutoReport, updateGitHubIssue } from '@/lib/github';
+import { createGitHubIssue, shouldAutoReport, updateGitHubIssue, updateGitHubIssueState } from '@/lib/github';
 import { sendErrorNotification } from '@/lib/telegram';
 import { postGenericWebhook, postSlackIncomingWebhook } from '@/lib/webhook-alerts';
 
@@ -23,11 +23,25 @@ export async function persistAlertAndIntegrationsAfterError({
 }) {
   const baseUrl = baseUrlFromReq(req);
 
-  if (isNewIssue && project.telegramChatId && issue.status !== 'IGNORED') {
+  if ((isNewIssue || wasRegression) && project.telegramChatId && issue.status !== 'IGNORED') {
     try {
       await sendErrorNotification(issue, event, project);
     } catch (e) {
       console.warn('Telegram:', e.message);
+    }
+  }
+
+  // Regression: reopen the linked GitHub issue that was closed when this was resolved
+  if (wasRegression && issue.githubIssueNumber && project.githubRepo) {
+    try {
+      await updateGitHubIssueState({
+        issueNumber: issue.githubIssueNumber,
+        project,
+        state: 'open',
+        comment: '🔄 This issue has **regressed**: a new event arrived after it was marked resolved, so it was reopened.'
+      });
+    } catch (e) {
+      console.warn('GitHub reopen after regression failed:', e.message);
     }
   }
 
