@@ -101,7 +101,8 @@ export async function persistCheckInEvent(prisma, project, payload, tracker) {
     where: { id: monitor.id },
     data: {
       lastCheckInAt: new Date(),
-      status: String(payload.status || 'unknown')
+      // A paused monitor stays paused: check-ins are still recorded but do not resume it
+      status: monitor.status === 'paused' ? 'paused' : String(payload.status || 'unknown')
     }
   });
 
@@ -110,8 +111,11 @@ export async function persistCheckInEvent(prisma, project, payload, tracker) {
       monitorId: monitor.id,
       status: String(payload.status || 'unknown'),
       environment: payload.environment || null,
+      // Sentry SDKs report check-in duration in seconds; we store milliseconds
       durationMs:
-        payload.duration !== undefined ? Number(payload.duration) : null,
+        payload.duration !== undefined && Number.isFinite(Number(payload.duration))
+          ? Math.round(Number(payload.duration) * 1000)
+          : null,
       data: payload
     }
   });

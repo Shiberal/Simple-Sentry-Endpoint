@@ -160,6 +160,12 @@ export function isMonitorDueForHttpPing(
   }
 
   if (!hasValidLastCheckIn) {
+    // Never pinged: look back to when the monitor was created, so a worker tick
+    // that lands just after the scheduled minute does not skip the first run.
+    const createdAt = monitor.createdAt ? new Date(monitor.createdAt) : null;
+    if (createdAt && !Number.isNaN(createdAt.getTime())) {
+      return scheduleOccurredSince(parsedSchedule, createdAt, now);
+    }
     return cronScheduleMatchesDate(parsedSchedule, startOfMinute(now));
   }
 

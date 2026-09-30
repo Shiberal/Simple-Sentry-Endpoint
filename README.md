@@ -105,7 +105,17 @@ Main ingestion paths (the SDK usually picks these for you):
 
 ## Cron monitors
 
-Create monitor slugs in the Monitors page before sending SDK check-ins or adding HTTP ping URLs. The `schedule` field is a 5-field cron expression such as `*/5 * * * *`.
+Create monitor slugs in the Monitors page before sending SDK check-ins or adding HTTP ping URLs. The `schedule` field is a 5-field cron expression such as `*/5 * * * *`, evaluated in the server's timezone (UTC in Docker).
+
+The Monitors page shows each monitor's health at a glance:
+
+- **Healthy**: the last run succeeded and no scheduled run is overdue.
+- **Failing**: the last run reported an error.
+- **Missed**: a scheduled run came and went (plus a grace period of about 10% of the interval, at least 2 minutes) with no check-in. This needs a `schedule`.
+- **Running**: an SDK `in_progress` check-in is open.
+- **Paused**: no runs are expected; check-ins are still recorded but do not resume the monitor.
+
+**Nothing runs scheduled HTTP pings unless you start a scheduler** (see below). The default is off, so ping-URL monitors will show as Missed and the page will say so. SDK check-in monitors do not need a scheduler.
 
 Run monitor HTTP pings in a dedicated worker process (recommended):
 
