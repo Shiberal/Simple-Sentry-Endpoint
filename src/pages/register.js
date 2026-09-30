@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Icon from '@/components/Icon';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';

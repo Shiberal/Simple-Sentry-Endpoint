@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import ThemeToggle from '@/components/ThemeToggle';
+import Icon from '@/components/Icon';
 import styles from '@/styles/Dashboard.module.css';
 
 const STATUS_RANK = {
@@ -135,25 +136,25 @@ export default function ProjectsPage() {
         <nav className={styles.navSidebar}>
           <Link href="/projects" style={{ textDecoration: 'none' }}>
             <div className={`${styles.navItem} ${styles.navItemActive}`} title="Projects">
-              PR
+              <Icon name="folder" size={18} />
               <div className={styles.navItemTooltip}>Projects</div>
             </div>
           </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Global Dashboard">
-              DB
+              <Icon name="dashboard" size={18} />
               <div className={styles.navItemTooltip}>Global Dashboard</div>
             </div>
           </Link>
           <Link href="/performance" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Performance">
-              PF
+              <Icon name="activity" size={18} />
               <div className={styles.navItemTooltip}>Performance</div>
             </div>
           </Link>
           <Link href="/monitors" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Cron monitors">
-              MN
+              <Icon name="clock" size={18} />
               <div className={styles.navItemTooltip}>Monitors</div>
             </div>
           </Link>
@@ -181,7 +182,7 @@ export default function ProjectsPage() {
           {user.isAdmin && (
             <Link href="/admin" style={{ textDecoration: 'none' }}>
               <div className={styles.navItem} title="Admin">
-                AD
+                <Icon name="settings" size={18} />
                 <div className={styles.navItemTooltip}>Admin Settings</div>
               </div>
             </Link>
@@ -189,7 +190,7 @@ export default function ProjectsPage() {
 
           <Link href="/profile" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Profile">
-              ME
+              <Icon name="user" size={18} />
               <div className={styles.navItemTooltip}>Your Profile</div>
             </div>
           </Link>
@@ -199,7 +200,7 @@ export default function ProjectsPage() {
           <header className={styles.header}>
             <div className={styles.headerContent}>
               <h1 className={styles.logo}>
-                <span className={styles.logoIcon}>PR</span>
+                <span className={styles.logoIcon}><Icon name="folder" size={16} strokeWidth={2} /></span>
                 Projects
               </h1>
               <div className={styles.headerActions}>
@@ -271,7 +272,7 @@ export default function ProjectsPage() {
               </div>
             ) : sortedSummaries.length === 0 ? (
               <div className={styles.empty}>
-                <div className={styles.emptyIcon}>PR</div>
+                <div className={styles.emptyIcon}><Icon name="folder" size={36} strokeWidth={1.25} /></div>
                 <h3 className={styles.emptyTitle}>No projects yet</h3>
                 <p className={styles.emptyText}>Create a project to start collecting analytics.</p>
               </div>

@@ -172,3 +172,21 @@
   color: var(--accent-hover);
 }
 
+
+/* ===== Phone layout ===== */
+@media (max-width: 480px) {
+  .container {
+    padding: var(--space-3);
+    padding-top: 12vh;
+    align-items: flex-start;
+  }
+
+  .card {
+    padding: var(--space-5);
+  }
+
+  .form input {
+    font-size: 16px;
+    min-height: 44px;
+  }
+}

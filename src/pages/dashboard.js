@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 import IssueListSkeleton from '@/components/IssueListSkeleton';
+import Icon from '@/components/Icon';
 import { parseGitHubRepo } from '@/lib/github';
+import usePersistedState from '@/hooks/usePersistedState';
+import { statusLabel, levelColors, relativeTime, TIME_RANGES, SORT_OPTIONS, downloadIssues } from '@/lib/ui';
 import styles from '@/styles/Dashboard.module.css';
 
 export default function Dashboard() {
@@ -13,23 +16,50 @@ export default function Dashboard() {
   const [standaloneEvents, setStandaloneEvents] = useState([]); // For transactions and other standalone events
   const [projects, setProjects] = useState([]);
   const [user, setUser] = useState(null);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProject, setSelectedProject] = usePersistedState('sm.project', null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = usePersistedState('sm.refreshMs', 5000);
+  const [sortBy, setSortBy] = usePersistedState('sm.sortBy', 'lastSeen');
+  const [timeRange, setTimeRange] = usePersistedState('sm.timeRange', 'all');
+  const [desktopAlerts, setDesktopAlerts] = usePersistedState('sm.desktopAlerts', false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [issuesTotal, setIssuesTotal] = useState(0);
+  const [issuesPage, setIssuesPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [dupPreview, setDupPreview] = useState(null); // { groups, outdated } awaiting confirmation
+  const [dupSelected, setDupSelected] = useState([]); // primaryIds of groups to merge
+  const [mergeDraft, setMergeDraft] = useState(null); // { issues, targetId } for manual merge
+  const searchInputRef = useRef(null);
+  const seenIdsRef = useRef(null);
+  const lastVisitRef = useRef(null);
+  const detailPushedRef = useRef(false);
+  const deepLinkHandledRef = useRef(false);
+  const deepLinkPendingRef = useRef(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterLevel, setFilterLevel] = useState('error');
-  const [filterStatus, setFilterStatus] = useState('active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
-  const [filterEventType, setFilterEventType] = useState('all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
+  const [filterLevel, setFilterLevel] = usePersistedState('sm.filterLevel', 'error');
+  const [filterStatus, setFilterStatus] = usePersistedState('sm.filterStatus', 'active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
+  const [filterEventType, setFilterEventType] = usePersistedState('sm.filterType', 'all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(null);
   const [deletingIssue, setDeletingIssue] = useState(null);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Start with the project sidebar closed on phone-sized screens
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      setSidebarCollapsed(true);
+    }
+  }, []);
   const [selectedEvents, setSelectedEvents] = useState([]); // Keep for backward compatibility
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
@@ -67,9 +97,9 @@ export default function Dashboard() {
   }, [selectedEvent]);
 
   // Notification system
-  const showNotification = (message, type = 'info') => {
+  const showNotification = (message, type = 'info', action = null) => {
     const id = Date.now() + Math.random();
-    const notification = { id, message, type };
+    const notification = { id, message, type, action };
     
     setNotifications(prev => [...prev, notification]);
     
@@ -189,36 +219,73 @@ export default function Dashboard() {
         return;
       }
       setUser(data.user);
-      fetchData();
     } catch (error) {
       router.push('/login');
     }
   };
 
-  const fetchData = async () => {
+  const PAGE_SIZE = 50;
+
+  const buildIssuesUrl = (page) => {
+    const params = new URLSearchParams({
+      sortBy,
+      sortOrder: sortBy === 'title' ? 'asc' : 'desc',
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+      status: filterStatus
+    });
+    if (selectedProject) params.set('projectId', selectedProject);
+    if (filterLevel !== 'all') params.set('level', filterLevel);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    return `/api/issues?${params.toString()}`;
+  };
+
+  // Detect issues that appeared since the last poll (for desktop alerts)
+  const announceNewIssues = (incoming) => {
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = new Set(incoming.map(i => i.id));
+      return;
+    }
+    const fresh = incoming.filter(i => !seenIdsRef.current.has(i.id));
+    incoming.forEach(i => seenIdsRef.current.add(i.id));
+    if (!desktopAlerts || fresh.length === 0) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const first = fresh[0];
+    new Notification(
+      fresh.length === 1 ? `New ${first.level}: ${first.title}` : `${fresh.length} new issues`,
+      { body: fresh.length === 1 ? (first.project?.name || '') : fresh.map(i => i.title).slice(0, 3).join('\n'), tag: 'sentry-monitor-new' }
+    );
+  };
+
+  // silent = background poll: only refresh the first page and keep any extra pages already loaded
+  const fetchData = async ({ silent = false } = {}) => {
+    if (!silent) setRefreshing(true);
     try {
-      // Fetch issues instead of events to avoid duplicates
-      const issuesUrl = selectedProject 
-        ? `/api/issues?projectId=${selectedProject}&sortBy=lastSeen&sortOrder=desc` 
-        : `/api/issues?sortBy=lastSeen&sortOrder=desc`;
-      
-      // Fetch standalone events (transactions, etc.) that don't have issues
       const eventsUrl = selectedProject
         ? `/api/events?projectId=${selectedProject}&limit=100`
         : `/api/events?limit=100`;
-        
+
       const [issuesRes, projectsRes, eventsRes] = await Promise.all([
-        fetch(issuesUrl),
+        fetch(buildIssuesUrl(1)),
         fetch('/api/projects'),
         fetch(eventsUrl)
       ]);
-      
+
       const issuesData = await issuesRes.json();
       const projectsData = await projectsRes.json();
       const eventsData = await eventsRes.json();
-      
+
       if (issuesData.success) {
-        setIssues(issuesData.issues);
+        announceNewIssues(issuesData.issues);
+        setIssues(prev => {
+          if (!silent || prev.length <= PAGE_SIZE) return issuesData.issues;
+          // Keep later pages the user already loaded, replacing anything refreshed
+          const fresh = new Map(issuesData.issues.map(i => [i.id, i]));
+          const tail = prev.slice(PAGE_SIZE).filter(i => !fresh.has(i.id));
+          return [...issuesData.issues, ...tail];
+        });
+        if (!silent) setIssuesPage(1);
+        setIssuesTotal(issuesData.pagination?.totalCount ?? issuesData.issues.length);
       }
       if (projectsData.success) setProjects(projectsData.projects);
       if (eventsData.success) {
@@ -226,10 +293,35 @@ export default function Dashboard() {
         const standalone = eventsData.events.filter(event => !event.issueId);
         setStandaloneEvents(standalone);
       }
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const loadMoreIssues = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = issuesPage + 1;
+      const res = await fetch(buildIssuesUrl(nextPage));
+      const data = await res.json();
+      if (data.success) {
+        setIssues(prev => {
+          const known = new Set(prev.map(i => i.id));
+          return [...prev, ...data.issues.filter(i => !known.has(i.id))];
+        });
+        setIssuesPage(nextPage);
+        setIssuesTotal(data.pagination?.totalCount ?? issuesTotal);
+      }
+    } catch (error) {
+      console.error('Error loading more issues:', error);
+      showNotification('Could not load more issues', 'error');
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -264,48 +356,171 @@ export default function Dashboard() {
   };
 
 
+  // Initial load once the user is known (later changes go through filtersKey below)
   useEffect(() => {
-    if (user) {
-      fetchData();
-      fetchAnalytics();
-    }
-  }, [selectedProject, user, filterLevel, activeTab]);
+    if (user) fetchData();
+  }, [user]);
 
   useEffect(() => {
-    if (autoRefresh && user) {
-      const interval = setInterval(fetchData, 5000);
-      return () => clearInterval(interval);
+    if (user) fetchAnalytics();
+  }, [selectedProject, user, filterLevel, activeTab]);
+
+  // Debounce the search box before hitting the API
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Refetch from page 1 whenever server-side filters change
+  const filtersKey = `${selectedProject}|${filterLevel}|${filterStatus}|${sortBy}|${debouncedSearch}`;
+  const filtersKeyRef = useRef(filtersKey);
+  useEffect(() => {
+    if (filtersKeyRef.current === filtersKey) return;
+    filtersKeyRef.current = filtersKey;
+    if (user) fetchData();
+  }, [filtersKey]);
+
+  // Poll only while the tab is visible; catch up immediately when it becomes visible again
+  useEffect(() => {
+    if (!autoRefresh || !user) return;
+    const tick = () => {
+      if (!document.hidden) fetchData({ silent: true });
+    };
+    const interval = setInterval(tick, refreshInterval);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [autoRefresh, refreshInterval, user, filtersKey]);
+
+  // Open an issue (or standalone event) in the detail panel
+  const openItem = useCallback(async (issue) => {
+    if (issue._isStandaloneEvent) {
+      setSelectedEvent(issue._event);
+      setActiveTab('overview');
+      return;
     }
-  }, [autoRefresh, selectedProject, user, filterLevel]);
+    try {
+      const response = await fetch(`/api/issues/${issue.id}`);
+      const data = await response.json();
+      if (data.success && data.issue.events && data.issue.events.length > 0) {
+        setSelectedEvent({ ...data.issue.events[0], issue: issue.title ? issue : data.issue });
+        setActiveTab('overview');
+      }
+    } catch (error) {
+      console.error('Error fetching issue details:', error);
+    }
+  }, []);
+
+  const closeDetail = () => {
+    setSelectedEvent(null);
+    setActiveTab('overview');
+  };
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
     router.push('/login');
   };
 
+  // Preview duplicates first; nothing is merged until the user confirms
   const handleDeduplicate = async () => {
     if (isDeduplicating) return;
-    
+
     setIsDeduplicating(true);
     try {
-      const response = await fetch('/api/admin/merge-duplicates', {
-        method: 'POST'
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        showNotification(`✅ Successfully merged ${data.duplicatesMerged} duplicate issue${data.duplicatesMerged !== 1 ? 's' : ''}!`, 'success');
-        // Refresh the dashboard
-        fetchData();
+      const targets = selectedProject ? projects.filter(p => p.id === selectedProject) : projects;
+      const results = await Promise.all(targets.map(async (project) => {
+        const response = await fetch(`/api/issues/duplicates?projectId=${project.id}`);
+        const data = await response.json();
+        return data.success ? { project, ...data } : null;
+      }));
+      const found = results.filter(Boolean);
+      const groups = found.flatMap(r => r.groups.map(g => ({ ...g, projectId: r.project.id, projectName: r.project.name })));
+      const outdated = found.reduce((sum, r) => sum + r.outdatedFingerprints, 0);
+
+      if (groups.length === 0 && outdated === 0) {
+        showNotification('No duplicate issues found', 'success');
       } else {
-        showNotification(`❌ Failed to merge duplicates: ${data.message || 'Unknown error'}`, 'error');
+        setDupSelected(groups.map(g => g.primaryId));
+        setDupPreview({ groups, outdated });
       }
     } catch (error) {
-      console.error('Error deduplicating:', error);
-      showNotification('❌ Error deduplicating issues', 'error');
+      console.error('Error finding duplicates:', error);
+      showNotification('Could not check for duplicates', 'error');
     } finally {
       setIsDeduplicating(false);
+    }
+  };
+
+  const applyDuplicates = async () => {
+    if (!dupPreview || isDeduplicating) return;
+    setIsDeduplicating(true);
+    try {
+      const allSelected = dupSelected.length === dupPreview.groups.length;
+      const projectIds = [...new Set(dupPreview.groups.map(g => g.projectId))];
+      let merged = 0;
+      for (const projectId of projectIds) {
+        const primaryIds = dupPreview.groups.filter(g => g.projectId === projectId && dupSelected.includes(g.primaryId)).map(g => g.primaryId);
+        if (primaryIds.length === 0) continue;
+        const response = await fetch('/api/issues/duplicates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // Omitting primaryIds also refreshes outdated fingerprints, so only do that when everything is selected
+          body: JSON.stringify(allSelected ? { projectId } : { projectId, primaryIds })
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || data.error || 'Merge failed');
+        merged += data.issuesMerged;
+      }
+      showNotification(`Merged ${merged} duplicate issue${merged === 1 ? '' : 's'}`, 'success');
+      setDupPreview(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error merging duplicates:', error);
+      showNotification(`Failed to merge duplicates: ${error.message}`, 'error');
+    } finally {
+      setIsDeduplicating(false);
+    }
+  };
+
+  // Merge the issues ticked in selection mode into one chosen issue
+  const startMerge = () => {
+    const chosen = issues.filter(i => selectedEvents.includes(i.id));
+    if (chosen.length < 2) {
+      showNotification('Select at least two issues to merge', 'info');
+      return;
+    }
+    if (new Set(chosen.map(i => i.projectId)).size > 1) {
+      showNotification('Issues can only be merged within the same project', 'warning');
+      return;
+    }
+    const oldest = [...chosen].sort((a, b) => new Date(a.firstSeen) - new Date(b.firstSeen))[0];
+    setMergeDraft({ issues: chosen, targetId: oldest.id });
+  };
+
+  const confirmMerge = async () => {
+    if (!mergeDraft) return;
+    try {
+      const response = await fetch('/api/issues/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: mergeDraft.issues[0].projectId,
+          targetIssueId: mergeDraft.targetId,
+          sourceIssueIds: mergeDraft.issues.map(i => i.id).filter(id => id !== mergeDraft.targetId)
+        })
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Merge failed');
+      const mergedCount = data.mergedIssueIds.length;
+      showNotification(`Merged ${mergedCount} issue${mergedCount === 1 ? '' : 's'} into #${mergeDraft.targetId}`, 'success');
+      setMergeDraft(null);
+      exitSelectionMode();
+      if (selectedEvent?.issue && mergeDraft.issues.some(i => i.id === selectedEvent.issue.id)) closeDetail();
+      fetchData();
+    } catch (error) {
+      showNotification(`Merge failed: ${error.message}`, 'error');
     }
   };
 
@@ -766,12 +981,15 @@ export default function Dashboard() {
     }
   };
 
-  const handleResolveIssue = async (issue) => {
+  const handleResolveIssue = async (issue, { allowUndo = true } = {}) => {
     if (!issue) return;
 
+    // Toggle between RESOLVED and UNRESOLVED
+    const newStatus = issue.status === 'RESOLVED' ? 'UNRESOLVED' : 'RESOLVED';
+    // Optimistic update so the list reacts instantly
+    setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: newStatus } : iss));
+
     try {
-      // Toggle between RESOLVED and UNRESOLVED
-      const newStatus = issue.status === 'RESOLVED' ? 'UNRESOLVED' : 'RESOLVED';
       
       const response = await fetch(`/api/issues/${issue.id}`, {
         method: 'PATCH',
@@ -807,26 +1025,33 @@ export default function Dashboard() {
         if (issue.githubIssueNumber) {
           message += ` GitHub issue #${issue.githubIssueNumber} has been ${newStatus === 'RESOLVED' ? 'closed' : 'reopened'}.`;
         }
-        showNotification(message, 'success');
+        showNotification(message, 'success', allowUndo ? {
+          label: 'Undo',
+          onClick: () => handleResolveIssue({ ...issue, status: newStatus }, { allowUndo: false })
+        } : null);
         
         // Refresh data
-        fetchData();
+        fetchData({ silent: true });
       } else {
+        setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
         const errorData = await response.json();
         showNotification(`Failed to ${newStatus === 'RESOLVED' ? 'resolve' : 'reopen'} issue: ${errorData.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
+      setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
       console.error('Error resolving issue:', error);
       showNotification('Error updating issue status', 'error');
     }
   };
 
-  const handleIgnoreIssue = async (issue) => {
+  const handleIgnoreIssue = async (issue, { allowUndo = true } = {}) => {
     if (!issue) return;
 
+    // Toggle between IGNORED and UNRESOLVED
+    const newStatus = issue.status === 'IGNORED' ? 'UNRESOLVED' : 'IGNORED';
+    setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: newStatus } : iss));
+
     try {
-      // Toggle between IGNORED and UNRESOLVED
-      const newStatus = issue.status === 'IGNORED' ? 'UNRESOLVED' : 'IGNORED';
       
       const response = await fetch(`/api/issues/${issue.id}`, {
         method: 'PATCH',
@@ -858,15 +1083,20 @@ export default function Dashboard() {
         );
         
         // Show success message
-        showNotification(`Issue ${newStatus === 'IGNORED' ? 'ignored - will not appear in main view or auto-report to GitHub' : 'unignored'} successfully!`, 'success');
+        showNotification(`Issue ${newStatus === 'IGNORED' ? 'ignored - will not appear in main view or auto-report to GitHub' : 'unignored'} successfully!`, 'success', allowUndo ? {
+          label: 'Undo',
+          onClick: () => handleIgnoreIssue({ ...issue, status: newStatus }, { allowUndo: false })
+        } : null);
         
         // Refresh data
-        fetchData();
+        fetchData({ silent: true });
       } else {
+        setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
         const errorData = await response.json();
         showNotification(`Failed to ${newStatus === 'IGNORED' ? 'ignore' : 'unignore'} issue: ${errorData.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
+      setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
       console.error('Error ignoring issue:', error);
       showNotification('Error updating issue status', 'error');
     }
@@ -1019,19 +1249,7 @@ export default function Dashboard() {
     return 'Unknown Event';
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
+  const formatDate = relativeTime;
 
   const copyToClipboard = async (text, setCopiedState) => {
     try {
@@ -1064,7 +1282,12 @@ export default function Dashboard() {
       events: [event],
       eventType: event.eventType
     }))
-  ].sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+  ].sort((a, b) => {
+    if (sortBy === 'count') return (b.count || 1) - (a.count || 1);
+    if (sortBy === 'title') return String(a.title).localeCompare(String(b.title));
+    const key = sortBy === 'firstSeen' ? 'firstSeen' : 'lastSeen';
+    return new Date(b[key] || b.createdAt) - new Date(a[key] || a.createdAt);
+  });
 
   const filteredIssues = combinedItems.filter(issue => {
     const matchesSearch = !searchQuery || 
@@ -1105,7 +1328,196 @@ export default function Dashboard() {
       return false;
     })();
     
-    return matchesSearch && matchesLevel && matchesStatus && matchesEventType;
+    const rangeMs = TIME_RANGES[timeRange]?.ms;
+    const matchesTime = !rangeMs || (Date.now() - new Date(issue.lastSeen).getTime()) <= rangeMs;
+
+    return matchesSearch && matchesLevel && matchesStatus && matchesEventType && matchesTime;
+  });
+
+  const hasActiveFilters = filterLevel !== 'all' || filterStatus !== 'all' ||
+    filterEventType !== 'all' || timeRange !== 'all' || !!searchQuery;
+
+  const clearFilters = () => {
+    setFilterLevel('all');
+    setFilterStatus('all');
+    setFilterEventType('all');
+    setTimeRange('all');
+    setSearchQuery('');
+  };
+
+  const unresolvedCount = issues.filter(i => i.status === 'UNRESOLVED').length;
+  const activeItemId = selectedEvent
+    ? (selectedEvent.issue ? selectedEvent.issue.id : `event-${selectedEvent.id}`)
+    : null;
+
+  const isNewSinceLastVisit = (issue) =>
+    !issue._isStandaloneEvent && lastVisitRef.current && issue.firstSeen &&
+    new Date(issue.firstSeen).getTime() > lastVisitRef.current;
+
+  const handleBulkStatus = async (status) => {
+    const ids = selectedEvents.filter(id => typeof id === 'number');
+    if (ids.length === 0) {
+      showNotification('Standalone events have no status to change', 'info');
+      return;
+    }
+    try {
+      const results = await Promise.all(ids.map(id =>
+        fetch(`/api/issues/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        })
+      ));
+      const failed = results.filter(r => !r.ok).length;
+      showNotification(
+        failed ? `${ids.length - failed} updated, ${failed} failed` : `${ids.length} issue${ids.length === 1 ? '' : 's'} marked ${statusLabel(status).toLowerCase()}`,
+        failed ? 'warning' : 'success'
+      );
+      exitSelectionMode();
+      fetchData();
+    } catch (error) {
+      console.error('Bulk update failed:', error);
+      showNotification('Bulk update failed', 'error');
+    }
+  };
+
+  const handleExport = (format) => {
+    if (filteredIssues.length === 0) {
+      showNotification('Nothing to export with the current filters', 'info');
+      return;
+    }
+    downloadIssues(filteredIssues.filter(i => !i._isStandaloneEvent), format);
+  };
+
+  const toggleDesktopAlerts = async () => {
+    if (desktopAlerts) {
+      setDesktopAlerts(false);
+      return;
+    }
+    if (typeof Notification === 'undefined') {
+      showNotification('This browser does not support desktop notifications', 'warning');
+      return;
+    }
+    const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (permission === 'granted') {
+      setDesktopAlerts(true);
+      showNotification('Desktop alerts enabled for new issues', 'success');
+    } else {
+      showNotification('Notification permission was denied', 'warning');
+    }
+  };
+
+  const copyIssueLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showNotification('Link copied to clipboard', 'success');
+    } catch (err) {
+      showNotification('Failed to copy link', 'error');
+    }
+  };
+
+  // "New since your last visit" marker
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('sm.lastVisit');
+      lastVisitRef.current = stored ? new Date(stored).getTime() : null;
+    } catch (e) { /* storage unavailable */ }
+    const save = () => {
+      try { window.localStorage.setItem('sm.lastVisit', new Date().toISOString()); } catch (e) { /* ignore */ }
+    };
+    window.addEventListener('pagehide', save);
+    return () => window.removeEventListener('pagehide', save);
+  }, []);
+
+  // Deep link: /dashboard?issue=123 opens that issue, and the URL follows the open issue
+  useEffect(() => {
+    if (!router.isReady || !user) return;
+    const issueParam = router.query.issue;
+    if (!deepLinkHandledRef.current) {
+      deepLinkHandledRef.current = true;
+      if (issueParam) {
+        deepLinkPendingRef.current = true;
+        openItem({ id: parseInt(issueParam) }).finally(() => { deepLinkPendingRef.current = false; });
+        return;
+      }
+    }
+    if (deepLinkPendingRef.current) return;
+    const openId = selectedEvent?.issue?.id ? String(selectedEvent.issue.id) : null;
+    if ((issueParam || null) === openId) return;
+    const query = { ...router.query };
+    if (openId) query.issue = openId; else delete query.issue;
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  }, [router.isReady, user, selectedEvent]);
+
+  // Phone back button closes the detail view instead of leaving the dashboard
+  useEffect(() => {
+    const isPhone = window.matchMedia('(max-width: 768px)').matches;
+    if (!isPhone) return;
+    if (selectedEvent && !detailPushedRef.current) {
+      window.history.pushState({ smDetail: true }, '');
+      detailPushedRef.current = true;
+    } else if (!selectedEvent && detailPushedRef.current) {
+      detailPushedRef.current = false;
+      if (window.history.state?.smDetail) window.history.back();
+    }
+  }, [!!selectedEvent]);
+
+  useEffect(() => {
+    const onPop = () => {
+      if (detailPushedRef.current) {
+        detailPushedRef.current = false;
+        setSelectedEvent(null);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const tag = e.target.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable;
+      const modalOpen = showDeleteConfirm || showGitHubModal || showNewProjectModal || showShortcuts || !!dupPreview || !!mergeDraft;
+
+      if (e.key === 'Escape') {
+        if (dupPreview) setDupPreview(null);
+        else if (mergeDraft) setMergeDraft(null);
+        else if (showShortcuts) setShowShortcuts(false);
+        else if (showDeleteConfirm) { setShowDeleteConfirm(false); setDeletingIssue(null); setDeletingEvent(null); }
+        else if (showGitHubModal) setShowGitHubModal(false);
+        else if (showNewProjectModal) setShowNewProjectModal(false);
+        else if (typing && e.target === searchInputRef.current) { setSearchQuery(''); e.target.blur(); }
+        else if (!typing && isSelectionMode) exitSelectionMode();
+        else if (!typing && selectedEvent) closeDetail();
+        return;
+      }
+
+      if (typing || modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === '/') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === '?') {
+        setShowShortcuts(true);
+      } else if (e.key === 'j' || e.key === 'k') {
+        if (filteredIssues.length === 0) return;
+        const idx = filteredIssues.findIndex(i => i.id === activeItemId);
+        const next = e.key === 'j'
+          ? Math.min(idx + 1, filteredIssues.length - 1)
+          : Math.max(idx === -1 ? 0 : idx - 1, 0);
+        openItem(filteredIssues[next]);
+        document.querySelector(`[data-item-id="${filteredIssues[next].id}"]`)?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'r' && selectedEvent?.issue) {
+        handleResolveIssue(selectedEvent.issue);
+      } else if (e.key === 'i' && selectedEvent?.issue) {
+        handleIgnoreIssue(selectedEvent.issue);
+      } else if (e.key === 'R') {
+        fetchData();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   });
 
   const renderStackTrace = (exception) => {
@@ -1170,11 +1582,14 @@ export default function Dashboard() {
       return (
         <div className={styles.detailPanelEmpty}>
           <div className={styles.emptyDetailContent}>
-            <div className={styles.emptyDetailIcon}>🔍</div>
+            <div className={styles.emptyDetailIcon}><Icon name="search" size={40} strokeWidth={1.25} /></div>
             <h3 className={styles.emptyDetailTitle}>Select an Event</h3>
             <p className={styles.emptyDetailText}>
               Click on any event from the list to view detailed information,
               stack traces, breadcrumbs, and more.
+            </p>
+            <p className={styles.emptyDetailText} style={{ marginTop: 'var(--space-3)' }}>
+              Tip: press <kbd className={styles.kbd}>j</kbd> / <kbd className={styles.kbd}>k</kbd> to move through issues, or <kbd className={styles.kbd}>?</kbd> for all shortcuts.
             </p>
           </div>
         </div>
@@ -1194,23 +1609,17 @@ export default function Dashboard() {
                   onClick={() => handleResolveIssue(selectedEvent.issue)}
                   className={styles.resolveButton}
                   title={selectedEvent.issue.status === 'RESOLVED' ? "Reopen issue" : "Resolve issue"}
-                  style={{
-                    backgroundColor: selectedEvent.issue.status === 'RESOLVED' ? '#22c55e' : undefined,
-                    opacity: selectedEvent.issue.status === 'RESOLVED' ? 1 : undefined
-                  }}
+                  data-on={selectedEvent.issue.status === 'RESOLVED' ? 'success' : undefined}
                 >
-                  {selectedEvent.issue.status === 'RESOLVED' ? '✅ Resolved' : '⭕ Resolve'}
+                  {selectedEvent.issue.status === 'RESOLVED' ? <><Icon name="checkCircle" size={14} /> Resolved</> : <><Icon name="circle" size={14} /> Resolve</>}
                 </button>
                 <button 
                   onClick={() => handleIgnoreIssue(selectedEvent.issue)}
                   className={styles.ignoreButton}
                   title={selectedEvent.issue.status === 'IGNORED' ? "Unignore issue" : "Ignore issue - won't appear in main view or auto-report to GitHub"}
-                  style={{
-                    backgroundColor: selectedEvent.issue.status === 'IGNORED' ? '#6b7280' : undefined,
-                    opacity: selectedEvent.issue.status === 'IGNORED' ? 1 : undefined
-                  }}
+                  data-on={selectedEvent.issue.status === 'IGNORED' ? 'muted' : undefined}
                 >
-                  {selectedEvent.issue.status === 'IGNORED' ? '🔕 Ignored' : '🔕 Ignore'}
+                  <><Icon name="eyeOff" size={14} /> {selectedEvent.issue.status === 'IGNORED' ? 'Ignored' : 'Ignore'}</>
                 </button>
               </>
             )}
@@ -1218,12 +1627,9 @@ export default function Dashboard() {
               onClick={() => handleCreateGitHubIssue(selectedEvent)}
               className={styles.githubButton}
               title={selectedEvent.issue?.githubIssueUrl ? "Open existing GitHub issue" : "Create GitHub issue"}
-              style={{
-                backgroundColor: selectedEvent.issue?.githubIssueUrl ? '#22c55e' : undefined,
-                opacity: selectedEvent.issue?.githubIssueUrl ? 1 : undefined
-              }}
+              data-on={selectedEvent.issue?.githubIssueUrl ? 'success' : undefined}
             >
-              {selectedEvent.issue?.githubIssueUrl ? '🐙 ✓' : '🐙'}
+              <Icon name="github" size={15} />
             </button>
             <button 
               onClick={() => {
@@ -1237,16 +1643,25 @@ export default function Dashboard() {
               className={styles.deleteButton}
               title={selectedEvent.issue ? "Delete this issue" : "Delete this event"}
             >
-              🗑️
+              <Icon name="trash" size={15} />
             </button>
+            {selectedEvent.issue && (
+              <button
+                onClick={copyIssueLink}
+                className={styles.closeButton}
+                title="Copy link to this issue"
+                aria-label="Copy link to this issue"
+              >
+                <Icon name="link" size={15} />
+              </button>
+            )}
             <button 
-              onClick={() => {
-                setSelectedEvent(null);
-                setActiveTab('overview');
-              }}
+              onClick={closeDetail}
               className={styles.closeButton}
+              aria-label="Close detail (Esc)"
+              title="Close (Esc)"
             >
-              ✕
+              <Icon name="x" size={15} />
             </button>
           </div>
         </div>
@@ -1287,7 +1702,7 @@ export default function Dashboard() {
               onClick={() => setActiveTab('performance')}
               className={`${styles.tab} ${activeTab === 'performance' ? styles.tabActive : ''}`}
             >
-              ⚡ Performance
+              Performance
             </button>
           )}
           <button
@@ -1312,7 +1727,7 @@ export default function Dashboard() {
                         className={styles.copyIconButton}
                         title="Copy"
                       >
-                        📋
+                        <Icon name="copy" size={14} />
                       </button>
                     </div>
                   </div>
@@ -1330,7 +1745,7 @@ export default function Dashboard() {
                                getEventType(selectedEvent) === 'message' ? 'var(--success)' : 'var(--info)'
                       }}
                     >
-                      {getEventType(selectedEvent) === 'message' ? '💬 MESSAGE' : getEventType(selectedEvent).toUpperCase()}
+                      {getEventType(selectedEvent) === 'message' ? 'MESSAGE' : getEventType(selectedEvent).toUpperCase()}
                     </span>
                   </div>
 
@@ -1398,7 +1813,7 @@ export default function Dashboard() {
               {/* User Information */}
               {data.user && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>👤 User Information</h4>
+                  <h4 className={styles.detailSectionTitle}>User Information</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.user.id && (
@@ -1433,7 +1848,7 @@ export default function Dashboard() {
               {/* Device & Browser Information */}
               {(data.contexts?.device || data.contexts?.browser || data.contexts?.os) && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>💻 Device & Browser</h4>
+                  <h4 className={styles.detailSectionTitle}>Device & Browser</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.contexts?.browser?.name && (
@@ -1474,7 +1889,7 @@ export default function Dashboard() {
               {/* SDK Information */}
               {data.sdk && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>🔧 SDK Information</h4>
+                  <h4 className={styles.detailSectionTitle}>SDK Information</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.sdk.name && (
@@ -1505,7 +1920,7 @@ export default function Dashboard() {
               {/* Runtime Information */}
               {data.contexts?.runtime && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>⚡ Runtime Information</h4>
+                  <h4 className={styles.detailSectionTitle}>Runtime Information</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.contexts.runtime.name && (
@@ -1530,7 +1945,7 @@ export default function Dashboard() {
               {/* CSP Violation Details */}
               {(data.type === 'csp' || data.csp || selectedEvent.issue?.violatedDirective) && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>🛡️ CSP Violation Details</h4>
+                  <h4 className={styles.detailSectionTitle}>CSP Violation Details</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {(data.contexts?.csp?.violated_directive || selectedEvent.issue?.violatedDirective) && (
@@ -1589,7 +2004,7 @@ export default function Dashboard() {
               {/* Minidump/Crash Details */}
               {(data.type === 'minidump' || data.minidump) && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>💥 Native Crash Details</h4>
+                  <h4 className={styles.detailSectionTitle}>Native Crash Details</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.minidump?.crash_reason && (
@@ -1635,7 +2050,7 @@ export default function Dashboard() {
               {/* Server Performance Information */}
               {data._serverPerformance && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>🚀 Server Performance</h4>
+                  <h4 className={styles.detailSectionTitle}>Server Performance</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       <div className={styles.infoItem}>
@@ -1678,14 +2093,14 @@ export default function Dashboard() {
                           transition: 'opacity 0.2s'
                         }}
                       >
-                        {copiedError ? '✓ Copied' : '📋 Copy'}
+                        {copiedError ? 'Copied' : 'Copy'}
                       </button>
                       <button
                         className={styles.prettifyButton}
                         onClick={() => setPrettifiedError(!prettifiedError)}
                         title={prettifiedError ? 'Show original' : 'Prettify'}
                       >
-                        {prettifiedError ? '📄 Original' : '✨ Prettify'}
+                        {prettifiedError ? 'Original' : 'Prettify'}
                       </button>
                     </div>
                   </div>
@@ -1763,7 +2178,7 @@ export default function Dashboard() {
                     return (
                       <div style={{ marginTop: 'var(--space-3)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-                          <h4 className={styles.detailSectionTitle}>📄 Code Snippet</h4>
+                          <h4 className={styles.detailSectionTitle}>Code Snippet</h4>
                           <button
                             className={styles.prettifyButton}
                             onClick={() => copyToClipboard(formatCodeForCopy(), setCopiedCode)}
@@ -1773,7 +2188,7 @@ export default function Dashboard() {
                               transition: 'opacity 0.2s'
                             }}
                           >
-                            {copiedCode ? '✓ Copied' : '📋 Copy'}
+                            {copiedCode ? 'Copied' : 'Copy'}
                           </button>
                         </div>
                         {errorFrame.filename && (
@@ -1804,13 +2219,13 @@ export default function Dashboard() {
               ) : data.message ? (
                 <div className={styles.detailSection}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-                    <h4 className={styles.detailSectionTitle}>💬 Message</h4>
+                    <h4 className={styles.detailSectionTitle}>Message</h4>
                     <button
                       className={styles.prettifyButton}
                       onClick={() => setPrettifiedMessage(!prettifiedMessage)}
                       title={prettifiedMessage ? 'Show original' : 'Prettify'}
                     >
-                      {prettifiedMessage ? '📄 Original' : '✨ Prettify'}
+                      {prettifiedMessage ? 'Original' : 'Prettify'}
                     </button>
                   </div>
                   <div className={styles.exceptionBox} style={{ backgroundColor: 'var(--success-bg)', borderColor: 'var(--success)' }}>
@@ -2057,7 +2472,7 @@ export default function Dashboard() {
                     {/* Memory Metrics */}
                     {(metrics.heapUsed || metrics.heapTotal || metrics.rss || appMemory) && (
                       <div className={styles.detailSection}>
-                        <h4 className={styles.detailSectionTitle}>💾 Memory Metrics</h4>
+                        <h4 className={styles.detailSectionTitle}>Memory Metrics</h4>
                         <div style={{
                           background: 'var(--bg-secondary)',
                           padding: '20px',
@@ -2117,7 +2532,7 @@ export default function Dashboard() {
                     {/* System Metrics */}
                     {(metrics.cpu !== undefined || metrics.eventLoopLag || metrics.activeConnections) && (
                       <div className={styles.detailSection}>
-                        <h4 className={styles.detailSectionTitle}>⚡ System Performance</h4>
+                        <h4 className={styles.detailSectionTitle}>System Performance</h4>
                         <div style={{
                           background: 'var(--bg-secondary)',
                           padding: '20px',
@@ -2133,7 +2548,7 @@ export default function Dashboard() {
                                 marginBottom: '12px',
                                 fontWeight: '500'
                               }}>
-                                {metrics.cpu < 1 ? '✅ Excellent - Very Low' : metrics.cpu < 50 ? '⚠️ Moderate' : '❌ High - Needs Attention'}
+                                {metrics.cpu < 1 ? 'Excellent (very low)' : metrics.cpu < 50 ? 'Moderate' : 'High: needs attention'}
                               </div>
                             </>
                           )}
@@ -2146,7 +2561,7 @@ export default function Dashboard() {
                                 marginBottom: '12px',
                                 fontWeight: '500'
                               }}>
-                                {metrics.eventLoopLag < 10 ? '✅ Healthy (< 10ms)' : metrics.eventLoopLag < 50 ? '⚠️ Moderate' : '❌ High Latency'}
+                                {metrics.eventLoopLag < 10 ? 'Healthy (< 10ms)' : metrics.eventLoopLag < 50 ? 'Moderate' : 'High latency'}
                               </div>
                             </>
                           )}
@@ -2191,7 +2606,7 @@ export default function Dashboard() {
                     {/* Device Info */}
                     {data.contexts?.device && (
                       <div className={styles.detailSection}>
-                        <h4 className={styles.detailSectionTitle}>🖥️ Device Information</h4>
+                        <h4 className={styles.detailSectionTitle}>Device Information</h4>
                         <div style={{
                           background: 'var(--bg-secondary)',
                           padding: '16px',
@@ -2237,7 +2652,7 @@ export default function Dashboard() {
 
                     {/* Performance Summary */}
                     <div className={styles.detailSection}>
-                      <h4 className={styles.detailSectionTitle}>📊 Performance Summary</h4>
+                      <h4 className={styles.detailSectionTitle}>Performance Summary</h4>
                       <div style={{
                         background: 'var(--bg-secondary)',
                         padding: '20px',
@@ -2260,15 +2675,15 @@ export default function Dashboard() {
                           {metrics.cpu !== undefined && metrics.eventLoopLag ? (
                             metrics.cpu < 1 && metrics.eventLoopLag < 10 ? (
                               <div style={{ color: '#10b981', fontWeight: '600' }}>
-                                ✅ EXCELLENT - System is performing optimally
+                                Excellent: system is performing optimally
                               </div>
                             ) : metrics.cpu < 5 && metrics.eventLoopLag < 50 ? (
                               <div style={{ color: '#f59e0b', fontWeight: '600' }}>
-                                ⚠️ GOOD - System is performing well
+                                Good: system is performing well
                               </div>
                             ) : (
                               <div style={{ color: '#ef4444', fontWeight: '600' }}>
-                                ❌ NEEDS ATTENTION - Consider optimization
+                                Needs attention: consider optimization
                               </div>
                             )
                           ) : (
@@ -2316,7 +2731,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard(JSON.stringify(data, null, 2))}
                   className={styles.copyButton}
                 >
-                  📋 Copy JSON
+                  Copy JSON
                 </button>
               </div>
               <pre className={styles.codeBlock}>
@@ -2334,36 +2749,37 @@ export default function Dashboard() {
   return (
     <>
       <Head>
-        <title>Dashboard - Sentry Monitor</title>
+        <title>{`${unresolvedCount > 0 ? `(${unresolvedCount}) ` : ''}Dashboard - Sentry Monitor`}</title>
       </Head>
       
       <div className={styles.container}>
         {/* Left Navigation Sidebar */}
-        <nav className={styles.navSidebar}>
-          <Link href="/projects" style={{ textDecoration: 'none' }}>
+        <nav className={styles.navSidebar} aria-label="Primary">
+          <Link href="/projects" style={{ textDecoration: 'none' }} aria-label="Projects">
             <div
               className={`${styles.navItem} ${router.pathname === '/projects' ? styles.navItemActive : ''}`}
               title="Projects"
             >
-              PR
+              <Icon name="folder" size={18} />
               <div className={styles.navItemTooltip}>Projects</div>
             </div>
           </Link>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+          <Link href="/dashboard" style={{ textDecoration: 'none' }} aria-label="Global Dashboard">
+
             <div 
               className={`${styles.navItem} ${router.pathname === '/dashboard' && !selectedProject ? styles.navItemActive : ''}`}
               title="Global Dashboard"
             >
-              📊
+              <Icon name="dashboard" size={18} />
               <div className={styles.navItemTooltip}>Global Dashboard</div>
             </div>
           </Link>
-          <Link href="/performance" style={{ textDecoration: 'none' }}>
+          <Link href="/performance" style={{ textDecoration: 'none' }} aria-label="Performance">
             <div 
               className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
               title="Performance"
             >
-              ⚡
+              <Icon name="activity" size={18} />
               <div className={styles.navItemTooltip}>Performance</div>
             </div>
           </Link>
@@ -2372,7 +2788,7 @@ export default function Dashboard() {
               className={`${styles.navItem} ${router.pathname === '/monitors' ? styles.navItemActive : ''}`}
               title="Cron monitors"
             >
-              🕒
+              <Icon name="clock" size={18} />
               <div className={styles.navItemTooltip}>Monitors</div>
             </div>
           </Link>
@@ -2383,6 +2799,11 @@ export default function Dashboard() {
           <div 
             className={`${styles.navProjectItem} ${selectedProject === null ? styles.navProjectItemActive : ''}`}
             onClick={() => setSelectedProject(null)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(null); } }}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedProject === null}
+            aria-label="All projects"
             title="All Projects"
           >
             ALL
@@ -2394,6 +2815,11 @@ export default function Dashboard() {
               key={project.id}
               className={`${styles.navProjectItem} ${selectedProject === project.id ? styles.navProjectItemActive : ''}`}
               onClick={() => setSelectedProject(project.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project.id); } }}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedProject === project.id}
+              aria-label={`Project ${project.name}`}
               title={project.name}
             >
               {project.name.substring(0, 2).toUpperCase()}
@@ -2407,33 +2833,34 @@ export default function Dashboard() {
           <button 
             className={styles.navProjectItem}
             onClick={() => setShowNewProjectModal(true)}
+            aria-label="Create new project"
             title="Create New Project"
-            style={{ color: 'var(--success)', fontSize: '24px' }}
+            style={{ color: 'var(--text-secondary)' }}
           >
-            +
+            <Icon name="plus" size={18} />
             <div className={styles.navItemTooltip}>Create New Project</div>
           </button>
 
           <div className={styles.navDivider}></div>
 
           {user.isAdmin && (
-            <Link href="/admin" style={{ textDecoration: 'none' }}>
+            <Link href="/admin" style={{ textDecoration: 'none' }} aria-label="Admin settings">
               <div 
                 className={`${styles.navItem} ${router.pathname === '/admin' ? styles.navItemActive : ''}`}
                 title="Admin"
               >
-                ⚙️
+                <Icon name="settings" size={18} />
                 <div className={styles.navItemTooltip}>Admin Settings</div>
               </div>
             </Link>
           )}
           
-          <Link href="/profile" style={{ textDecoration: 'none' }}>
+          <Link href="/profile" style={{ textDecoration: 'none' }} aria-label="Your profile">
             <div 
               className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
               title="Profile"
             >
-              👤
+              <Icon name="user" size={18} />
               <div className={styles.navItemTooltip}>Your Profile</div>
             </div>
           </Link>
@@ -2441,9 +2868,10 @@ export default function Dashboard() {
           <button 
             className={styles.navItem}
             onClick={handleLogout}
+            aria-label="Log out"
             title="Logout"
           >
-            🚪
+            <Icon name="logout" size={18} />
             <div className={styles.navItemTooltip}>Logout</div>
           </button>
         </nav>
@@ -2452,7 +2880,7 @@ export default function Dashboard() {
           <header className={styles.header}>
             <div className={styles.headerContent}>
               <h1 className={styles.logo}>
-                <span className={styles.logoIcon}>⚡</span>
+                <span className={styles.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
                 Sentry Monitor
               </h1>
               <div className={styles.headerActions}>
@@ -2461,22 +2889,25 @@ export default function Dashboard() {
                   className={styles.headerButton}
                   title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
                 >
-                  {autoRefresh ? '●' : '○'} {autoRefresh ? 'Live' : 'Paused'}
+                  <span className={autoRefresh ? styles.liveDot : undefined}>{autoRefresh ? '●' : '○'}</span> {autoRefresh ? 'Live' : 'Paused'}
                 </button>
                 <button 
                   onClick={handleDeduplicate}
                   className={styles.headerButton}
                   disabled={isDeduplicating}
-                  title="Merge duplicate issues"
+                  title="Find duplicate issues"
+                  aria-label="Find duplicate issues"
                 >
-                  {isDeduplicating ? '🔄' : '🔀'}
+                  <Icon name="merge" size={16} />
                 </button>
                 <button 
-                  onClick={fetchData} 
+                  onClick={() => fetchData()} 
                   className={styles.headerButton}
-                  title="Refresh data"
+                  title={lastUpdated ? `Refresh data (updated ${lastUpdated.toLocaleTimeString()})` : 'Refresh data'}
+                  aria-label="Refresh data"
+                  disabled={refreshing}
                 >
-                  🔄
+                  <span className={refreshing ? styles.spinning : styles.iconWrap}><Icon name="refresh" size={16} /></span>
                 </button>
                 <ThemeToggle />
                 <span className={styles.userEmail}>{user.email}</span>
@@ -2503,7 +2934,7 @@ export default function Dashboard() {
                       alignItems: 'center',
                       gap: 'var(--space-2)'
                     }}>
-                      <span style={{ fontSize: '18px' }}>{selectedProject ? '📁' : '📊'}</span>
+                      <Icon name={selectedProject ? 'inbox' : 'dashboard'} size={16} />
                       {selectedProject ? projects.find(p => p.id === selectedProject)?.name : 'All Projects'}
                     </div>
                   </div>
@@ -2514,7 +2945,7 @@ export default function Dashboard() {
                         className={styles.projectSettingsButton}
                         style={{ width: '100%', justifyContent: 'center' }}
                       >
-                        ⚙️ Project Settings
+                        <Icon name="settings" size={14} /> Project Settings
                       </Link>
                     </div>
                   )}
@@ -2586,6 +3017,39 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
+
+                <div className={styles.sidebarSection}>
+                  <div className={styles.sidebarHeader}>
+                    <h3 className={styles.sidebarTitle}>Tools</h3>
+                  </div>
+                  <div className={styles.projectsList}>
+                    <label className={styles.sidebarField}>
+                      <span>Refresh every</span>
+                      <select
+                        className={styles.filterSelect}
+                        value={refreshInterval}
+                        onChange={(e) => setRefreshInterval(parseInt(e.target.value))}
+                      >
+                        <option value={5000}>5 seconds</option>
+                        <option value={15000}>15 seconds</option>
+                        <option value={30000}>30 seconds</option>
+                        <option value={60000}>1 minute</option>
+                      </select>
+                    </label>
+                    <button onClick={toggleDesktopAlerts} className={`${styles.projectItem} ${desktopAlerts ? styles.projectItemActive : ''}`}>
+                      <span className={styles.iconLabel}><Icon name="bell" size={14} /> Desktop alerts {desktopAlerts ? 'on' : 'off'}</span>
+                    </button>
+                    <button onClick={() => handleExport('csv')} className={styles.projectItem}>
+                      <span className={styles.iconLabel}><Icon name="download" size={14} /> Export CSV</span>
+                    </button>
+                    <button onClick={() => handleExport('json')} className={styles.projectItem}>
+                      <span className={styles.iconLabel}><Icon name="download" size={14} /> Export JSON</span>
+                    </button>
+                    <button onClick={() => setShowShortcuts(true)} className={styles.projectItem}>
+                      <span className={styles.iconLabel}><Icon name="keyboard" size={14} /> Keyboard shortcuts</span>
+                    </button>
+                  </div>
+                </div>
               </aside>
             )}
 
@@ -2594,20 +3058,15 @@ export default function Dashboard() {
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               className={styles.sidebarToggle}
+              aria-label={sidebarCollapsed ? 'Show filters' : 'Hide filters'}
               title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
             >
 
               
-              <span style={{
-                transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
-                display: 'inline-block',
-                transition: 'transform 0.3s ease'
-              }}>
-                ◀
-              </span>
+              <Icon name={sidebarCollapsed ? 'chevronRight' : 'chevronLeft'} size={14} strokeWidth={2} />
             </button>
 
-            <div className={styles.content}>
+            <div className={`${styles.content} ${selectedEvent ? styles.contentDetailOpen : ''}`}>
             <div className={styles.eventsList}>
               <div className={styles.eventsHeader}>
                 {isSelectionMode && (
@@ -2625,6 +3084,28 @@ export default function Dashboard() {
                     </div>
                     <div className={styles.selectionToolbarRight}>
                       <button
+                        onClick={startMerge}
+                        disabled={selectedEvents.length < 2}
+                        className={styles.cancelSelectionButton}
+                        title="Merge the selected issues into one"
+                      >
+                        <Icon name="merge" size={13} /> Merge
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatus('RESOLVED')}
+                        disabled={selectedEvents.length === 0}
+                        className={styles.cancelSelectionButton}
+                      >
+                        <Icon name="check" size={13} /> Resolve
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatus('IGNORED')}
+                        disabled={selectedEvents.length === 0}
+                        className={styles.cancelSelectionButton}
+                      >
+                        <Icon name="eyeOff" size={13} /> Ignore
+                      </button>
+                      <button
                         onClick={() => {
                           setDeletingIssue({ bulk: true, count: selectedEvents.length });
                           setShowDeleteConfirm(true);
@@ -2632,7 +3113,7 @@ export default function Dashboard() {
                         disabled={selectedEvents.length === 0}
                         className={styles.bulkDeleteButton}
                       >
-                        🗑️ Delete ({selectedEvents.length})
+                        <Icon name="trash" size={13} /> Delete ({selectedEvents.length})
                       </button>
                       <button
                         onClick={exitSelectionMode}
@@ -2644,19 +3125,57 @@ export default function Dashboard() {
                   </div>
                 )}
                 <input
-                  type="text"
-                  placeholder="Search issues..."
+                  ref={searchInputRef}
+                  type="search"
+                  placeholder="Search issues…  ( / )"
+                  aria-label="Search issues"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={styles.searchInput}
                 />
+                <div className={styles.filterToolbar} style={{ marginTop: 'var(--space-2)' }}>
+                  <select className={styles.filterSelect} value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort issues">
+                    {Object.entries(SORT_OPTIONS).map(([value, label]) => (
+                      <option key={value} value={value}>Sort: {label}</option>
+                    ))}
+                  </select>
+                  <select className={styles.filterSelect} value={timeRange} onChange={(e) => setTimeRange(e.target.value)} aria-label="Time range">
+                    {Object.entries(TIME_RANGES).map(([value, r]) => (
+                      <option key={value} value={value}>{r.label}</option>
+                    ))}
+                  </select>
+                  <select className={styles.filterSelect} value={filterEventType} onChange={(e) => setFilterEventType(e.target.value)} aria-label="Event type">
+                    <option value="all">All types</option>
+                    <option value="ERROR">Errors</option>
+                    <option value="CSP">CSP</option>
+                    <option value="MINIDUMP">Minidumps</option>
+                    <option value="TRANSACTION">Transactions</option>
+                    <option value="MESSAGE">Messages</option>
+                  </select>
+                  {!isSelectionMode && (
+                    <button onClick={() => setIsSelectionMode(true)} className={styles.selectButton}>
+                      <Icon name="select" size={13} /> Select
+                    </button>
+                  )}
+                </div>
+                <div className={styles.resultsSummary} aria-live="polite">
+                  <span>
+                    {filteredIssues.length} shown
+                    {issuesTotal > issues.length ? ` · ${issuesTotal} match on server` : ''}
+                    {lastUpdated ? ` · updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </span>
+                  {hasActiveFilters && (
+                    <button onClick={clearFilters} className={styles.clearFilters}>Clear filters</button>
+                  )}
+                </div>
               </div>
 
               {loading ? (
                 <IssueListSkeleton rows={9} />
+
               ) : projects.length === 0 ? (
                 <div className={styles.empty}>
-                  <div className={styles.emptyIcon}>🚀</div>
+                  <div className={styles.emptyIcon}><Icon name="plus" size={36} strokeWidth={1.25} /></div>
                   <h3 className={styles.emptyTitle}>Get Started</h3>
                   <p className={styles.emptyText}>
                     Create your first project to start monitoring errors.
@@ -2670,7 +3189,7 @@ export default function Dashboard() {
                 </div>
               ) : filteredIssues.length === 0 ? (
                 <div className={styles.empty}>
-                  <div className={styles.emptyIcon}>📊</div>
+                  <div className={styles.emptyIcon}><Icon name="inbox" size={36} strokeWidth={1.25} /></div>
                   <h3 className={styles.emptyTitle}>
                     {issues.length === 0 ? 'No issues yet' : 'No matching issues'}
                   </h3>
@@ -2680,6 +3199,9 @@ export default function Dashboard() {
                       : 'Try adjusting your search or filter criteria.'
                     }
                   </p>
+                  {issues.length > 0 && hasActiveFilters && (
+                    <button onClick={clearFilters} className={styles.createButton}>Clear filters</button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -2690,40 +3212,19 @@ export default function Dashboard() {
                     return (
                       <div
                         key={issue.id}
-                        onClick={async () => {
-                          if (isSelectionMode) {
-                            toggleEventSelection(issue.id);
-                          } else {
-                            // Handle standalone events vs issues differently
-                            if (issue._isStandaloneEvent) {
-                              // For standalone events, just show the event directly
-                              setSelectedEvent(issue._event);
-                              setActiveTab('overview');
-                            } else {
-                              // Fetch the latest event for this issue to show details
-                              try {
-                                const response = await fetch(`/api/issues/${issue.id}`);
-                                const data = await response.json();
-                                if (data.success && data.issue.events && data.issue.events.length > 0) {
-                                  // Show the most recent event with the issue attached
-                                  setSelectedEvent({
-                                    ...data.issue.events[0],
-                                    issue: issue
-                                  });
-                                  setActiveTab('overview');
-                                }
-                              } catch (error) {
-                                console.error('Error fetching issue details:', error);
-                              }
-                            }
+                        onClick={() => (isSelectionMode ? toggleEventSelection(issue.id) : openItem(issue))}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (isSelectionMode) toggleEventSelection(issue.id); else openItem(issue);
                           }
                         }}
-                        className={`${styles.eventCard} ${isSelected ? styles.eventCardSelected : ''}`}
-                        style={{
-                          borderLeftColor: type === 'error' ? 'var(--error)' : 
-                                         type === 'warning' ? 'var(--warning)' : 
-                                         type === 'info' ? 'var(--info)' : 'var(--success)',
-                        }}
+                        role="button"
+                        tabIndex={0}
+                        data-item-id={issue.id}
+                        aria-current={activeItemId === issue.id ? 'true' : undefined}
+                        className={`${styles.eventCard} ${isSelected ? styles.eventCardSelected : ''} ${activeItemId === issue.id ? styles.eventCardActive : ''}`}
                       >
                         {isSelectionMode && (
                           <input
@@ -2735,100 +3236,80 @@ export default function Dashboard() {
                           />
                         )}
                         <div className={styles.eventHeader}>
-                          <span 
-                            className={styles.eventType}
-                            style={{
-                              backgroundColor: type === 'error' ? 'var(--error-bg)' : 
-                                             type === 'warning' ? 'var(--warning-bg)' : 
-                                             type === 'info' ? 'var(--info-bg)' : 'var(--success-bg)',
-                              color: type === 'error' ? 'var(--error)' : 
-                                     type === 'warning' ? 'var(--warning)' : 
-                                     type === 'info' ? 'var(--info)' : 'var(--success)'
-                            }}
-                          >
-                            {type.toUpperCase()}
+                          <span className={styles.eventLevel} style={{ color: levelColors(type).fg }}>
+                            <span className={styles.levelMark} style={{ backgroundColor: levelColors(type).fg }} />
+                            {String(type).toUpperCase()}
                           </span>
-                          <span className={styles.eventTime}>{formatDate(issue.lastSeen)}</span>
-                        </div>
-                        <h4 className={styles.eventTitle}>
-                          {issue.title}
-                          {issue.count > 1 && (
-                            <span className={styles.occurrenceBadge}>
-                              <button 
-                                onClick={(e) => navigateToPreviousEvent(issue, e)}
-                                className={styles.navButton}
-                                title="Previous duplicate event"
-                              >
-                                &lt;
-                              </button>
-                              <span className={styles.eventCounter}>
-                                {(issueEventIndices[issue.id] || 0) + 1}/{issue.count}
-                              </span>
-                              <button 
-                                onClick={(e) => navigateToNextEvent(issue, e)}
-                                className={styles.navButton}
-                                title="Next duplicate event"
-                              >
-                                &gt;
-                              </button>
+                          <span className={styles.eventProject}>{issue.project?.name || 'Unknown project'}</span>
+                          {isNewSinceLastVisit(issue) && <span className={styles.newBadge}>New</span>}
+                          {issue.regressedAt && issue.status === 'UNRESOLVED' && (
+                            <span
+                              className={styles.regressedBadge}
+                              title={`Reopened ${new Date(issue.regressedAt).toLocaleString()} after it was resolved`}
+                            >
+                              Regressed
                             </span>
                           )}
                           {(() => {
                             const typeBadge = getEventTypeBadge(issue);
                             return typeBadge ? (
-                              <span 
-                                className={styles.eventTypeBadge} 
-                                title={`${typeBadge.label} event`}
-                                style={{ backgroundColor: typeBadge.color }}
-                              >
-                                {typeBadge.icon} {typeBadge.label}
+                              <span className={styles.eventTypeBadge} title={`${typeBadge.label} event`}>
+                                {typeBadge.label}
                               </span>
                             ) : null;
                           })()}
+                          <span
+                            className={styles.eventTime}
+                            title={`Last seen ${new Date(issue.lastSeen).toLocaleString()}`}
+                          >
+                            {formatDate(issue.lastSeen)}
+                          </span>
+                        </div>
+                        <h4 className={styles.eventTitle}>{issue.title}</h4>
+                        <div className={styles.eventMeta}>
+                          <span className={`${styles.statusText} ${styles[`status${issue._isStandaloneEvent ? 'Active' : (issue.status || '').charAt(0) + (issue.status || '').slice(1).toLowerCase().replace(/_(.)/g, (m, c) => c.toUpperCase())}`] || ''}`}>
+                            <span className={styles.statusDot} />
+                            {issue._isStandaloneEvent ? String(issue.eventType || 'event').toLowerCase() : statusLabel(issue.status)}
+                          </span>
+                          {issue.count > 1 && (
+                            <span className={styles.occurrenceBadge} title={`${issue.count} events in this issue`}>
+                              <button
+                                onClick={(e) => navigateToPreviousEvent(issue, e)}
+                                className={styles.navButton}
+                                title="Previous duplicate event"
+                                aria-label="Previous event"
+                              >
+                                <Icon name="chevronLeft" size={12} strokeWidth={2.25} />
+                              </button>
+                              <span className={styles.eventCounter}>
+                                {(issueEventIndices[issue.id] || 0) + 1}/{issue.count}
+                              </span>
+                              <button
+                                onClick={(e) => navigateToNextEvent(issue, e)}
+                                className={styles.navButton}
+                                title="Next duplicate event"
+                                aria-label="Next event"
+                              >
+                                <Icon name="chevronRight" size={12} strokeWidth={2.25} />
+                              </button>
+                            </span>
+                          )}
                           {issue.githubIssueUrl && (
                             <span className={styles.githubBadge} title="GitHub issue exists">
-                              🐙
+                              <Icon name="github" size={13} />
                             </span>
                           )}
-                          {!issue._isStandaloneEvent && issue.status === 'RESOLVED' && (
-                            <span 
-                              className={styles.resolvedBadge} 
-                              title="Issue resolved - click to reopen"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleResolveIssue(issue);
-                              }}
-                            >
-                              ✅
-                            </span>
-                          )}
-                          {!issue._isStandaloneEvent && issue.status === 'IGNORED' && (
-                            <span 
-                              className={styles.ignoredBadge} 
-                              title="Issue ignored - click to unignore"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleIgnoreIssue(issue);
-                              }}
-                            >
-                              🔕
-                            </span>
-                          )}
-                        </h4>
-                        <div className={styles.eventMeta}>
-                          <span>{issue.project?.name || 'Unknown Project'}</span>
-                          <span>• {issue.status}</span>
                           {!issue._isStandaloneEvent && issue.status !== 'RESOLVED' && issue.status !== 'IGNORED' && (
-                            <>
+                            <span className={styles.quickActions}>
                               <button
                                 className={styles.quickResolveButton}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleResolveIssue(issue);
                                 }}
-                                title="Resolve this issue"
+                                title="Resolve this issue (r)"
                               >
-                                Resolve
+                                <Icon name="check" size={12} strokeWidth={2.25} /> Resolve
                               </button>
                               <button
                                 className={styles.quickIgnoreButton}
@@ -2836,16 +3317,38 @@ export default function Dashboard() {
                                   e.stopPropagation();
                                   handleIgnoreIssue(issue);
                                 }}
-                                title="Ignore this issue - won't appear in main view or auto-report to GitHub"
+                                title="Ignore this issue: hides it and stops GitHub auto-reports (i)"
                               >
-                                Ignore
+                                <Icon name="eyeOff" size={12} /> Ignore
                               </button>
-                            </>
+                            </span>
+                          )}
+                          {!issue._isStandaloneEvent && (issue.status === 'RESOLVED' || issue.status === 'IGNORED') && (
+                            <span className={styles.quickActions}>
+                              <button
+                                className={styles.quickResolveButton}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (issue.status === 'RESOLVED') handleResolveIssue(issue); else handleIgnoreIssue(issue);
+                                }}
+                              >
+                                {issue.status === 'RESOLVED' ? 'Reopen' : 'Unignore'}
+                              </button>
+                            </span>
                           )}
                         </div>
                       </div>
                     );
                   })}
+                  {issues.length < issuesTotal && (
+                    <button
+                      onClick={loadMoreIssues}
+                      disabled={loadingMore}
+                      className={styles.loadMoreButton}
+                    >
+                      {loadingMore ? 'Loading…' : `Load more (${issues.length} of ${issuesTotal})`}
+                    </button>
+                  )}
                 </div>
                 </>
               )}
@@ -2860,7 +3363,7 @@ export default function Dashboard() {
         {/* New Project Modal */}
         {showNewProjectModal && (
           <div className={styles.modalOverlay} onClick={() => setShowNewProjectModal(false)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modal} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
               <h3 className={styles.modalTitle}>Create New Project</h3>
               <form onSubmit={handleCreateProject}>
                 <input
@@ -2892,7 +3395,7 @@ export default function Dashboard() {
             setDeletingIssue(null);
             setDeletingEvent(null);
           }}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modal} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
               <h3 className={styles.modalTitle}>
                 {deletingIssue 
                   ? (deletingIssue.bulk ? 'Delete Multiple Issues' : 'Delete Issue')
@@ -2931,12 +3434,12 @@ export default function Dashboard() {
               )}
               {deletingIssue?.bulk && (
                 <div className={styles.modalEventPreview}>
-                  <strong>⚠️ You are about to delete {deletingIssue.count} issue{deletingIssue.count > 1 ? 's' : ''}</strong>
+                  <strong>You are about to delete {deletingIssue.count} issue{deletingIssue.count > 1 ? 's' : ''}</strong>
                 </div>
               )}
               {!deletingIssue && deletingEvent?.bulk && (
                 <div className={styles.modalEventPreview}>
-                  <strong>⚠️ You are about to delete {deletingEvent.count} event{deletingEvent.count > 1 ? 's' : ''}</strong>
+                  <strong>You are about to delete {deletingEvent.count} event{deletingEvent.count > 1 ? 's' : ''}</strong>
                 </div>
               )}
               <div className={styles.modalButtons}>
@@ -2972,8 +3475,8 @@ export default function Dashboard() {
         {/* GitHub Issue Modal */}
         {showGitHubModal && (
           <div className={styles.modalOverlay} onClick={() => setShowGitHubModal(false)}>
-            <div className={styles.modal} style={{ maxWidth: '600px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
-              <h3 className={styles.modalTitle}>🐙 Create GitHub Issue</h3>
+            <div className={styles.modal} role="dialog" aria-modal="true" style={{ maxWidth: '600px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>Create GitHub Issue</h3>
               <p className={styles.modalText}>
                 Copy the information below and create an issue on your GitHub repository.
               </p>
@@ -3001,7 +3504,7 @@ export default function Dashboard() {
               </div>
               
               <div className={styles.githubInstructions}>
-                <strong>📋 Instructions:</strong>
+                <strong>Instructions</strong>
                 <ol className={styles.githubSteps}>
                   <li>Copy the title and body above</li>
                   <li>Go to your GitHub repository</li>
@@ -3019,7 +3522,7 @@ export default function Dashboard() {
                   }} 
                   className={styles.modalButtonSubmit}
                 >
-                  📋 Copy All
+                  Copy all
                 </button>
                 <button 
                   type="button"
@@ -3033,8 +3536,109 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Duplicate review */}
+        {dupPreview && (
+          <div className={styles.modalOverlay} onClick={() => setDupPreview(null)}>
+            <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Duplicate issues" style={{ maxWidth: '640px', width: '92%' }} onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>
+                {dupPreview.groups.length > 0
+                  ? `${dupPreview.groups.length} group${dupPreview.groups.length === 1 ? '' : 's'} of duplicate issues`
+                  : 'Update issue grouping'}
+              </h3>
+              <p className={styles.modalText}>
+                {dupPreview.groups.length > 0
+                  ? 'Issues in a group have the same error signature. Merging keeps the oldest issue, moves every event and comment into it, and makes future events land there.'
+                  : `${dupPreview.outdated} issue${dupPreview.outdated === 1 ? ' uses' : 's use'} an older grouping key. Applying refreshes it so new events group correctly.`}
+              </p>
+              <div className={styles.dupList}>
+                {dupPreview.groups.map(group => (
+                  <label key={`${group.projectId}-${group.primaryId}`} className={styles.dupGroup}>
+                    <input
+                      type="checkbox"
+                      checked={dupSelected.includes(group.primaryId)}
+                      onChange={() => setDupSelected(prev => prev.includes(group.primaryId) ? prev.filter(id => id !== group.primaryId) : [...prev, group.primaryId])}
+                    />
+                    <div className={styles.dupGroupBody}>
+                      <div className={styles.dupGroupTitle}>{group.issues[0].title}</div>
+                      <div className={styles.dupGroupMeta}>
+                        {group.projectName} · {group.issues.length} issues · {group.issues.reduce((n, i) => n + i.count, 0)} events
+                        {' · '}keeps #{group.primaryId}, merges {group.issues.slice(1).map(i => `#${i.id}`).join(', ')}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className={styles.modalButtons}>
+                <button onClick={() => setDupPreview(null)} className={styles.modalButtonCancel}>Cancel</button>
+                <button
+                  onClick={applyDuplicates}
+                  disabled={isDeduplicating || (dupPreview.groups.length > 0 && dupSelected.length === 0)}
+                  className={styles.modalButtonSubmit}
+                >
+                  {isDeduplicating ? 'Merging…' : dupPreview.groups.length > 0 ? `Merge ${dupSelected.length} group${dupSelected.length === 1 ? '' : 's'}` : 'Apply'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Manual merge */}
+        {mergeDraft && (
+          <div className={styles.modalOverlay} onClick={() => setMergeDraft(null)}>
+            <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Merge issues" style={{ maxWidth: '560px', width: '92%' }} onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>Merge {mergeDraft.issues.length} issues</h3>
+              <p className={styles.modalText}>
+                Choose the issue to keep. The others are removed and their events, comments and counts move into it. Future events matching any of them land in the kept issue.
+              </p>
+              <div className={styles.dupList}>
+                {mergeDraft.issues.map(issue => (
+                  <label key={issue.id} className={styles.dupGroup}>
+                    <input
+                      type="radio"
+                      name="merge-target"
+                      checked={mergeDraft.targetId === issue.id}
+                      onChange={() => setMergeDraft({ ...mergeDraft, targetId: issue.id })}
+                    />
+                    <div className={styles.dupGroupBody}>
+                      <div className={styles.dupGroupTitle}>{issue.title}</div>
+                      <div className={styles.dupGroupMeta}>
+                        #{issue.id} · {issue.count} events · first seen {formatDate(issue.firstSeen)} · {statusLabel(issue.status)}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className={styles.modalButtons}>
+                <button onClick={() => setMergeDraft(null)} className={styles.modalButtonCancel}>Cancel</button>
+                <button onClick={confirmMerge} className={styles.modalButtonSubmit}>Merge into #{mergeDraft.targetId}</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Keyboard shortcuts */}
+        {showShortcuts && (
+          <div className={styles.modalOverlay} onClick={() => setShowShortcuts(false)}>
+            <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>Keyboard shortcuts</h3>
+              <ul className={styles.shortcutList}>
+                <li><kbd className={styles.kbd}>j</kbd> / <kbd className={styles.kbd}>k</kbd><span>Next / previous issue</span></li>
+                <li><kbd className={styles.kbd}>r</kbd><span>Resolve / reopen open issue</span></li>
+                <li><kbd className={styles.kbd}>i</kbd><span>Ignore / unignore open issue</span></li>
+                <li><kbd className={styles.kbd}>/</kbd><span>Focus search</span></li>
+                <li><kbd className={styles.kbd}>Shift</kbd>+<kbd className={styles.kbd}>R</kbd><span>Refresh now</span></li>
+                <li><kbd className={styles.kbd}>Esc</kbd><span>Close panel, dialog or selection</span></li>
+                <li><kbd className={styles.kbd}>?</kbd><span>Show this help</span></li>
+              </ul>
+              <div className={styles.modalButtons}>
+                <button onClick={() => setShowShortcuts(false)} className={styles.modalButtonCancel}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Notification System */}
-        <div className={styles.notificationContainer}>
+        <div className={styles.notificationContainer} role="status" aria-live="polite">
           {notifications.map((notification) => (
             <div 
               key={notification.id} 
@@ -3042,12 +3646,20 @@ export default function Dashboard() {
             >
               <div className={styles.notificationContent}>
                 <span className={styles.notificationIcon}>
-                  {notification.type === 'success' && '✅'}
-                  {notification.type === 'error' && '❌'}
-                  {notification.type === 'warning' && '⚠️'}
-                  {notification.type === 'info' && 'ℹ️'}
+                  <Icon name={notification.type === 'success' ? 'checkCircle' : notification.type === 'error' ? 'x' : notification.type === 'warning' ? 'alert' : 'info'} size={16} />
                 </span>
                 <span className={styles.notificationMessage}>{notification.message}</span>
+                {notification.action && (
+                  <button
+                    className={styles.notificationAction}
+                    onClick={() => {
+                      notification.action.onClick();
+                      removeNotification(notification.id);
+                    }}
+                  >
+                    {notification.action.label}
+                  </button>
+                )}
               </div>
               <button 
                 className={styles.notificationClose}

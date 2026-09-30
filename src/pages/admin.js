@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Icon from '@/components/Icon';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -337,7 +338,7 @@ export default function AdminPage() {
         <header className={styles.header}>
           <div className={styles.headerContent}>
             <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>⚙️</span>
+              <span className={styles.logoIcon}><Icon name="settings" size={18} strokeWidth={2} /></span>
               Admin Panel
             </h1>
             <div className={styles.headerActions}>

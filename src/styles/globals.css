@@ -22,6 +22,7 @@ body {
   color: var(--text-primary);
   background: var(--bg-primary);
   font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv11';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: var(--leading-normal);
@@ -41,13 +42,14 @@ a:hover {
 /* Headings */
 h1, h2, h3, h4, h5, h6 {
   font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
   line-height: var(--leading-tight);
   color: var(--text-primary);
 }
 
 /* Code blocks */
 code, pre {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Scrollbar styling */
@@ -73,19 +75,95 @@ code, pre {
 :focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 /* Selection */
 ::selection {
-  background-color: var(--accent-primary);
-  color: white;
+  background-color: var(--accent-bg);
+  color: var(--text-primary);
 }
 
-/* Smooth theme transitions */
+/* Smooth theme transitions (kept off `*` so lists and scrolling stay cheap) */
 html,
 body,
-body * {
+button,
+input,
+select,
+textarea,
+a {
   transition-property: background-color, border-color, color;
   transition-duration: var(--transition-base);
   transition-timing-function: ease;
+}
+
+/* Native controls and scrollbars follow the active theme */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Firefox thin scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) transparent;
+}
+
+/* Numbers line up in counters and timestamps */
+time,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Touch-friendly defaults */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  select {
+    touch-action: manipulation;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+
+  img,
+  svg,
+  video {
+    max-width: 100%;
+  }
+
+  pre {
+    overflow-x: auto;
+  }
 }

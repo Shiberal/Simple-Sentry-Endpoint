@@ -308,7 +308,7 @@
 }
 
 .code {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-xs);
   background-color: var(--bg-secondary);
   padding: 2px var(--space-2);
@@ -698,4 +698,103 @@
 
 .emptyStateText {
   font-size: var(--font-sm);
+}
+
+/* ===== Phone / small tablet layout ===== */
+@media (max-width: 768px) {
+  .header {
+    height: 56px;
+    padding: 0 var(--space-3);
+  }
+
+  .userEmail {
+    display: none;
+  }
+
+  /* Sidebar becomes a horizontal tab strip under the header */
+  .sidebar {
+    top: 56px;
+    bottom: auto;
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-primary);
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebarNav {
+    flex-direction: row;
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .sidebarItem {
+    white-space: nowrap;
+    border-left: none !important;
+    min-height: 40px;
+  }
+
+  .sidebarItemActive {
+    background-color: var(--bg-tertiary);
+    box-shadow: inset 0 -2px 0 var(--accent-primary);
+  }
+
+  .main {
+    margin-left: 0;
+    margin-top: calc(56px + 57px);
+    padding: var(--space-3);
+    min-height: calc(100vh - 113px);
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-3);
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .sectionActions {
+    flex-wrap: wrap;
+  }
+
+  .searchBar,
+  .input {
+    font-size: 16px;
+  }
+
+  .tableContainer {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table {
+    min-width: 560px;
+  }
+
+  .modal {
+    width: calc(100vw - var(--space-6));
+    max-width: none;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modalButtons {
+    flex-wrap: wrap;
+  }
+
+  .notifications {
+    left: var(--space-3);
+    right: var(--space-3);
+    max-width: none;
+  }
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import Icon from '@/components/Icon';
 import styles from '@/styles/Dashboard.module.css';
 import monitorStyles from '@/styles/Monitors.module.css';
 
@@ -167,25 +168,25 @@ export default function MonitorsPage() {
         <nav className={styles.navSidebar}>
           <Link href="/projects" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Projects">
-              PR
+              <Icon name="folder" size={18} />
               <div className={styles.navItemTooltip}>Projects</div>
             </div>
           </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Global Dashboard">
-              📊
+              <Icon name="dashboard" size={18} />
               <div className={styles.navItemTooltip}>Global Dashboard</div>
             </div>
           </Link>
           <Link href="/performance" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Performance">
-              ⚡
+              <Icon name="activity" size={18} />
               <div className={styles.navItemTooltip}>Performance</div>
             </div>
           </Link>
           <Link href="/monitors" style={{ textDecoration: 'none' }}>
             <div className={`${styles.navItem} ${styles.navItemActive}`} title="Cron monitors">
-              🕒
+              <Icon name="clock" size={18} />
               <div className={styles.navItemTooltip}>Monitors</div>
             </div>
           </Link>
@@ -210,7 +211,7 @@ export default function MonitorsPage() {
           {user.isAdmin && (
             <Link href="/admin" style={{ textDecoration: 'none' }}>
               <div className={styles.navItem} title="Admin">
-                ⚙️
+                <Icon name="settings" size={18} />
                 <div className={styles.navItemTooltip}>Admin Settings</div>
               </div>
             </Link>
@@ -218,7 +219,7 @@ export default function MonitorsPage() {
 
           <Link href="/profile" style={{ textDecoration: 'none' }}>
             <div className={styles.navItem} title="Profile">
-              👤
+              <Icon name="user" size={18} />
               <div className={styles.navItemTooltip}>Your Profile</div>
             </div>
           </Link>
@@ -228,7 +229,7 @@ export default function MonitorsPage() {
           <header className={styles.header}>
             <div className={styles.headerContent}>
               <h1 className={styles.logo}>
-                <span className={styles.logoIcon}>🕒</span>
+                <span className={styles.logoIcon}><Icon name="clock" size={16} strokeWidth={2} /></span>
                 Cron monitors
               </h1>
               <div className={styles.headerActions}>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Icon from '@/components/Icon';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
@@ -39,6 +40,13 @@ export default function PerformancePage() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [performanceSeries, setPerformanceSeries] = useState([]);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Start with the filter sidebar closed on phone-sized screens
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      setSidebarCollapsed(true);
+    }
+  }, []);
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = useState('all'); // Filter by endpoint/transaction name
   const [pageUrlFilter, setPageUrlFilter] = useState('');
@@ -984,7 +992,7 @@ export default function PerformancePage() {
             className={`${styles.navItem} ${router.pathname === '/projects' ? styles.navItemActive : ''}`}
             title="Projects"
           >
-            PR
+            <Icon name="folder" size={18} />
             <div className={styles.navItemTooltip}>Projects</div>
           </div>
         </Link>
@@ -993,7 +1001,7 @@ export default function PerformancePage() {
             className={`${styles.navItem} ${router.pathname === '/dashboard' ? styles.navItemActive : ''}`}
             title="Global Dashboard"
           >
-            📊
+            <Icon name="dashboard" size={18} />
             <div className={styles.navItemTooltip}>Global Dashboard</div>
           </div>
         </Link>
@@ -1002,7 +1010,7 @@ export default function PerformancePage() {
             className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
             title="Performance"
           >
-            ⚡
+            <Icon name="activity" size={18} />
             <div className={styles.navItemTooltip}>Performance</div>
           </div>
         </Link>
@@ -1011,7 +1019,7 @@ export default function PerformancePage() {
             className={`${styles.navItem} ${router.pathname === '/monitors' ? styles.navItemActive : ''}`}
             title="Cron monitors"
           >
-            🕒
+            <Icon name="clock" size={18} />
             <div className={styles.navItemTooltip}>Monitors</div>
           </div>
         </Link>
@@ -1038,7 +1046,7 @@ export default function PerformancePage() {
             className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
             title="Profile"
           >
-            👤
+            <Icon name="user" size={18} />
             <div className={styles.navItemTooltip}>Your Profile</div>
           </div>
         </Link>
@@ -1048,7 +1056,7 @@ export default function PerformancePage() {
         <header className={styles.header}>
           <div className={styles.headerContent}>
             <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>⚡</span>
+              <span className={styles.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
               Performance Analytics
             </h1>
             <div className={styles.headerActions}>
@@ -1067,13 +1075,14 @@ export default function PerformancePage() {
                 className={styles.headerButton}
                 title="Refresh data"
               >
-                🔄 Refresh
+                <Icon name="refresh" size={14} /> Refresh
               </button>
             </div>
           </div>
         </header>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          {!sidebarCollapsed && (
           <aside className={styles.sidebar}>
             <div className={styles.sidebarSection}>
               <div className={styles.sidebarHeader}>
@@ -1170,8 +1179,17 @@ export default function PerformancePage() {
               </div>
             </div>
           </aside>
+          )}
 
         <div className={styles.contentWrapper} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={styles.sidebarToggle}
+            aria-label={sidebarCollapsed ? 'Show filters' : 'Hide filters'}
+            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          >
+            <Icon name={sidebarCollapsed ? 'chevronRight' : 'chevronLeft'} size={14} strokeWidth={2} />
+          </button>
 
           <div style={{ 
             flex: 1, 
