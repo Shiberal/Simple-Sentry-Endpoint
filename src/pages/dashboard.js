@@ -3,6 +3,7 @@ import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
+import Icon from '@/components/Icon';
 import { parseGitHubRepo } from '@/lib/github';
 import usePersistedState from '@/hooks/usePersistedState';
 import { statusLabel, levelColors, relativeTime, TIME_RANGES, SORT_OPTIONS, downloadIssues } from '@/lib/ui';
@@ -1491,7 +1492,7 @@ export default function Dashboard() {
       return (
         <div className={styles.detailPanelEmpty}>
           <div className={styles.emptyDetailContent}>
-            <div className={styles.emptyDetailIcon}>🔍</div>
+            <div className={styles.emptyDetailIcon}><Icon name="search" size={40} strokeWidth={1.25} /></div>
             <h3 className={styles.emptyDetailTitle}>Select an Event</h3>
             <p className={styles.emptyDetailText}>
               Click on any event from the list to view detailed information,
@@ -1518,23 +1519,17 @@ export default function Dashboard() {
                   onClick={() => handleResolveIssue(selectedEvent.issue)}
                   className={styles.resolveButton}
                   title={selectedEvent.issue.status === 'RESOLVED' ? "Reopen issue" : "Resolve issue"}
-                  style={{
-                    backgroundColor: selectedEvent.issue.status === 'RESOLVED' ? '#22c55e' : undefined,
-                    opacity: selectedEvent.issue.status === 'RESOLVED' ? 1 : undefined
-                  }}
+                  data-on={selectedEvent.issue.status === 'RESOLVED' ? 'success' : undefined}
                 >
-                  {selectedEvent.issue.status === 'RESOLVED' ? '✅ Resolved' : '⭕ Resolve'}
+                  {selectedEvent.issue.status === 'RESOLVED' ? <><Icon name="checkCircle" size={14} /> Resolved</> : <><Icon name="circle" size={14} /> Resolve</>}
                 </button>
                 <button 
                   onClick={() => handleIgnoreIssue(selectedEvent.issue)}
                   className={styles.ignoreButton}
                   title={selectedEvent.issue.status === 'IGNORED' ? "Unignore issue" : "Ignore issue - won't appear in main view or auto-report to GitHub"}
-                  style={{
-                    backgroundColor: selectedEvent.issue.status === 'IGNORED' ? '#6b7280' : undefined,
-                    opacity: selectedEvent.issue.status === 'IGNORED' ? 1 : undefined
-                  }}
+                  data-on={selectedEvent.issue.status === 'IGNORED' ? 'muted' : undefined}
                 >
-                  {selectedEvent.issue.status === 'IGNORED' ? '🔕 Ignored' : '🔕 Ignore'}
+                  <><Icon name="eyeOff" size={14} /> {selectedEvent.issue.status === 'IGNORED' ? 'Ignored' : 'Ignore'}</>
                 </button>
               </>
             )}
@@ -1542,12 +1537,9 @@ export default function Dashboard() {
               onClick={() => handleCreateGitHubIssue(selectedEvent)}
               className={styles.githubButton}
               title={selectedEvent.issue?.githubIssueUrl ? "Open existing GitHub issue" : "Create GitHub issue"}
-              style={{
-                backgroundColor: selectedEvent.issue?.githubIssueUrl ? '#22c55e' : undefined,
-                opacity: selectedEvent.issue?.githubIssueUrl ? 1 : undefined
-              }}
+              data-on={selectedEvent.issue?.githubIssueUrl ? 'success' : undefined}
             >
-              {selectedEvent.issue?.githubIssueUrl ? '🐙 ✓' : '🐙'}
+              <Icon name="github" size={15} />
             </button>
             <button 
               onClick={() => {
@@ -1561,7 +1553,7 @@ export default function Dashboard() {
               className={styles.deleteButton}
               title={selectedEvent.issue ? "Delete this issue" : "Delete this event"}
             >
-              🗑️
+              <Icon name="trash" size={15} />
             </button>
             {selectedEvent.issue && (
               <button
@@ -1570,7 +1562,7 @@ export default function Dashboard() {
                 title="Copy link to this issue"
                 aria-label="Copy link to this issue"
               >
-                🔗
+                <Icon name="link" size={15} />
               </button>
             )}
             <button 
@@ -1579,7 +1571,7 @@ export default function Dashboard() {
               aria-label="Close detail (Esc)"
               title="Close (Esc)"
             >
-              ✕
+              <Icon name="x" size={15} />
             </button>
           </div>
         </div>
@@ -1620,7 +1612,7 @@ export default function Dashboard() {
               onClick={() => setActiveTab('performance')}
               className={`${styles.tab} ${activeTab === 'performance' ? styles.tabActive : ''}`}
             >
-              ⚡ Performance
+              Performance
             </button>
           )}
           <button
@@ -1645,7 +1637,7 @@ export default function Dashboard() {
                         className={styles.copyIconButton}
                         title="Copy"
                       >
-                        📋
+                        <Icon name="copy" size={14} />
                       </button>
                     </div>
                   </div>
@@ -1663,7 +1655,7 @@ export default function Dashboard() {
                                getEventType(selectedEvent) === 'message' ? 'var(--success)' : 'var(--info)'
                       }}
                     >
-                      {getEventType(selectedEvent) === 'message' ? '💬 MESSAGE' : getEventType(selectedEvent).toUpperCase()}
+                      {getEventType(selectedEvent) === 'message' ? 'MESSAGE' : getEventType(selectedEvent).toUpperCase()}
                     </span>
                   </div>
 
@@ -1731,7 +1723,7 @@ export default function Dashboard() {
               {/* User Information */}
               {data.user && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>👤 User Information</h4>
+                  <h4 className={styles.detailSectionTitle}>User Information</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.user.id && (
@@ -1766,7 +1758,7 @@ export default function Dashboard() {
               {/* Device & Browser Information */}
               {(data.contexts?.device || data.contexts?.browser || data.contexts?.os) && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>💻 Device & Browser</h4>
+                  <h4 className={styles.detailSectionTitle}>Device & Browser</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.contexts?.browser?.name && (
@@ -1807,7 +1799,7 @@ export default function Dashboard() {
               {/* SDK Information */}
               {data.sdk && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>🔧 SDK Information</h4>
+                  <h4 className={styles.detailSectionTitle}>SDK Information</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.sdk.name && (
@@ -1838,7 +1830,7 @@ export default function Dashboard() {
               {/* Runtime Information */}
               {data.contexts?.runtime && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>⚡ Runtime Information</h4>
+                  <h4 className={styles.detailSectionTitle}>Runtime Information</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.contexts.runtime.name && (
@@ -1863,7 +1855,7 @@ export default function Dashboard() {
               {/* CSP Violation Details */}
               {(data.type === 'csp' || data.csp || selectedEvent.issue?.violatedDirective) && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>🛡️ CSP Violation Details</h4>
+                  <h4 className={styles.detailSectionTitle}>CSP Violation Details</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {(data.contexts?.csp?.violated_directive || selectedEvent.issue?.violatedDirective) && (
@@ -1922,7 +1914,7 @@ export default function Dashboard() {
               {/* Minidump/Crash Details */}
               {(data.type === 'minidump' || data.minidump) && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>💥 Native Crash Details</h4>
+                  <h4 className={styles.detailSectionTitle}>Native Crash Details</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       {data.minidump?.crash_reason && (
@@ -1968,7 +1960,7 @@ export default function Dashboard() {
               {/* Server Performance Information */}
               {data._serverPerformance && (
                 <div className={styles.detailSection}>
-                  <h4 className={styles.detailSectionTitle}>🚀 Server Performance</h4>
+                  <h4 className={styles.detailSectionTitle}>Server Performance</h4>
                   <div className={styles.infoCard}>
                     <div className={styles.infoGrid}>
                       <div className={styles.infoItem}>
@@ -2011,14 +2003,14 @@ export default function Dashboard() {
                           transition: 'opacity 0.2s'
                         }}
                       >
-                        {copiedError ? '✓ Copied' : '📋 Copy'}
+                        {copiedError ? 'Copied' : 'Copy'}
                       </button>
                       <button
                         className={styles.prettifyButton}
                         onClick={() => setPrettifiedError(!prettifiedError)}
                         title={prettifiedError ? 'Show original' : 'Prettify'}
                       >
-                        {prettifiedError ? '📄 Original' : '✨ Prettify'}
+                        {prettifiedError ? 'Original' : 'Prettify'}
                       </button>
                     </div>
                   </div>
@@ -2096,7 +2088,7 @@ export default function Dashboard() {
                     return (
                       <div style={{ marginTop: 'var(--space-3)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-                          <h4 className={styles.detailSectionTitle}>📄 Code Snippet</h4>
+                          <h4 className={styles.detailSectionTitle}>Code Snippet</h4>
                           <button
                             className={styles.prettifyButton}
                             onClick={() => copyToClipboard(formatCodeForCopy(), setCopiedCode)}
@@ -2106,7 +2098,7 @@ export default function Dashboard() {
                               transition: 'opacity 0.2s'
                             }}
                           >
-                            {copiedCode ? '✓ Copied' : '📋 Copy'}
+                            {copiedCode ? 'Copied' : 'Copy'}
                           </button>
                         </div>
                         {errorFrame.filename && (
@@ -2137,13 +2129,13 @@ export default function Dashboard() {
               ) : data.message ? (
                 <div className={styles.detailSection}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-2)' }}>
-                    <h4 className={styles.detailSectionTitle}>💬 Message</h4>
+                    <h4 className={styles.detailSectionTitle}>Message</h4>
                     <button
                       className={styles.prettifyButton}
                       onClick={() => setPrettifiedMessage(!prettifiedMessage)}
                       title={prettifiedMessage ? 'Show original' : 'Prettify'}
                     >
-                      {prettifiedMessage ? '📄 Original' : '✨ Prettify'}
+                      {prettifiedMessage ? 'Original' : 'Prettify'}
                     </button>
                   </div>
                   <div className={styles.exceptionBox} style={{ backgroundColor: 'var(--success-bg)', borderColor: 'var(--success)' }}>
@@ -2390,7 +2382,7 @@ export default function Dashboard() {
                     {/* Memory Metrics */}
                     {(metrics.heapUsed || metrics.heapTotal || metrics.rss || appMemory) && (
                       <div className={styles.detailSection}>
-                        <h4 className={styles.detailSectionTitle}>💾 Memory Metrics</h4>
+                        <h4 className={styles.detailSectionTitle}>Memory Metrics</h4>
                         <div style={{
                           background: 'var(--bg-secondary)',
                           padding: '20px',
@@ -2450,7 +2442,7 @@ export default function Dashboard() {
                     {/* System Metrics */}
                     {(metrics.cpu !== undefined || metrics.eventLoopLag || metrics.activeConnections) && (
                       <div className={styles.detailSection}>
-                        <h4 className={styles.detailSectionTitle}>⚡ System Performance</h4>
+                        <h4 className={styles.detailSectionTitle}>System Performance</h4>
                         <div style={{
                           background: 'var(--bg-secondary)',
                           padding: '20px',
@@ -2466,7 +2458,7 @@ export default function Dashboard() {
                                 marginBottom: '12px',
                                 fontWeight: '500'
                               }}>
-                                {metrics.cpu < 1 ? '✅ Excellent - Very Low' : metrics.cpu < 50 ? '⚠️ Moderate' : '❌ High - Needs Attention'}
+                                {metrics.cpu < 1 ? 'Excellent (very low)' : metrics.cpu < 50 ? 'Moderate' : 'High: needs attention'}
                               </div>
                             </>
                           )}
@@ -2479,7 +2471,7 @@ export default function Dashboard() {
                                 marginBottom: '12px',
                                 fontWeight: '500'
                               }}>
-                                {metrics.eventLoopLag < 10 ? '✅ Healthy (< 10ms)' : metrics.eventLoopLag < 50 ? '⚠️ Moderate' : '❌ High Latency'}
+                                {metrics.eventLoopLag < 10 ? 'Healthy (< 10ms)' : metrics.eventLoopLag < 50 ? 'Moderate' : 'High latency'}
                               </div>
                             </>
                           )}
@@ -2524,7 +2516,7 @@ export default function Dashboard() {
                     {/* Device Info */}
                     {data.contexts?.device && (
                       <div className={styles.detailSection}>
-                        <h4 className={styles.detailSectionTitle}>🖥️ Device Information</h4>
+                        <h4 className={styles.detailSectionTitle}>Device Information</h4>
                         <div style={{
                           background: 'var(--bg-secondary)',
                           padding: '16px',
@@ -2570,7 +2562,7 @@ export default function Dashboard() {
 
                     {/* Performance Summary */}
                     <div className={styles.detailSection}>
-                      <h4 className={styles.detailSectionTitle}>📊 Performance Summary</h4>
+                      <h4 className={styles.detailSectionTitle}>Performance Summary</h4>
                       <div style={{
                         background: 'var(--bg-secondary)',
                         padding: '20px',
@@ -2593,15 +2585,15 @@ export default function Dashboard() {
                           {metrics.cpu !== undefined && metrics.eventLoopLag ? (
                             metrics.cpu < 1 && metrics.eventLoopLag < 10 ? (
                               <div style={{ color: '#10b981', fontWeight: '600' }}>
-                                ✅ EXCELLENT - System is performing optimally
+                                Excellent: system is performing optimally
                               </div>
                             ) : metrics.cpu < 5 && metrics.eventLoopLag < 50 ? (
                               <div style={{ color: '#f59e0b', fontWeight: '600' }}>
-                                ⚠️ GOOD - System is performing well
+                                Good: system is performing well
                               </div>
                             ) : (
                               <div style={{ color: '#ef4444', fontWeight: '600' }}>
-                                ❌ NEEDS ATTENTION - Consider optimization
+                                Needs attention: consider optimization
                               </div>
                             )
                           ) : (
@@ -2649,7 +2641,7 @@ export default function Dashboard() {
                   onClick={() => copyToClipboard(JSON.stringify(data, null, 2))}
                   className={styles.copyButton}
                 >
-                  📋 Copy JSON
+                  Copy JSON
                 </button>
               </div>
               <pre className={styles.codeBlock}>
@@ -2678,7 +2670,7 @@ export default function Dashboard() {
               className={`${styles.navItem} ${router.pathname === '/dashboard' && !selectedProject ? styles.navItemActive : ''}`}
               title="Global Dashboard"
             >
-              📊
+              <Icon name="dashboard" size={18} />
               <div className={styles.navItemTooltip}>Global Dashboard</div>
             </div>
           </Link>
@@ -2687,7 +2679,7 @@ export default function Dashboard() {
               className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
               title="Performance"
             >
-              ⚡
+              <Icon name="activity" size={18} />
               <div className={styles.navItemTooltip}>Performance</div>
             </div>
           </Link>
@@ -2734,9 +2726,9 @@ export default function Dashboard() {
             onClick={() => setShowNewProjectModal(true)}
             aria-label="Create new project"
             title="Create New Project"
-            style={{ color: 'var(--success)', fontSize: '24px' }}
+            style={{ color: 'var(--text-secondary)' }}
           >
-            +
+            <Icon name="plus" size={18} />
             <div className={styles.navItemTooltip}>Create New Project</div>
           </button>
 
@@ -2748,7 +2740,7 @@ export default function Dashboard() {
                 className={`${styles.navItem} ${router.pathname === '/admin' ? styles.navItemActive : ''}`}
                 title="Admin"
               >
-                ⚙️
+                <Icon name="settings" size={18} />
                 <div className={styles.navItemTooltip}>Admin Settings</div>
               </div>
             </Link>
@@ -2759,7 +2751,7 @@ export default function Dashboard() {
               className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
               title="Profile"
             >
-              👤
+              <Icon name="user" size={18} />
               <div className={styles.navItemTooltip}>Your Profile</div>
             </div>
           </Link>
@@ -2770,7 +2762,7 @@ export default function Dashboard() {
             aria-label="Log out"
             title="Logout"
           >
-            🚪
+            <Icon name="logout" size={18} />
             <div className={styles.navItemTooltip}>Logout</div>
           </button>
         </nav>
@@ -2779,7 +2771,7 @@ export default function Dashboard() {
           <header className={styles.header}>
             <div className={styles.headerContent}>
               <h1 className={styles.logo}>
-                <span className={styles.logoIcon}>⚡</span>
+                <span className={styles.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
                 Sentry Monitor
               </h1>
               <div className={styles.headerActions}>
@@ -2796,7 +2788,7 @@ export default function Dashboard() {
                   disabled={isDeduplicating}
                   title="Merge duplicate issues"
                 >
-                  {isDeduplicating ? '🔄' : '🔀'}
+                  <Icon name="merge" size={16} />
                 </button>
                 <button 
                   onClick={() => fetchData()} 
@@ -2805,7 +2797,7 @@ export default function Dashboard() {
                   aria-label="Refresh data"
                   disabled={refreshing}
                 >
-                  <span className={refreshing ? styles.spinning : undefined}>🔄</span>
+                  <span className={refreshing ? styles.spinning : styles.iconWrap}><Icon name="refresh" size={16} /></span>
                 </button>
                 <ThemeToggle />
                 <span className={styles.userEmail}>{user.email}</span>
@@ -2832,7 +2824,7 @@ export default function Dashboard() {
                       alignItems: 'center',
                       gap: 'var(--space-2)'
                     }}>
-                      <span style={{ fontSize: '18px' }}>{selectedProject ? '📁' : '📊'}</span>
+                      <Icon name={selectedProject ? 'inbox' : 'dashboard'} size={16} />
                       {selectedProject ? projects.find(p => p.id === selectedProject)?.name : 'All Projects'}
                     </div>
                   </div>
@@ -2843,7 +2835,7 @@ export default function Dashboard() {
                         className={styles.projectSettingsButton}
                         style={{ width: '100%', justifyContent: 'center' }}
                       >
-                        ⚙️ Project Settings
+                        <Icon name="settings" size={14} /> Project Settings
                       </Link>
                     </div>
                   )}
@@ -2935,16 +2927,16 @@ export default function Dashboard() {
                       </select>
                     </label>
                     <button onClick={toggleDesktopAlerts} className={`${styles.projectItem} ${desktopAlerts ? styles.projectItemActive : ''}`}>
-                      <span>🔔 Desktop alerts {desktopAlerts ? 'on' : 'off'}</span>
+                      <span className={styles.iconLabel}><Icon name="bell" size={14} /> Desktop alerts {desktopAlerts ? 'on' : 'off'}</span>
                     </button>
                     <button onClick={() => handleExport('csv')} className={styles.projectItem}>
-                      <span>⬇ Export CSV</span>
+                      <span className={styles.iconLabel}><Icon name="download" size={14} /> Export CSV</span>
                     </button>
                     <button onClick={() => handleExport('json')} className={styles.projectItem}>
-                      <span>⬇ Export JSON</span>
+                      <span className={styles.iconLabel}><Icon name="download" size={14} /> Export JSON</span>
                     </button>
                     <button onClick={() => setShowShortcuts(true)} className={styles.projectItem}>
-                      <span>⌨ Keyboard shortcuts</span>
+                      <span className={styles.iconLabel}><Icon name="keyboard" size={14} /> Keyboard shortcuts</span>
                     </button>
                   </div>
                 </div>
@@ -2956,17 +2948,12 @@ export default function Dashboard() {
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               className={styles.sidebarToggle}
+              aria-label={sidebarCollapsed ? 'Show filters' : 'Hide filters'}
               title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
             >
 
               
-              <span style={{
-                transform: sidebarCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
-                display: 'inline-block',
-                transition: 'transform 0.3s ease'
-              }}>
-                ◀
-              </span>
+              <Icon name={sidebarCollapsed ? 'chevronRight' : 'chevronLeft'} size={14} strokeWidth={2} />
             </button>
 
             <div className={`${styles.content} ${selectedEvent ? styles.contentDetailOpen : ''}`}>
@@ -2991,14 +2978,14 @@ export default function Dashboard() {
                         disabled={selectedEvents.length === 0}
                         className={styles.cancelSelectionButton}
                       >
-                        ✅ Resolve
+                        <Icon name="check" size={13} /> Resolve
                       </button>
                       <button
                         onClick={() => handleBulkStatus('IGNORED')}
                         disabled={selectedEvents.length === 0}
                         className={styles.cancelSelectionButton}
                       >
-                        🔕 Ignore
+                        <Icon name="eyeOff" size={13} /> Ignore
                       </button>
                       <button
                         onClick={() => {
@@ -3008,7 +2995,7 @@ export default function Dashboard() {
                         disabled={selectedEvents.length === 0}
                         className={styles.bulkDeleteButton}
                       >
-                        🗑️ Delete ({selectedEvents.length})
+                        <Icon name="trash" size={13} /> Delete ({selectedEvents.length})
                       </button>
                       <button
                         onClick={exitSelectionMode}
@@ -3049,7 +3036,7 @@ export default function Dashboard() {
                   </select>
                   {!isSelectionMode && (
                     <button onClick={() => setIsSelectionMode(true)} className={styles.selectButton}>
-                      ☑ Select
+                      <Icon name="select" size={13} /> Select
                     </button>
                   )}
                 </div>
@@ -3071,7 +3058,7 @@ export default function Dashboard() {
                 </div>
               ) : projects.length === 0 ? (
                 <div className={styles.empty}>
-                  <div className={styles.emptyIcon}>🚀</div>
+                  <div className={styles.emptyIcon}><Icon name="plus" size={36} strokeWidth={1.25} /></div>
                   <h3 className={styles.emptyTitle}>Get Started</h3>
                   <p className={styles.emptyText}>
                     Create your first project to start monitoring errors.
@@ -3085,7 +3072,7 @@ export default function Dashboard() {
                 </div>
               ) : filteredIssues.length === 0 ? (
                 <div className={styles.empty}>
-                  <div className={styles.emptyIcon}>📊</div>
+                  <div className={styles.emptyIcon}><Icon name="inbox" size={36} strokeWidth={1.25} /></div>
                   <h3 className={styles.emptyTitle}>
                     {issues.length === 0 ? 'No issues yet' : 'No matching issues'}
                   </h3>
@@ -3121,7 +3108,6 @@ export default function Dashboard() {
                         data-item-id={issue.id}
                         aria-current={activeItemId === issue.id ? 'true' : undefined}
                         className={`${styles.eventCard} ${isSelected ? styles.eventCardSelected : ''} ${activeItemId === issue.id ? styles.eventCardActive : ''}`}
-                        style={{ borderLeftColor: levelColors(type).fg }}
                       >
                         {isSelectionMode && (
                           <input
@@ -3133,13 +3119,20 @@ export default function Dashboard() {
                           />
                         )}
                         <div className={styles.eventHeader}>
-                          <span 
-                            className={styles.eventType}
-                            style={{ backgroundColor: levelColors(type).bg, color: levelColors(type).fg }}
-                          >
+                          <span className={styles.eventLevel} style={{ color: levelColors(type).fg }}>
+                            <span className={styles.levelMark} style={{ backgroundColor: levelColors(type).fg }} />
                             {String(type).toUpperCase()}
                           </span>
-                          {isNewSinceLastVisit(issue) && <span className={styles.newBadge}>NEW</span>}
+                          <span className={styles.eventProject}>{issue.project?.name || 'Unknown project'}</span>
+                          {isNewSinceLastVisit(issue) && <span className={styles.newBadge}>New</span>}
+                          {(() => {
+                            const typeBadge = getEventTypeBadge(issue);
+                            return typeBadge ? (
+                              <span className={styles.eventTypeBadge} title={`${typeBadge.label} event`}>
+                                {typeBadge.label}
+                              </span>
+                            ) : null;
+                          })()}
                           <span
                             className={styles.eventTime}
                             title={`Last seen ${new Date(issue.lastSeen).toLocaleString()}`}
@@ -3147,85 +3140,51 @@ export default function Dashboard() {
                             {formatDate(issue.lastSeen)}
                           </span>
                         </div>
-                        <h4 className={styles.eventTitle}>
-                          {issue.title}
+                        <h4 className={styles.eventTitle}>{issue.title}</h4>
+                        <div className={styles.eventMeta}>
+                          <span className={`${styles.statusText} ${styles[`status${issue._isStandaloneEvent ? 'Active' : (issue.status || '').charAt(0) + (issue.status || '').slice(1).toLowerCase().replace(/_(.)/g, (m, c) => c.toUpperCase())}`] || ''}`}>
+                            <span className={styles.statusDot} />
+                            {issue._isStandaloneEvent ? String(issue.eventType || 'event').toLowerCase() : statusLabel(issue.status)}
+                          </span>
                           {issue.count > 1 && (
-                            <span className={styles.occurrenceBadge}>
-                              <button 
+                            <span className={styles.occurrenceBadge} title={`${issue.count} events in this issue`}>
+                              <button
                                 onClick={(e) => navigateToPreviousEvent(issue, e)}
                                 className={styles.navButton}
                                 title="Previous duplicate event"
+                                aria-label="Previous event"
                               >
-                                &lt;
+                                <Icon name="chevronLeft" size={12} strokeWidth={2.25} />
                               </button>
                               <span className={styles.eventCounter}>
                                 {(issueEventIndices[issue.id] || 0) + 1}/{issue.count}
                               </span>
-                              <button 
+                              <button
                                 onClick={(e) => navigateToNextEvent(issue, e)}
                                 className={styles.navButton}
                                 title="Next duplicate event"
+                                aria-label="Next event"
                               >
-                                &gt;
+                                <Icon name="chevronRight" size={12} strokeWidth={2.25} />
                               </button>
                             </span>
                           )}
-                          {(() => {
-                            const typeBadge = getEventTypeBadge(issue);
-                            return typeBadge ? (
-                              <span 
-                                className={styles.eventTypeBadge} 
-                                title={`${typeBadge.label} event`}
-                                style={{ backgroundColor: typeBadge.color }}
-                              >
-                                {typeBadge.icon} {typeBadge.label}
-                              </span>
-                            ) : null;
-                          })()}
                           {issue.githubIssueUrl && (
                             <span className={styles.githubBadge} title="GitHub issue exists">
-                              🐙
+                              <Icon name="github" size={13} />
                             </span>
                           )}
-                          {!issue._isStandaloneEvent && issue.status === 'RESOLVED' && (
-                            <span 
-                              className={styles.resolvedBadge} 
-                              title="Issue resolved - click to reopen"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleResolveIssue(issue);
-                              }}
-                            >
-                              ✅
-                            </span>
-                          )}
-                          {!issue._isStandaloneEvent && issue.status === 'IGNORED' && (
-                            <span 
-                              className={styles.ignoredBadge} 
-                              title="Issue ignored - click to unignore"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleIgnoreIssue(issue);
-                              }}
-                            >
-                              🔕
-                            </span>
-                          )}
-                        </h4>
-                        <div className={styles.eventMeta}>
-                          <span>{issue.project?.name || 'Unknown Project'}</span>
-                          <span>• {issue._isStandaloneEvent ? String(issue.eventType || 'event').toLowerCase() : statusLabel(issue.status)}</span>
                           {!issue._isStandaloneEvent && issue.status !== 'RESOLVED' && issue.status !== 'IGNORED' && (
-                            <>
+                            <span className={styles.quickActions}>
                               <button
                                 className={styles.quickResolveButton}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleResolveIssue(issue);
                                 }}
-                                title="Resolve this issue"
+                                title="Resolve this issue (r)"
                               >
-                                Resolve
+                                <Icon name="check" size={12} strokeWidth={2.25} /> Resolve
                               </button>
                               <button
                                 className={styles.quickIgnoreButton}
@@ -3233,11 +3192,24 @@ export default function Dashboard() {
                                   e.stopPropagation();
                                   handleIgnoreIssue(issue);
                                 }}
-                                title="Ignore this issue - won't appear in main view or auto-report to GitHub"
+                                title="Ignore this issue: hides it and stops GitHub auto-reports (i)"
                               >
-                                Ignore
+                                <Icon name="eyeOff" size={12} /> Ignore
                               </button>
-                            </>
+                            </span>
+                          )}
+                          {!issue._isStandaloneEvent && (issue.status === 'RESOLVED' || issue.status === 'IGNORED') && (
+                            <span className={styles.quickActions}>
+                              <button
+                                className={styles.quickResolveButton}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (issue.status === 'RESOLVED') handleResolveIssue(issue); else handleIgnoreIssue(issue);
+                                }}
+                              >
+                                {issue.status === 'RESOLVED' ? 'Reopen' : 'Unignore'}
+                              </button>
+                            </span>
                           )}
                         </div>
                       </div>
@@ -3337,12 +3309,12 @@ export default function Dashboard() {
               )}
               {deletingIssue?.bulk && (
                 <div className={styles.modalEventPreview}>
-                  <strong>⚠️ You are about to delete {deletingIssue.count} issue{deletingIssue.count > 1 ? 's' : ''}</strong>
+                  <strong>You are about to delete {deletingIssue.count} issue{deletingIssue.count > 1 ? 's' : ''}</strong>
                 </div>
               )}
               {!deletingIssue && deletingEvent?.bulk && (
                 <div className={styles.modalEventPreview}>
-                  <strong>⚠️ You are about to delete {deletingEvent.count} event{deletingEvent.count > 1 ? 's' : ''}</strong>
+                  <strong>You are about to delete {deletingEvent.count} event{deletingEvent.count > 1 ? 's' : ''}</strong>
                 </div>
               )}
               <div className={styles.modalButtons}>
@@ -3379,7 +3351,7 @@ export default function Dashboard() {
         {showGitHubModal && (
           <div className={styles.modalOverlay} onClick={() => setShowGitHubModal(false)}>
             <div className={styles.modal} role="dialog" aria-modal="true" style={{ maxWidth: '600px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
-              <h3 className={styles.modalTitle}>🐙 Create GitHub Issue</h3>
+              <h3 className={styles.modalTitle}>Create GitHub Issue</h3>
               <p className={styles.modalText}>
                 Copy the information below and create an issue on your GitHub repository.
               </p>
@@ -3407,7 +3379,7 @@ export default function Dashboard() {
               </div>
               
               <div className={styles.githubInstructions}>
-                <strong>📋 Instructions:</strong>
+                <strong>Instructions</strong>
                 <ol className={styles.githubSteps}>
                   <li>Copy the title and body above</li>
                   <li>Go to your GitHub repository</li>
@@ -3425,7 +3397,7 @@ export default function Dashboard() {
                   }} 
                   className={styles.modalButtonSubmit}
                 >
-                  📋 Copy All
+                  Copy all
                 </button>
                 <button 
                   type="button"
@@ -3469,10 +3441,7 @@ export default function Dashboard() {
             >
               <div className={styles.notificationContent}>
                 <span className={styles.notificationIcon}>
-                  {notification.type === 'success' && '✅'}
-                  {notification.type === 'error' && '❌'}
-                  {notification.type === 'warning' && '⚠️'}
-                  {notification.type === 'info' && 'ℹ️'}
+                  <Icon name={notification.type === 'success' ? 'checkCircle' : notification.type === 'error' ? 'x' : notification.type === 'warning' ? 'alert' : 'info'} size={16} />
                 </span>
                 <span className={styles.notificationMessage}>{notification.message}</span>
                 {notification.action && (

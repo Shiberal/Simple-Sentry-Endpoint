@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Icon from '@/components/Icon';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -639,7 +640,7 @@ export default function PerformancePage() {
             className={`${styles.navItem} ${router.pathname === '/dashboard' ? styles.navItemActive : ''}`}
             title="Global Dashboard"
           >
-            📊
+            <Icon name="dashboard" size={18} />
             <div className={styles.navItemTooltip}>Global Dashboard</div>
           </div>
         </Link>
@@ -648,7 +649,7 @@ export default function PerformancePage() {
             className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
             title="Performance"
           >
-            ⚡
+            <Icon name="activity" size={18} />
             <div className={styles.navItemTooltip}>Performance</div>
           </div>
         </Link>
@@ -675,7 +676,7 @@ export default function PerformancePage() {
             className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
             title="Profile"
           >
-            👤
+            <Icon name="user" size={18} />
             <div className={styles.navItemTooltip}>Your Profile</div>
           </div>
         </Link>
@@ -685,7 +686,7 @@ export default function PerformancePage() {
         <header className={styles.header}>
           <div className={styles.headerContent}>
             <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>⚡</span>
+              <span className={styles.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
               Performance Analytics
             </h1>
             <div className={styles.headerActions}>
@@ -704,7 +705,7 @@ export default function PerformancePage() {
                 className={styles.headerButton}
                 title="Refresh data"
               >
-                🔄 Refresh
+                <Icon name="refresh" size={14} /> Refresh
               </button>
             </div>
           </div>

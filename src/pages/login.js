@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Icon from '@/components/Icon';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -45,7 +46,7 @@ export default function Login() {
         <div className={styles.card}>
           <div className={styles.header}>
             <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>⚡</span>
+              <span className={styles.logoIcon}><Icon name="bolt" size={20} strokeWidth={2} /></span>
               Sentry Monitor
             </h1>
             <h2 className={styles.title}>Welcome Back</h2>

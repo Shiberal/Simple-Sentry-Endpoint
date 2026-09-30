@@ -308,7 +308,7 @@
 }
 
 .code {
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--font-xs);
   background-color: var(--bg-secondary);
   padding: 2px var(--space-2);

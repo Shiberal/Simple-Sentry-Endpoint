@@ -1,106 +1,107 @@
 /* Design Tokens - Minimal Theme System */
 
-/* Light Theme Variables */
+/* Light Theme Variables
+   Warm paper surfaces, near-black ink, hairline borders. One cool accent (teal)
+   kept apart from the semantic error/warning/success colors. */
 :root,
 [data-theme="light"] {
-  /* Background colors */
-  --bg-primary: #ffffff;
-  --bg-secondary: #fafafa;
-  --bg-tertiary: #f5f5f5;
-  --bg-darkest: #f0f0f0; /* Darkest color for light mode sidebars if needed */
-  
-  /* Text colors */
-  --text-primary: #111111;
-  --text-secondary: #666666;
-  --text-tertiary: #999999;
-  
-  /* Border colors */
-  --border-primary: #e5e5e5;
-  --border-secondary: #f0f0f0;
-  
-  /* Accent colors */
-  --accent-primary: #0066ff;
-  --accent-hover: #0052cc;
-  --accent-active: #003d99;
-  
+  /* Surfaces */
+  --bg-primary: #fdfcfa;
+  --bg-secondary: #f6f4f0;
+  --bg-tertiary: #edeae4;
+  --bg-darkest: #efece6; /* navigation rail */
+  --bg-hover: rgba(22, 22, 26, 0.045);
+  --bg-active: rgba(22, 22, 26, 0.08);
+
+  /* Ink */
+  --text-primary: #17171a;
+  --text-secondary: #5b5b63;
+  --text-tertiary: #85858d;
+
+  /* Hairlines */
+  --border-primary: #e3e0d9;
+  --border-secondary: #ece9e3;
+
+  /* Accent */
+  --accent-primary: #0b6e7f;
+  --accent-hover: #095866;
+  --accent-active: #074653;
+  --accent-bg: rgba(11, 110, 127, 0.09);
+
   /* Semantic colors */
-  --error: #dc2626;
-  --error-hover: #b91c1c;
-  --error-bg: #fef2f2;
-  --error-text: #7f1d1d;
-  
-  --warning: #ea580c;
-  --warning-hover: #c2410c;
-  --warning-bg: #fff7ed;
-  --warning-text: #7c2d12;
-  
-  --info: #2563eb;
-  --info-hover: #1d4ed8;
-  --info-bg: #eff6ff;
-  --info-text: #1e3a8a;
-  
-  --success: #16a34a;
-  --success-hover: #15803d;
-  --success-bg: #f0fdf4;
-  --success-text: #14532d;
-  
+  --error: #c62828;
+  --error-hover: #a81f1f;
+  --error-bg: #fbeceb;
+  --error-text: #7a1717;
+
+  --warning: #b45309;
+  --warning-hover: #92400e;
+  --warning-bg: #fbf1e2;
+  --warning-text: #6b3306;
+
+  --info: #2f5f9e;
+  --info-hover: #244c80;
+  --info-bg: #e9f0f8;
+  --info-text: #1c3c66;
+
+  --success: #2f7d4f;
+  --success-hover: #256640;
+  --success-bg: #e8f3ec;
+  --success-text: #1a4a2e;
+
   /* Overlay */
-  --overlay: rgba(0, 0, 0, 0.5);
-  
-  /* Shadow (minimal) */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --overlay: rgba(23, 23, 26, 0.45);
+
+  /* Shadows (used sparingly: menus, dialogs, toasts) */
+  --shadow-sm: 0 1px 0 rgba(23, 23, 26, 0.04);
+  --shadow-md: 0 6px 20px rgba(23, 23, 26, 0.10), 0 1px 3px rgba(23, 23, 26, 0.06);
 }
 
-/* Dark Theme Variables */
+/* Dark Theme Variables: graphite, not pure black */
 [data-theme="dark"] {
-  /* Background colors */
-  --bg-primary: #111111;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #222222;
-  --bg-darkest: #0a0a0a; /* Darkest color for sidebars (Discord-like narrow) */
-  
-  /* Text colors */
-  --text-primary: #ffffff;
-  --text-secondary: #999999;
-  --text-tertiary: #666666;
-  
-  /* Border colors */
-  --border-primary: #2a2a2a;
-  --border-secondary: #222222;
-  
-  /* Accent colors */
-  --accent-primary: #4080ff;
-  --accent-hover: #5c94ff;
-  --accent-active: #7aa8ff;
-  
-  /* Semantic colors */
-  --error: #ef4444;
-  --error-hover: #f87171;
-  --error-bg: #1a1111;
-  --error-text: #fca5a5;
-  
-  --warning: #f97316;
-  --warning-hover: #fb923c;
-  --warning-bg: #1a1511;
-  --warning-text: #fdba74;
-  
-  --info: #3b82f6;
-  --info-hover: #60a5fa;
-  --info-bg: #111419;
-  --info-text: #93c5fd;
-  
-  --success: #22c55e;
-  --success-hover: #4ade80;
-  --success-bg: #111a14;
-  --success-text: #86efac;
-  
-  /* Overlay */
-  --overlay: rgba(0, 0, 0, 0.7);
-  
-  /* Shadow (minimal) */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4);
+  --bg-primary: #131417;
+  --bg-secondary: #0f1012;
+  --bg-tertiary: #1b1c20;
+  --bg-darkest: #0b0c0d;
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-active: rgba(255, 255, 255, 0.09);
+
+  --text-primary: #ecebe8;
+  --text-secondary: #a2a2a9;
+  --text-tertiary: #71717a;
+
+  --border-primary: #26272c;
+  --border-secondary: #1f2024;
+
+  --accent-primary: #4fc0d3;
+  --accent-hover: #74d0e0;
+  --accent-active: #9adcea;
+  --accent-bg: rgba(79, 192, 211, 0.12);
+
+  --error: #f0605d;
+  --error-hover: #f58784;
+  --error-bg: #2a1616;
+  --error-text: #f5a3a1;
+
+  --warning: #e0913a;
+  --warning-hover: #eaa75d;
+  --warning-bg: #2a2014;
+  --warning-text: #edc088;
+
+  --info: #6f9bd6;
+  --info-hover: #8fb2e2;
+  --info-bg: #162030;
+  --info-text: #a8c3e8;
+
+  --success: #5cb783;
+  --success-hover: #7cc99b;
+  --success-bg: #14241b;
+  --success-text: #9bd8b5;
+
+  --overlay: rgba(0, 0, 0, 0.62);
+
+  --shadow-sm: 0 1px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 /* Spacing scale (8px grid) */
@@ -117,11 +118,15 @@
   --space-16: 4rem;    /* 64px */
   
   /* Border radius */
-  --radius-sm: 4px;
-  --radius-md: 6px;
+  --radius-sm: 3px;
+  --radius-md: 5px;
   --radius-lg: 8px;
   --radius-full: 9999px;
   
+  /* Typefaces: a humanist sans for UI, a mono for data (ids, times, counts) */
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
   /* Typography scale */
   --font-xs: 0.75rem;    /* 12px */
   --font-sm: 0.875rem;   /* 14px */

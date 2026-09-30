@@ -1,4 +1,5 @@
 import { useTheme } from '../contexts/ThemeContext';
+import Icon from './Icon';
 import styles from './ThemeToggle.module.css';
 
 export default function ThemeToggle() {
@@ -11,18 +12,7 @@ export default function ThemeToggle() {
     setTheme(themes[nextIndex]);
   };
 
-  const getIcon = () => {
-    switch (theme) {
-      case 'light':
-        return '☀️';
-      case 'dark':
-        return '🌙';
-      case 'system':
-        return '💻';
-      default:
-        return '☀️';
-    }
-  };
+  const iconName = theme === 'dark' ? 'moon' : theme === 'light' ? 'sun' : 'monitor';
 
   const getLabel = () => {
     switch (theme) {
@@ -44,9 +34,7 @@ export default function ThemeToggle() {
       aria-label={`Current theme: ${getLabel()}. Click to change theme.`}
       title={`Theme: ${getLabel()} (click to cycle)`}
     >
-      <span className={styles.icon} role="img" aria-hidden="true">
-        {getIcon()}
-      </span>
+      <Icon name={iconName} size={16} />
       <span className={styles.label}>{getLabel()}</span>
     </button>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import Icon from '@/components/Icon';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -113,7 +114,7 @@ export default function ProfilePage() {
         <div className={styles.card}>
           <div className={styles.header}>
             <h1 className={styles.logo}>
-              <span className={styles.logoIcon}>👤</span>
+              <span className={styles.logoIcon}><Icon name="user" size={20} strokeWidth={2} /></span>
               Profile Settings
             </h1>
           </div>

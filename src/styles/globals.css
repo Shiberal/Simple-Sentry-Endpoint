@@ -21,9 +21,8 @@ body {
 body {
   color: var(--text-primary);
   background: var(--bg-primary);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv11';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: var(--leading-normal);
@@ -43,13 +42,14 @@ a:hover {
 /* Headings */
 h1, h2, h3, h4, h5, h6 {
   font-weight: var(--weight-semibold);
+  letter-spacing: -0.01em;
   line-height: var(--leading-tight);
   color: var(--text-primary);
 }
 
 /* Code blocks */
 code, pre {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+  font-family: var(--font-mono);
 }
 
 /* Scrollbar styling */
@@ -75,12 +75,20 @@ code, pre {
 :focus-visible {
   outline: 2px solid var(--accent-primary);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 /* Selection */
 ::selection {
-  background-color: var(--accent-primary);
-  color: white;
+  background-color: var(--accent-bg);
+  color: var(--text-primary);
 }
 
 /* Smooth theme transitions (kept off `*` so lists and scrolling stay cheap) */
