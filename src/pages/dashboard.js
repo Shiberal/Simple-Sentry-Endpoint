@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 import { parseGitHubRepo } from '@/lib/github';
+import usePersistedState from '@/hooks/usePersistedState';
+import { statusLabel, levelColors, relativeTime, TIME_RANGES, SORT_OPTIONS, downloadIssues } from '@/lib/ui';
 import styles from '@/styles/Dashboard.module.css';
 
 export default function Dashboard() {
@@ -12,17 +14,34 @@ export default function Dashboard() {
   const [standaloneEvents, setStandaloneEvents] = useState([]); // For transactions and other standalone events
   const [projects, setProjects] = useState([]);
   const [user, setUser] = useState(null);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProject, setSelectedProject] = usePersistedState('sm.project', null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = usePersistedState('sm.refreshMs', 5000);
+  const [sortBy, setSortBy] = usePersistedState('sm.sortBy', 'lastSeen');
+  const [timeRange, setTimeRange] = usePersistedState('sm.timeRange', 'all');
+  const [desktopAlerts, setDesktopAlerts] = usePersistedState('sm.desktopAlerts', false);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [issuesTotal, setIssuesTotal] = useState(0);
+  const [issuesPage, setIssuesPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const searchInputRef = useRef(null);
+  const seenIdsRef = useRef(null);
+  const lastVisitRef = useRef(null);
+  const detailPushedRef = useRef(false);
+  const deepLinkHandledRef = useRef(false);
+  const deepLinkPendingRef = useRef(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterLevel, setFilterLevel] = useState('error');
-  const [filterStatus, setFilterStatus] = useState('active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
-  const [filterEventType, setFilterEventType] = useState('all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
+  const [filterLevel, setFilterLevel] = usePersistedState('sm.filterLevel', 'error');
+  const [filterStatus, setFilterStatus] = usePersistedState('sm.filterStatus', 'active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
+  const [filterEventType, setFilterEventType] = usePersistedState('sm.filterType', 'all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(null);
@@ -64,9 +83,9 @@ export default function Dashboard() {
   }, [selectedEvent]);
 
   // Notification system
-  const showNotification = (message, type = 'info') => {
+  const showNotification = (message, type = 'info', action = null) => {
     const id = Date.now() + Math.random();
-    const notification = { id, message, type };
+    const notification = { id, message, type, action };
     
     setNotifications(prev => [...prev, notification]);
     
@@ -186,36 +205,73 @@ export default function Dashboard() {
         return;
       }
       setUser(data.user);
-      fetchData();
     } catch (error) {
       router.push('/login');
     }
   };
 
-  const fetchData = async () => {
+  const PAGE_SIZE = 50;
+
+  const buildIssuesUrl = (page) => {
+    const params = new URLSearchParams({
+      sortBy,
+      sortOrder: sortBy === 'title' ? 'asc' : 'desc',
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+      status: filterStatus
+    });
+    if (selectedProject) params.set('projectId', selectedProject);
+    if (filterLevel !== 'all') params.set('level', filterLevel);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    return `/api/issues?${params.toString()}`;
+  };
+
+  // Detect issues that appeared since the last poll (for desktop alerts)
+  const announceNewIssues = (incoming) => {
+    if (seenIdsRef.current === null) {
+      seenIdsRef.current = new Set(incoming.map(i => i.id));
+      return;
+    }
+    const fresh = incoming.filter(i => !seenIdsRef.current.has(i.id));
+    incoming.forEach(i => seenIdsRef.current.add(i.id));
+    if (!desktopAlerts || fresh.length === 0) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const first = fresh[0];
+    new Notification(
+      fresh.length === 1 ? `New ${first.level}: ${first.title}` : `${fresh.length} new issues`,
+      { body: fresh.length === 1 ? (first.project?.name || '') : fresh.map(i => i.title).slice(0, 3).join('\n'), tag: 'sentry-monitor-new' }
+    );
+  };
+
+  // silent = background poll: only refresh the first page and keep any extra pages already loaded
+  const fetchData = async ({ silent = false } = {}) => {
+    if (!silent) setRefreshing(true);
     try {
-      // Fetch issues instead of events to avoid duplicates
-      const issuesUrl = selectedProject 
-        ? `/api/issues?projectId=${selectedProject}&sortBy=lastSeen&sortOrder=desc` 
-        : `/api/issues?sortBy=lastSeen&sortOrder=desc`;
-      
-      // Fetch standalone events (transactions, etc.) that don't have issues
       const eventsUrl = selectedProject
         ? `/api/events?projectId=${selectedProject}&limit=100`
         : `/api/events?limit=100`;
-        
+
       const [issuesRes, projectsRes, eventsRes] = await Promise.all([
-        fetch(issuesUrl),
+        fetch(buildIssuesUrl(1)),
         fetch('/api/projects'),
         fetch(eventsUrl)
       ]);
-      
+
       const issuesData = await issuesRes.json();
       const projectsData = await projectsRes.json();
       const eventsData = await eventsRes.json();
-      
+
       if (issuesData.success) {
-        setIssues(issuesData.issues);
+        announceNewIssues(issuesData.issues);
+        setIssues(prev => {
+          if (!silent || prev.length <= PAGE_SIZE) return issuesData.issues;
+          // Keep later pages the user already loaded, replacing anything refreshed
+          const fresh = new Map(issuesData.issues.map(i => [i.id, i]));
+          const tail = prev.slice(PAGE_SIZE).filter(i => !fresh.has(i.id));
+          return [...issuesData.issues, ...tail];
+        });
+        if (!silent) setIssuesPage(1);
+        setIssuesTotal(issuesData.pagination?.totalCount ?? issuesData.issues.length);
       }
       if (projectsData.success) setProjects(projectsData.projects);
       if (eventsData.success) {
@@ -223,10 +279,35 @@ export default function Dashboard() {
         const standalone = eventsData.events.filter(event => !event.issueId);
         setStandaloneEvents(standalone);
       }
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const loadMoreIssues = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const nextPage = issuesPage + 1;
+      const res = await fetch(buildIssuesUrl(nextPage));
+      const data = await res.json();
+      if (data.success) {
+        setIssues(prev => {
+          const known = new Set(prev.map(i => i.id));
+          return [...prev, ...data.issues.filter(i => !known.has(i.id))];
+        });
+        setIssuesPage(nextPage);
+        setIssuesTotal(data.pagination?.totalCount ?? issuesTotal);
+      }
+    } catch (error) {
+      console.error('Error loading more issues:', error);
+      showNotification('Could not load more issues', 'error');
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -261,19 +342,67 @@ export default function Dashboard() {
   };
 
 
+  // Initial load once the user is known (later changes go through filtersKey below)
   useEffect(() => {
-    if (user) {
-      fetchData();
-      fetchAnalytics();
-    }
-  }, [selectedProject, user, filterLevel, activeTab]);
+    if (user) fetchData();
+  }, [user]);
 
   useEffect(() => {
-    if (autoRefresh && user) {
-      const interval = setInterval(fetchData, 5000);
-      return () => clearInterval(interval);
+    if (user) fetchAnalytics();
+  }, [selectedProject, user, filterLevel, activeTab]);
+
+  // Debounce the search box before hitting the API
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Refetch from page 1 whenever server-side filters change
+  const filtersKey = `${selectedProject}|${filterLevel}|${filterStatus}|${sortBy}|${debouncedSearch}`;
+  const filtersKeyRef = useRef(filtersKey);
+  useEffect(() => {
+    if (filtersKeyRef.current === filtersKey) return;
+    filtersKeyRef.current = filtersKey;
+    if (user) fetchData();
+  }, [filtersKey]);
+
+  // Poll only while the tab is visible; catch up immediately when it becomes visible again
+  useEffect(() => {
+    if (!autoRefresh || !user) return;
+    const tick = () => {
+      if (!document.hidden) fetchData({ silent: true });
+    };
+    const interval = setInterval(tick, refreshInterval);
+    document.addEventListener('visibilitychange', tick);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', tick);
+    };
+  }, [autoRefresh, refreshInterval, user, filtersKey]);
+
+  // Open an issue (or standalone event) in the detail panel
+  const openItem = useCallback(async (issue) => {
+    if (issue._isStandaloneEvent) {
+      setSelectedEvent(issue._event);
+      setActiveTab('overview');
+      return;
     }
-  }, [autoRefresh, selectedProject, user, filterLevel]);
+    try {
+      const response = await fetch(`/api/issues/${issue.id}`);
+      const data = await response.json();
+      if (data.success && data.issue.events && data.issue.events.length > 0) {
+        setSelectedEvent({ ...data.issue.events[0], issue: issue.title ? issue : data.issue });
+        setActiveTab('overview');
+      }
+    } catch (error) {
+      console.error('Error fetching issue details:', error);
+    }
+  }, []);
+
+  const closeDetail = () => {
+    setSelectedEvent(null);
+    setActiveTab('overview');
+  };
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -763,12 +892,15 @@ export default function Dashboard() {
     }
   };
 
-  const handleResolveIssue = async (issue) => {
+  const handleResolveIssue = async (issue, { allowUndo = true } = {}) => {
     if (!issue) return;
 
+    // Toggle between RESOLVED and UNRESOLVED
+    const newStatus = issue.status === 'RESOLVED' ? 'UNRESOLVED' : 'RESOLVED';
+    // Optimistic update so the list reacts instantly
+    setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: newStatus } : iss));
+
     try {
-      // Toggle between RESOLVED and UNRESOLVED
-      const newStatus = issue.status === 'RESOLVED' ? 'UNRESOLVED' : 'RESOLVED';
       
       const response = await fetch(`/api/issues/${issue.id}`, {
         method: 'PATCH',
@@ -804,26 +936,33 @@ export default function Dashboard() {
         if (issue.githubIssueNumber) {
           message += ` GitHub issue #${issue.githubIssueNumber} has been ${newStatus === 'RESOLVED' ? 'closed' : 'reopened'}.`;
         }
-        showNotification(message, 'success');
+        showNotification(message, 'success', allowUndo ? {
+          label: 'Undo',
+          onClick: () => handleResolveIssue({ ...issue, status: newStatus }, { allowUndo: false })
+        } : null);
         
         // Refresh data
-        fetchData();
+        fetchData({ silent: true });
       } else {
+        setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
         const errorData = await response.json();
         showNotification(`Failed to ${newStatus === 'RESOLVED' ? 'resolve' : 'reopen'} issue: ${errorData.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
+      setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
       console.error('Error resolving issue:', error);
       showNotification('Error updating issue status', 'error');
     }
   };
 
-  const handleIgnoreIssue = async (issue) => {
+  const handleIgnoreIssue = async (issue, { allowUndo = true } = {}) => {
     if (!issue) return;
 
+    // Toggle between IGNORED and UNRESOLVED
+    const newStatus = issue.status === 'IGNORED' ? 'UNRESOLVED' : 'IGNORED';
+    setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: newStatus } : iss));
+
     try {
-      // Toggle between IGNORED and UNRESOLVED
-      const newStatus = issue.status === 'IGNORED' ? 'UNRESOLVED' : 'IGNORED';
       
       const response = await fetch(`/api/issues/${issue.id}`, {
         method: 'PATCH',
@@ -855,15 +994,20 @@ export default function Dashboard() {
         );
         
         // Show success message
-        showNotification(`Issue ${newStatus === 'IGNORED' ? 'ignored - will not appear in main view or auto-report to GitHub' : 'unignored'} successfully!`, 'success');
+        showNotification(`Issue ${newStatus === 'IGNORED' ? 'ignored - will not appear in main view or auto-report to GitHub' : 'unignored'} successfully!`, 'success', allowUndo ? {
+          label: 'Undo',
+          onClick: () => handleIgnoreIssue({ ...issue, status: newStatus }, { allowUndo: false })
+        } : null);
         
         // Refresh data
-        fetchData();
+        fetchData({ silent: true });
       } else {
+        setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
         const errorData = await response.json();
         showNotification(`Failed to ${newStatus === 'IGNORED' ? 'ignore' : 'unignore'} issue: ${errorData.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
+      setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
       console.error('Error ignoring issue:', error);
       showNotification('Error updating issue status', 'error');
     }
@@ -1016,19 +1160,7 @@ export default function Dashboard() {
     return 'Unknown Event';
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
+  const formatDate = relativeTime;
 
   const copyToClipboard = async (text, setCopiedState) => {
     try {
@@ -1061,7 +1193,12 @@ export default function Dashboard() {
       events: [event],
       eventType: event.eventType
     }))
-  ].sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+  ].sort((a, b) => {
+    if (sortBy === 'count') return (b.count || 1) - (a.count || 1);
+    if (sortBy === 'title') return String(a.title).localeCompare(String(b.title));
+    const key = sortBy === 'firstSeen' ? 'firstSeen' : 'lastSeen';
+    return new Date(b[key] || b.createdAt) - new Date(a[key] || a.createdAt);
+  });
 
   const filteredIssues = combinedItems.filter(issue => {
     const matchesSearch = !searchQuery || 
@@ -1102,7 +1239,194 @@ export default function Dashboard() {
       return false;
     })();
     
-    return matchesSearch && matchesLevel && matchesStatus && matchesEventType;
+    const rangeMs = TIME_RANGES[timeRange]?.ms;
+    const matchesTime = !rangeMs || (Date.now() - new Date(issue.lastSeen).getTime()) <= rangeMs;
+
+    return matchesSearch && matchesLevel && matchesStatus && matchesEventType && matchesTime;
+  });
+
+  const hasActiveFilters = filterLevel !== 'all' || filterStatus !== 'all' ||
+    filterEventType !== 'all' || timeRange !== 'all' || !!searchQuery;
+
+  const clearFilters = () => {
+    setFilterLevel('all');
+    setFilterStatus('all');
+    setFilterEventType('all');
+    setTimeRange('all');
+    setSearchQuery('');
+  };
+
+  const unresolvedCount = issues.filter(i => i.status === 'UNRESOLVED').length;
+  const activeItemId = selectedEvent
+    ? (selectedEvent.issue ? selectedEvent.issue.id : `event-${selectedEvent.id}`)
+    : null;
+
+  const isNewSinceLastVisit = (issue) =>
+    !issue._isStandaloneEvent && lastVisitRef.current && issue.firstSeen &&
+    new Date(issue.firstSeen).getTime() > lastVisitRef.current;
+
+  const handleBulkStatus = async (status) => {
+    const ids = selectedEvents.filter(id => typeof id === 'number');
+    if (ids.length === 0) {
+      showNotification('Standalone events have no status to change', 'info');
+      return;
+    }
+    try {
+      const results = await Promise.all(ids.map(id =>
+        fetch(`/api/issues/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        })
+      ));
+      const failed = results.filter(r => !r.ok).length;
+      showNotification(
+        failed ? `${ids.length - failed} updated, ${failed} failed` : `${ids.length} issue${ids.length === 1 ? '' : 's'} marked ${statusLabel(status).toLowerCase()}`,
+        failed ? 'warning' : 'success'
+      );
+      exitSelectionMode();
+      fetchData();
+    } catch (error) {
+      console.error('Bulk update failed:', error);
+      showNotification('Bulk update failed', 'error');
+    }
+  };
+
+  const handleExport = (format) => {
+    if (filteredIssues.length === 0) {
+      showNotification('Nothing to export with the current filters', 'info');
+      return;
+    }
+    downloadIssues(filteredIssues.filter(i => !i._isStandaloneEvent), format);
+  };
+
+  const toggleDesktopAlerts = async () => {
+    if (desktopAlerts) {
+      setDesktopAlerts(false);
+      return;
+    }
+    if (typeof Notification === 'undefined') {
+      showNotification('This browser does not support desktop notifications', 'warning');
+      return;
+    }
+    const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (permission === 'granted') {
+      setDesktopAlerts(true);
+      showNotification('Desktop alerts enabled for new issues', 'success');
+    } else {
+      showNotification('Notification permission was denied', 'warning');
+    }
+  };
+
+  const copyIssueLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      showNotification('Link copied to clipboard', 'success');
+    } catch (err) {
+      showNotification('Failed to copy link', 'error');
+    }
+  };
+
+  // "New since your last visit" marker
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('sm.lastVisit');
+      lastVisitRef.current = stored ? new Date(stored).getTime() : null;
+    } catch (e) { /* storage unavailable */ }
+    const save = () => {
+      try { window.localStorage.setItem('sm.lastVisit', new Date().toISOString()); } catch (e) { /* ignore */ }
+    };
+    window.addEventListener('pagehide', save);
+    return () => window.removeEventListener('pagehide', save);
+  }, []);
+
+  // Deep link: /dashboard?issue=123 opens that issue, and the URL follows the open issue
+  useEffect(() => {
+    if (!router.isReady || !user) return;
+    const issueParam = router.query.issue;
+    if (!deepLinkHandledRef.current) {
+      deepLinkHandledRef.current = true;
+      if (issueParam) {
+        deepLinkPendingRef.current = true;
+        openItem({ id: parseInt(issueParam) }).finally(() => { deepLinkPendingRef.current = false; });
+        return;
+      }
+    }
+    if (deepLinkPendingRef.current) return;
+    const openId = selectedEvent?.issue?.id ? String(selectedEvent.issue.id) : null;
+    if ((issueParam || null) === openId) return;
+    const query = { ...router.query };
+    if (openId) query.issue = openId; else delete query.issue;
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  }, [router.isReady, user, selectedEvent]);
+
+  // Phone back button closes the detail view instead of leaving the dashboard
+  useEffect(() => {
+    const isPhone = window.matchMedia('(max-width: 768px)').matches;
+    if (!isPhone) return;
+    if (selectedEvent && !detailPushedRef.current) {
+      window.history.pushState({ smDetail: true }, '');
+      detailPushedRef.current = true;
+    } else if (!selectedEvent && detailPushedRef.current) {
+      detailPushedRef.current = false;
+      if (window.history.state?.smDetail) window.history.back();
+    }
+  }, [!!selectedEvent]);
+
+  useEffect(() => {
+    const onPop = () => {
+      if (detailPushedRef.current) {
+        detailPushedRef.current = false;
+        setSelectedEvent(null);
+      }
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const tag = e.target.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable;
+      const modalOpen = showDeleteConfirm || showGitHubModal || showNewProjectModal || showShortcuts;
+
+      if (e.key === 'Escape') {
+        if (showShortcuts) setShowShortcuts(false);
+        else if (showDeleteConfirm) { setShowDeleteConfirm(false); setDeletingIssue(null); setDeletingEvent(null); }
+        else if (showGitHubModal) setShowGitHubModal(false);
+        else if (showNewProjectModal) setShowNewProjectModal(false);
+        else if (typing && e.target === searchInputRef.current) { setSearchQuery(''); e.target.blur(); }
+        else if (!typing && isSelectionMode) exitSelectionMode();
+        else if (!typing && selectedEvent) closeDetail();
+        return;
+      }
+
+      if (typing || modalOpen || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === '/') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      } else if (e.key === '?') {
+        setShowShortcuts(true);
+      } else if (e.key === 'j' || e.key === 'k') {
+        if (filteredIssues.length === 0) return;
+        const idx = filteredIssues.findIndex(i => i.id === activeItemId);
+        const next = e.key === 'j'
+          ? Math.min(idx + 1, filteredIssues.length - 1)
+          : Math.max(idx === -1 ? 0 : idx - 1, 0);
+        openItem(filteredIssues[next]);
+        document.querySelector(`[data-item-id="${filteredIssues[next].id}"]`)?.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'r' && selectedEvent?.issue) {
+        handleResolveIssue(selectedEvent.issue);
+      } else if (e.key === 'i' && selectedEvent?.issue) {
+        handleIgnoreIssue(selectedEvent.issue);
+      } else if (e.key === 'R') {
+        fetchData();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   });
 
   const renderStackTrace = (exception) => {
@@ -1173,6 +1497,9 @@ export default function Dashboard() {
               Click on any event from the list to view detailed information,
               stack traces, breadcrumbs, and more.
             </p>
+            <p className={styles.emptyDetailText} style={{ marginTop: 'var(--space-3)' }}>
+              Tip: press <kbd className={styles.kbd}>j</kbd> / <kbd className={styles.kbd}>k</kbd> to move through issues, or <kbd className={styles.kbd}>?</kbd> for all shortcuts.
+            </p>
           </div>
         </div>
       );
@@ -1236,12 +1563,21 @@ export default function Dashboard() {
             >
               🗑️
             </button>
+            {selectedEvent.issue && (
+              <button
+                onClick={copyIssueLink}
+                className={styles.closeButton}
+                title="Copy link to this issue"
+                aria-label="Copy link to this issue"
+              >
+                🔗
+              </button>
+            )}
             <button 
-              onClick={() => {
-                setSelectedEvent(null);
-                setActiveTab('overview');
-              }}
+              onClick={closeDetail}
               className={styles.closeButton}
+              aria-label="Close detail (Esc)"
+              title="Close (Esc)"
             >
               ✕
             </button>
@@ -2331,13 +2667,13 @@ export default function Dashboard() {
   return (
     <>
       <Head>
-        <title>Dashboard - Sentry Monitor</title>
+        <title>{`${unresolvedCount > 0 ? `(${unresolvedCount}) ` : ''}Dashboard - Sentry Monitor`}</title>
       </Head>
       
       <div className={styles.container}>
         {/* Left Navigation Sidebar */}
-        <nav className={styles.navSidebar}>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
+        <nav className={styles.navSidebar} aria-label="Primary">
+          <Link href="/dashboard" style={{ textDecoration: 'none' }} aria-label="Global Dashboard">
             <div 
               className={`${styles.navItem} ${router.pathname === '/dashboard' && !selectedProject ? styles.navItemActive : ''}`}
               title="Global Dashboard"
@@ -2346,7 +2682,7 @@ export default function Dashboard() {
               <div className={styles.navItemTooltip}>Global Dashboard</div>
             </div>
           </Link>
-          <Link href="/performance" style={{ textDecoration: 'none' }}>
+          <Link href="/performance" style={{ textDecoration: 'none' }} aria-label="Performance">
             <div 
               className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
               title="Performance"
@@ -2362,6 +2698,11 @@ export default function Dashboard() {
           <div 
             className={`${styles.navProjectItem} ${selectedProject === null ? styles.navProjectItemActive : ''}`}
             onClick={() => setSelectedProject(null)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(null); } }}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedProject === null}
+            aria-label="All projects"
             title="All Projects"
           >
             ALL
@@ -2373,6 +2714,11 @@ export default function Dashboard() {
               key={project.id}
               className={`${styles.navProjectItem} ${selectedProject === project.id ? styles.navProjectItemActive : ''}`}
               onClick={() => setSelectedProject(project.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project.id); } }}
+              role="button"
+              tabIndex={0}
+              aria-pressed={selectedProject === project.id}
+              aria-label={`Project ${project.name}`}
               title={project.name}
             >
               {project.name.substring(0, 2).toUpperCase()}
@@ -2386,6 +2732,7 @@ export default function Dashboard() {
           <button 
             className={styles.navProjectItem}
             onClick={() => setShowNewProjectModal(true)}
+            aria-label="Create new project"
             title="Create New Project"
             style={{ color: 'var(--success)', fontSize: '24px' }}
           >
@@ -2396,7 +2743,7 @@ export default function Dashboard() {
           <div className={styles.navDivider}></div>
 
           {user.isAdmin && (
-            <Link href="/admin" style={{ textDecoration: 'none' }}>
+            <Link href="/admin" style={{ textDecoration: 'none' }} aria-label="Admin settings">
               <div 
                 className={`${styles.navItem} ${router.pathname === '/admin' ? styles.navItemActive : ''}`}
                 title="Admin"
@@ -2407,7 +2754,7 @@ export default function Dashboard() {
             </Link>
           )}
           
-          <Link href="/profile" style={{ textDecoration: 'none' }}>
+          <Link href="/profile" style={{ textDecoration: 'none' }} aria-label="Your profile">
             <div 
               className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
               title="Profile"
@@ -2420,6 +2767,7 @@ export default function Dashboard() {
           <button 
             className={styles.navItem}
             onClick={handleLogout}
+            aria-label="Log out"
             title="Logout"
           >
             🚪
@@ -2440,7 +2788,7 @@ export default function Dashboard() {
                   className={styles.headerButton}
                   title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
                 >
-                  {autoRefresh ? '●' : '○'} {autoRefresh ? 'Live' : 'Paused'}
+                  <span className={autoRefresh ? styles.liveDot : undefined}>{autoRefresh ? '●' : '○'}</span> {autoRefresh ? 'Live' : 'Paused'}
                 </button>
                 <button 
                   onClick={handleDeduplicate}
@@ -2451,11 +2799,13 @@ export default function Dashboard() {
                   {isDeduplicating ? '🔄' : '🔀'}
                 </button>
                 <button 
-                  onClick={fetchData} 
+                  onClick={() => fetchData()} 
                   className={styles.headerButton}
-                  title="Refresh data"
+                  title={lastUpdated ? `Refresh data (updated ${lastUpdated.toLocaleTimeString()})` : 'Refresh data'}
+                  aria-label="Refresh data"
+                  disabled={refreshing}
                 >
-                  🔄
+                  <span className={refreshing ? styles.spinning : undefined}>🔄</span>
                 </button>
                 <ThemeToggle />
                 <span className={styles.userEmail}>{user.email}</span>
@@ -2565,6 +2915,39 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
+
+                <div className={styles.sidebarSection}>
+                  <div className={styles.sidebarHeader}>
+                    <h3 className={styles.sidebarTitle}>Tools</h3>
+                  </div>
+                  <div className={styles.projectsList}>
+                    <label className={styles.sidebarField}>
+                      <span>Refresh every</span>
+                      <select
+                        className={styles.filterSelect}
+                        value={refreshInterval}
+                        onChange={(e) => setRefreshInterval(parseInt(e.target.value))}
+                      >
+                        <option value={5000}>5 seconds</option>
+                        <option value={15000}>15 seconds</option>
+                        <option value={30000}>30 seconds</option>
+                        <option value={60000}>1 minute</option>
+                      </select>
+                    </label>
+                    <button onClick={toggleDesktopAlerts} className={`${styles.projectItem} ${desktopAlerts ? styles.projectItemActive : ''}`}>
+                      <span>🔔 Desktop alerts {desktopAlerts ? 'on' : 'off'}</span>
+                    </button>
+                    <button onClick={() => handleExport('csv')} className={styles.projectItem}>
+                      <span>⬇ Export CSV</span>
+                    </button>
+                    <button onClick={() => handleExport('json')} className={styles.projectItem}>
+                      <span>⬇ Export JSON</span>
+                    </button>
+                    <button onClick={() => setShowShortcuts(true)} className={styles.projectItem}>
+                      <span>⌨ Keyboard shortcuts</span>
+                    </button>
+                  </div>
+                </div>
               </aside>
             )}
 
@@ -2604,6 +2987,20 @@ export default function Dashboard() {
                     </div>
                     <div className={styles.selectionToolbarRight}>
                       <button
+                        onClick={() => handleBulkStatus('RESOLVED')}
+                        disabled={selectedEvents.length === 0}
+                        className={styles.cancelSelectionButton}
+                      >
+                        ✅ Resolve
+                      </button>
+                      <button
+                        onClick={() => handleBulkStatus('IGNORED')}
+                        disabled={selectedEvents.length === 0}
+                        className={styles.cancelSelectionButton}
+                      >
+                        🔕 Ignore
+                      </button>
+                      <button
                         onClick={() => {
                           setDeletingIssue({ bulk: true, count: selectedEvents.length });
                           setShowDeleteConfirm(true);
@@ -2623,16 +3020,55 @@ export default function Dashboard() {
                   </div>
                 )}
                 <input
-                  type="text"
-                  placeholder="Search issues..."
+                  ref={searchInputRef}
+                  type="search"
+                  placeholder="Search issues…  ( / )"
+                  aria-label="Search issues"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={styles.searchInput}
                 />
+                <div className={styles.filterToolbar} style={{ marginTop: 'var(--space-2)' }}>
+                  <select className={styles.filterSelect} value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort issues">
+                    {Object.entries(SORT_OPTIONS).map(([value, label]) => (
+                      <option key={value} value={value}>Sort: {label}</option>
+                    ))}
+                  </select>
+                  <select className={styles.filterSelect} value={timeRange} onChange={(e) => setTimeRange(e.target.value)} aria-label="Time range">
+                    {Object.entries(TIME_RANGES).map(([value, r]) => (
+                      <option key={value} value={value}>{r.label}</option>
+                    ))}
+                  </select>
+                  <select className={styles.filterSelect} value={filterEventType} onChange={(e) => setFilterEventType(e.target.value)} aria-label="Event type">
+                    <option value="all">All types</option>
+                    <option value="ERROR">Errors</option>
+                    <option value="CSP">CSP</option>
+                    <option value="MINIDUMP">Minidumps</option>
+                    <option value="TRANSACTION">Transactions</option>
+                    <option value="MESSAGE">Messages</option>
+                  </select>
+                  {!isSelectionMode && (
+                    <button onClick={() => setIsSelectionMode(true)} className={styles.selectButton}>
+                      ☑ Select
+                    </button>
+                  )}
+                </div>
+                <div className={styles.resultsSummary} aria-live="polite">
+                  <span>
+                    {filteredIssues.length} shown
+                    {issuesTotal > issues.length ? ` · ${issuesTotal} match on server` : ''}
+                    {lastUpdated ? ` · updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </span>
+                  {hasActiveFilters && (
+                    <button onClick={clearFilters} className={styles.clearFilters}>Clear filters</button>
+                  )}
+                </div>
               </div>
 
               {loading ? (
-                <div className={styles.loading}>Loading issues...</div>
+                <div className={styles.eventsContainer} aria-busy="true" aria-label="Loading issues">
+                  {[0, 1, 2, 3, 4, 5].map(n => <div key={n} className={styles.skeletonCard} />)}
+                </div>
               ) : projects.length === 0 ? (
                 <div className={styles.empty}>
                   <div className={styles.emptyIcon}>🚀</div>
@@ -2659,6 +3095,9 @@ export default function Dashboard() {
                       : 'Try adjusting your search or filter criteria.'
                     }
                   </p>
+                  {issues.length > 0 && hasActiveFilters && (
+                    <button onClick={clearFilters} className={styles.createButton}>Clear filters</button>
+                  )}
                 </div>
               ) : (
                 <>
@@ -2669,40 +3108,20 @@ export default function Dashboard() {
                     return (
                       <div
                         key={issue.id}
-                        onClick={async () => {
-                          if (isSelectionMode) {
-                            toggleEventSelection(issue.id);
-                          } else {
-                            // Handle standalone events vs issues differently
-                            if (issue._isStandaloneEvent) {
-                              // For standalone events, just show the event directly
-                              setSelectedEvent(issue._event);
-                              setActiveTab('overview');
-                            } else {
-                              // Fetch the latest event for this issue to show details
-                              try {
-                                const response = await fetch(`/api/issues/${issue.id}`);
-                                const data = await response.json();
-                                if (data.success && data.issue.events && data.issue.events.length > 0) {
-                                  // Show the most recent event with the issue attached
-                                  setSelectedEvent({
-                                    ...data.issue.events[0],
-                                    issue: issue
-                                  });
-                                  setActiveTab('overview');
-                                }
-                              } catch (error) {
-                                console.error('Error fetching issue details:', error);
-                              }
-                            }
+                        onClick={() => (isSelectionMode ? toggleEventSelection(issue.id) : openItem(issue))}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            if (isSelectionMode) toggleEventSelection(issue.id); else openItem(issue);
                           }
                         }}
-                        className={`${styles.eventCard} ${isSelected ? styles.eventCardSelected : ''}`}
-                        style={{
-                          borderLeftColor: type === 'error' ? 'var(--error)' : 
-                                         type === 'warning' ? 'var(--warning)' : 
-                                         type === 'info' ? 'var(--info)' : 'var(--success)',
-                        }}
+                        role="button"
+                        tabIndex={0}
+                        data-item-id={issue.id}
+                        aria-current={activeItemId === issue.id ? 'true' : undefined}
+                        className={`${styles.eventCard} ${isSelected ? styles.eventCardSelected : ''} ${activeItemId === issue.id ? styles.eventCardActive : ''}`}
+                        style={{ borderLeftColor: levelColors(type).fg }}
                       >
                         {isSelectionMode && (
                           <input
@@ -2716,18 +3135,17 @@ export default function Dashboard() {
                         <div className={styles.eventHeader}>
                           <span 
                             className={styles.eventType}
-                            style={{
-                              backgroundColor: type === 'error' ? 'var(--error-bg)' : 
-                                             type === 'warning' ? 'var(--warning-bg)' : 
-                                             type === 'info' ? 'var(--info-bg)' : 'var(--success-bg)',
-                              color: type === 'error' ? 'var(--error)' : 
-                                     type === 'warning' ? 'var(--warning)' : 
-                                     type === 'info' ? 'var(--info)' : 'var(--success)'
-                            }}
+                            style={{ backgroundColor: levelColors(type).bg, color: levelColors(type).fg }}
                           >
-                            {type.toUpperCase()}
+                            {String(type).toUpperCase()}
                           </span>
-                          <span className={styles.eventTime}>{formatDate(issue.lastSeen)}</span>
+                          {isNewSinceLastVisit(issue) && <span className={styles.newBadge}>NEW</span>}
+                          <span
+                            className={styles.eventTime}
+                            title={`Last seen ${new Date(issue.lastSeen).toLocaleString()}`}
+                          >
+                            {formatDate(issue.lastSeen)}
+                          </span>
                         </div>
                         <h4 className={styles.eventTitle}>
                           {issue.title}
@@ -2796,7 +3214,7 @@ export default function Dashboard() {
                         </h4>
                         <div className={styles.eventMeta}>
                           <span>{issue.project?.name || 'Unknown Project'}</span>
-                          <span>• {issue.status}</span>
+                          <span>• {issue._isStandaloneEvent ? String(issue.eventType || 'event').toLowerCase() : statusLabel(issue.status)}</span>
                           {!issue._isStandaloneEvent && issue.status !== 'RESOLVED' && issue.status !== 'IGNORED' && (
                             <>
                               <button
@@ -2825,6 +3243,15 @@ export default function Dashboard() {
                       </div>
                     );
                   })}
+                  {issues.length < issuesTotal && (
+                    <button
+                      onClick={loadMoreIssues}
+                      disabled={loadingMore}
+                      className={styles.loadMoreButton}
+                    >
+                      {loadingMore ? 'Loading…' : `Load more (${issues.length} of ${issuesTotal})`}
+                    </button>
+                  )}
                 </div>
                 </>
               )}
@@ -2839,7 +3266,7 @@ export default function Dashboard() {
         {/* New Project Modal */}
         {showNewProjectModal && (
           <div className={styles.modalOverlay} onClick={() => setShowNewProjectModal(false)}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modal} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
               <h3 className={styles.modalTitle}>Create New Project</h3>
               <form onSubmit={handleCreateProject}>
                 <input
@@ -2871,7 +3298,7 @@ export default function Dashboard() {
             setDeletingIssue(null);
             setDeletingEvent(null);
           }}>
-            <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modal} role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
               <h3 className={styles.modalTitle}>
                 {deletingIssue 
                   ? (deletingIssue.bulk ? 'Delete Multiple Issues' : 'Delete Issue')
@@ -2951,7 +3378,7 @@ export default function Dashboard() {
         {/* GitHub Issue Modal */}
         {showGitHubModal && (
           <div className={styles.modalOverlay} onClick={() => setShowGitHubModal(false)}>
-            <div className={styles.modal} style={{ maxWidth: '600px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modal} role="dialog" aria-modal="true" style={{ maxWidth: '600px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
               <h3 className={styles.modalTitle}>🐙 Create GitHub Issue</h3>
               <p className={styles.modalText}>
                 Copy the information below and create an issue on your GitHub repository.
@@ -3012,8 +3439,29 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* Keyboard shortcuts */}
+        {showShortcuts && (
+          <div className={styles.modalOverlay} onClick={() => setShowShortcuts(false)}>
+            <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>Keyboard shortcuts</h3>
+              <ul className={styles.shortcutList}>
+                <li><kbd className={styles.kbd}>j</kbd> / <kbd className={styles.kbd}>k</kbd><span>Next / previous issue</span></li>
+                <li><kbd className={styles.kbd}>r</kbd><span>Resolve / reopen open issue</span></li>
+                <li><kbd className={styles.kbd}>i</kbd><span>Ignore / unignore open issue</span></li>
+                <li><kbd className={styles.kbd}>/</kbd><span>Focus search</span></li>
+                <li><kbd className={styles.kbd}>Shift</kbd>+<kbd className={styles.kbd}>R</kbd><span>Refresh now</span></li>
+                <li><kbd className={styles.kbd}>Esc</kbd><span>Close panel, dialog or selection</span></li>
+                <li><kbd className={styles.kbd}>?</kbd><span>Show this help</span></li>
+              </ul>
+              <div className={styles.modalButtons}>
+                <button onClick={() => setShowShortcuts(false)} className={styles.modalButtonCancel}>Close</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Notification System */}
-        <div className={styles.notificationContainer}>
+        <div className={styles.notificationContainer} role="status" aria-live="polite">
           {notifications.map((notification) => (
             <div 
               key={notification.id} 
@@ -3027,6 +3475,17 @@ export default function Dashboard() {
                   {notification.type === 'info' && 'ℹ️'}
                 </span>
                 <span className={styles.notificationMessage}>{notification.message}</span>
+                {notification.action && (
+                  <button
+                    className={styles.notificationAction}
+                    onClick={() => {
+                      notification.action.onClick();
+                      removeNotification(notification.id);
+                    }}
+                  >
+                    {notification.action.label}
+                  </button>
+                )}
               </div>
               <button 
                 className={styles.notificationClose}

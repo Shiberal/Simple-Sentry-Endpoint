@@ -32,3 +32,14 @@
   text-align: left;
 }
 
+
+@media (max-width: 768px) {
+  .label {
+    display: none;
+  }
+
+  .toggle {
+    padding: var(--space-2);
+    min-height: 36px;
+  }
+}

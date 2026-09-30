@@ -17,6 +17,13 @@ export default async function handler(req, res) {
     sortOrder = 'desc'
   } = req.query;
 
+  // Only allow sorting on known columns, and keep paging within sane bounds
+  const SORTABLE_FIELDS = ['lastSeen', 'firstSeen', 'count', 'createdAt', 'title'];
+  const safeSortBy = SORTABLE_FIELDS.includes(sortBy) ? sortBy : 'lastSeen';
+  const safeSortOrder = sortOrder === 'asc' ? 'asc' : 'desc';
+  const safePage = Math.max(parseInt(page) || 1, 1);
+  const safePageSize = Math.min(Math.max(parseInt(pageSize) || 50, 1), 200);
+
   switch (method) {
     case 'GET':
       try {
@@ -27,7 +34,10 @@ export default async function handler(req, res) {
           where.projectId = parseInt(projectId);
         }
 
-        if (status && status !== 'all') {
+        // "active" means anything that is not resolved or ignored
+        if (status === 'active') {
+          where.status = { notIn: ['RESOLVED', 'IGNORED'] };
+        } else if (status && status !== 'all') {
           where.status = status.toUpperCase();
         }
 
@@ -37,10 +47,10 @@ export default async function handler(req, res) {
 
         // Search in title
         if (search) {
-          where.title = {
-            contains: search,
-            mode: 'insensitive'
-          };
+          where.OR = [
+            { title: { contains: search, mode: 'insensitive' } },
+            { culprit: { contains: search, mode: 'insensitive' } }
+          ];
         }
 
         // Date range filter
@@ -59,12 +69,11 @@ export default async function handler(req, res) {
         // We can add these filters to the event data JSON field later if needed
 
         // Pagination
-        const skip = (parseInt(page) - 1) * parseInt(pageSize);
-        const take = parseInt(pageSize);
+        const skip = (safePage - 1) * safePageSize;
+        const take = safePageSize;
 
         // Sorting
-        const orderBy = {};
-        orderBy[sortBy] = sortOrder;
+        const orderBy = { [safeSortBy]: safeSortOrder };
 
         // Fetch issues with counts and latest event
         const [issues, totalCount] = await Promise.all([
@@ -114,10 +123,10 @@ export default async function handler(req, res) {
           success: true, 
           issues,
           pagination: {
-            page: parseInt(page),
-            pageSize: parseInt(pageSize),
+            page: safePage,
+            pageSize: safePageSize,
             totalCount,
-            totalPages: Math.ceil(totalCount / parseInt(pageSize))
+            totalPages: Math.ceil(totalCount / safePageSize)
           }
         });
       } catch (error) {

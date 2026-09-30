@@ -83,13 +83,50 @@ code, pre {
   color: white;
 }
 
-/* Smooth theme transitions */
+/* Smooth theme transitions (kept off `*` so lists and scrolling stay cheap) */
 html,
 body,
-body * {
+button,
+input,
+select,
+textarea,
+a {
   transition-property: background-color, border-color, color;
   transition-duration: var(--transition-base);
   transition-timing-function: ease;
+}
+
+/* Native controls and scrollbars follow the active theme */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Firefox thin scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-primary) transparent;
+}
+
+/* Numbers line up in counters and timestamps */
+time,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Touch-friendly defaults */
