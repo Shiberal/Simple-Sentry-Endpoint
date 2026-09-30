@@ -488,3 +488,47 @@
   transform: translateY(0);
 }
 
+
+/* ===== Phone layout ===== */
+@media (max-width: 640px) {
+  .header {
+    padding: var(--space-3);
+  }
+
+  .main {
+    padding: var(--space-3);
+  }
+
+  .infoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .input {
+    font-size: 16px;
+  }
+
+  .codeContainer,
+  .codeBlockContainer {
+    flex-wrap: wrap;
+  }
+
+  .code,
+  .codeBlock {
+    overflow-x: auto;
+    word-break: break-all;
+  }
+
+  .formActions,
+  .deleteButtons {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .saveButton,
+  .cancelButton,
+  .deleteButton,
+  .dangerButton {
+    width: 100%;
+    min-height: 44px;
+  }
+}

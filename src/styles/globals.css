@@ -91,3 +91,34 @@ body * {
   transition-duration: var(--transition-base);
   transition-timing-function: ease;
 }
+
+/* Touch-friendly defaults */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  select {
+    touch-action: manipulation;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+@media (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px; /* prevents iOS zoom on focus */
+  }
+
+  img,
+  svg,
+  video {
+    max-width: 100%;
+  }
+
+  pre {
+    overflow-x: auto;
+  }
+}

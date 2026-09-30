@@ -29,6 +29,13 @@ export default function Dashboard() {
   const [deletingIssue, setDeletingIssue] = useState(null);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Start with the project sidebar closed on phone-sized screens
+  useEffect(() => {
+    if (window.matchMedia('(max-width: 768px)').matches) {
+      setSidebarCollapsed(true);
+    }
+  }, []);
   const [selectedEvents, setSelectedEvents] = useState([]); // Keep for backward compatibility
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
@@ -2579,7 +2586,7 @@ export default function Dashboard() {
               </span>
             </button>
 
-            <div className={styles.content}>
+            <div className={`${styles.content} ${selectedEvent ? styles.contentDetailOpen : ''}`}>
             <div className={styles.eventsList}>
               <div className={styles.eventsHeader}>
                 {isSelectionMode && (
