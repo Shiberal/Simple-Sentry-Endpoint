@@ -1,9 +1,10 @@
 import { promisify } from 'util';
 import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
+import { upsertIssueForEvent } from '@/lib/issues';
 import { generateFingerprint, extractTitle, extractCulprit, extractLevel } from '@/lib/fingerprint';
 import { sendNewIssueAlert } from '@/lib/email';
-import { createGitHubIssue, shouldAutoReport, updateGitHubIssue } from '@/lib/github';
+import { createGitHubIssue, shouldAutoReport, updateGitHubIssue, updateGitHubIssueState } from '@/lib/github';
 import { sendErrorNotification } from '@/lib/telegram';
 import { createTracker, withPerformance } from '@/lib/server-performance';
 
@@ -130,6 +131,7 @@ export default async function handler(req, res) {
 
         let issue = null;
         let isNewIssue = false;
+        let reopened = false;
         let event = null;
 
         // Only create issues for errors and messages, not for transactions
@@ -156,46 +158,17 @@ export default async function handler(req, res) {
           const level = extractLevel(eventData);
           tracker.mark('extract_metadata');
 
-          // Find or create issue
-          issue = await prisma.issue.findUnique({
-            where: {
-              projectId_fingerprint: {
-                projectId: project.id,
-                fingerprint: fingerprint
-              }
-            }
+          // Find or create the issue (handles merged fingerprints, races and regressions)
+          const upserted = await upsertIssueForEvent({
+            projectId: project.id,
+            fingerprint,
+            level,
+            create: { title, culprit }
           });
-          tracker.mark('issue_lookup');
-
-          if (issue) {
-            // Update existing issue
-            console.log('🔄 Updating existing issue:', issue.title);
-            issue = await prisma.issue.update({
-              where: { id: issue.id },
-              data: {
-                count: { increment: 1 },
-                lastSeen: new Date()
-              }
-            });
-            tracker.mark('issue_update');
-          } else {
-            // Create new issue
-            console.log('🆕 Creating NEW issue:', title);
-            isNewIssue = true;
-            issue = await prisma.issue.create({
-              data: {
-                projectId: project.id,
-                fingerprint,
-                title,
-                culprit,
-                level,
-                count: 1,
-                firstSeen: new Date(),
-                lastSeen: new Date()
-              }
-            });
-            tracker.mark('issue_create');
-          }
+          issue = upserted.issue;
+          isNewIssue = upserted.isNewIssue;
+          reopened = upserted.reopened;
+          tracker.mark(isNewIssue ? 'issue_create' : 'issue_update');
 
           // Save event to database linked to issue
           event = await prisma.event.create({
@@ -212,7 +185,7 @@ export default async function handler(req, res) {
         console.log('💾 Event saved to database (ID:', event.id, ')');
 
         // Send Telegram notification for new issues
-        if (isNewIssue && project.telegramChatId && issue.status !== 'IGNORED') {
+        if ((isNewIssue || reopened) && project.telegramChatId && issue.status !== 'IGNORED') {
           console.log('📱 Sending Telegram notification...');
           try {
             const telegramResult = await sendErrorNotification(issue, event, project);
@@ -223,6 +196,20 @@ export default async function handler(req, res) {
             }
           } catch (error) {
             console.error('❌ Error sending Telegram notification:', error);
+          }
+        }
+
+        // Regression: reopen the linked GitHub issue that was closed when this was resolved
+        if (reopened && issue.githubIssueNumber && project.githubRepo) {
+          try {
+            await updateGitHubIssueState({
+              issueNumber: issue.githubIssueNumber,
+              project,
+              state: 'open',
+              comment: '🔄 This issue has **regressed**: a new event arrived after it was marked resolved, so it was reopened.'
+            });
+          } catch (error) {
+            console.error('❌ Failed to reopen GitHub issue after regression:', error);
           }
         }
 
@@ -327,10 +314,10 @@ export default async function handler(req, res) {
               }
             }
 
-            if (shouldTrigger && (isNewIssue || condition.triggerOn === 'all')) {
+            if (shouldTrigger && (isNewIssue || reopened || condition.triggerOn === 'all')) {
               if (rule.lastTriggered) {
                 const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
-                if (new Date(rule.lastTriggered) > hourAgo && !isNewIssue) {
+                if (new Date(rule.lastTriggered) > hourAgo && !isNewIssue && !reopened) {
                   continue;
                 }
               }

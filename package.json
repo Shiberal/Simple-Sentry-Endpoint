@@ -9,6 +9,7 @@
     "start": "next start",
     "start:migrate": "prisma migrate deploy && next start",
     "lint": "eslint",
+    "test": "node --test src/lib/*.test.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",

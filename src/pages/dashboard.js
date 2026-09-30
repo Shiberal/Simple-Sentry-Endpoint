@@ -30,6 +30,9 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [dupPreview, setDupPreview] = useState(null); // { groups, outdated } awaiting confirmation
+  const [dupSelected, setDupSelected] = useState([]); // primaryIds of groups to merge
+  const [mergeDraft, setMergeDraft] = useState(null); // { issues, targetId } for manual merge
   const searchInputRef = useRef(null);
   const seenIdsRef = useRef(null);
   const lastVisitRef = useRef(null);
@@ -410,29 +413,102 @@ export default function Dashboard() {
     router.push('/login');
   };
 
+  // Preview duplicates first; nothing is merged until the user confirms
   const handleDeduplicate = async () => {
     if (isDeduplicating) return;
-    
+
     setIsDeduplicating(true);
     try {
-      const response = await fetch('/api/admin/merge-duplicates', {
-        method: 'POST'
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        showNotification(`✅ Successfully merged ${data.duplicatesMerged} duplicate issue${data.duplicatesMerged !== 1 ? 's' : ''}!`, 'success');
-        // Refresh the dashboard
-        fetchData();
+      const targets = selectedProject ? projects.filter(p => p.id === selectedProject) : projects;
+      const results = await Promise.all(targets.map(async (project) => {
+        const response = await fetch(`/api/issues/duplicates?projectId=${project.id}`);
+        const data = await response.json();
+        return data.success ? { project, ...data } : null;
+      }));
+      const found = results.filter(Boolean);
+      const groups = found.flatMap(r => r.groups.map(g => ({ ...g, projectId: r.project.id, projectName: r.project.name })));
+      const outdated = found.reduce((sum, r) => sum + r.outdatedFingerprints, 0);
+
+      if (groups.length === 0 && outdated === 0) {
+        showNotification('No duplicate issues found', 'success');
       } else {
-        showNotification(`❌ Failed to merge duplicates: ${data.message || 'Unknown error'}`, 'error');
+        setDupSelected(groups.map(g => g.primaryId));
+        setDupPreview({ groups, outdated });
       }
     } catch (error) {
-      console.error('Error deduplicating:', error);
-      showNotification('❌ Error deduplicating issues', 'error');
+      console.error('Error finding duplicates:', error);
+      showNotification('Could not check for duplicates', 'error');
     } finally {
       setIsDeduplicating(false);
+    }
+  };
+
+  const applyDuplicates = async () => {
+    if (!dupPreview || isDeduplicating) return;
+    setIsDeduplicating(true);
+    try {
+      const allSelected = dupSelected.length === dupPreview.groups.length;
+      const projectIds = [...new Set(dupPreview.groups.map(g => g.projectId))];
+      let merged = 0;
+      for (const projectId of projectIds) {
+        const primaryIds = dupPreview.groups.filter(g => g.projectId === projectId && dupSelected.includes(g.primaryId)).map(g => g.primaryId);
+        if (primaryIds.length === 0) continue;
+        const response = await fetch('/api/issues/duplicates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          // Omitting primaryIds also refreshes outdated fingerprints, so only do that when everything is selected
+          body: JSON.stringify(allSelected ? { projectId } : { projectId, primaryIds })
+        });
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || data.error || 'Merge failed');
+        merged += data.issuesMerged;
+      }
+      showNotification(`Merged ${merged} duplicate issue${merged === 1 ? '' : 's'}`, 'success');
+      setDupPreview(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error merging duplicates:', error);
+      showNotification(`Failed to merge duplicates: ${error.message}`, 'error');
+    } finally {
+      setIsDeduplicating(false);
+    }
+  };
+
+  // Merge the issues ticked in selection mode into one chosen issue
+  const startMerge = () => {
+    const chosen = issues.filter(i => selectedEvents.includes(i.id));
+    if (chosen.length < 2) {
+      showNotification('Select at least two issues to merge', 'info');
+      return;
+    }
+    if (new Set(chosen.map(i => i.projectId)).size > 1) {
+      showNotification('Issues can only be merged within the same project', 'warning');
+      return;
+    }
+    const oldest = [...chosen].sort((a, b) => new Date(a.firstSeen) - new Date(b.firstSeen))[0];
+    setMergeDraft({ issues: chosen, targetId: oldest.id });
+  };
+
+  const confirmMerge = async () => {
+    if (!mergeDraft) return;
+    try {
+      const response = await fetch('/api/issues/merge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          targetId: mergeDraft.targetId,
+          sourceIds: mergeDraft.issues.map(i => i.id).filter(id => id !== mergeDraft.targetId)
+        })
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Merge failed');
+      showNotification(`Merged ${data.merged} issue${data.merged === 1 ? '' : 's'} into #${mergeDraft.targetId}`, 'success');
+      setMergeDraft(null);
+      exitSelectionMode();
+      if (selectedEvent?.issue && mergeDraft.issues.some(i => i.id === selectedEvent.issue.id)) closeDetail();
+      fetchData();
+    } catch (error) {
+      showNotification(`Merge failed: ${error.message}`, 'error');
     }
   };
 
@@ -1390,10 +1466,12 @@ export default function Dashboard() {
     const onKeyDown = (e) => {
       const tag = e.target.tagName;
       const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target.isContentEditable;
-      const modalOpen = showDeleteConfirm || showGitHubModal || showNewProjectModal || showShortcuts;
+      const modalOpen = showDeleteConfirm || showGitHubModal || showNewProjectModal || showShortcuts || !!dupPreview || !!mergeDraft;
 
       if (e.key === 'Escape') {
-        if (showShortcuts) setShowShortcuts(false);
+        if (dupPreview) setDupPreview(null);
+        else if (mergeDraft) setMergeDraft(null);
+        else if (showShortcuts) setShowShortcuts(false);
         else if (showDeleteConfirm) { setShowDeleteConfirm(false); setDeletingIssue(null); setDeletingEvent(null); }
         else if (showGitHubModal) setShowGitHubModal(false);
         else if (showNewProjectModal) setShowNewProjectModal(false);
@@ -2786,7 +2864,8 @@ export default function Dashboard() {
                   onClick={handleDeduplicate}
                   className={styles.headerButton}
                   disabled={isDeduplicating}
-                  title="Merge duplicate issues"
+                  title="Find duplicate issues"
+                  aria-label="Find duplicate issues"
                 >
                   <Icon name="merge" size={16} />
                 </button>
@@ -2974,6 +3053,14 @@ export default function Dashboard() {
                     </div>
                     <div className={styles.selectionToolbarRight}>
                       <button
+                        onClick={startMerge}
+                        disabled={selectedEvents.length < 2}
+                        className={styles.cancelSelectionButton}
+                        title="Merge the selected issues into one"
+                      >
+                        <Icon name="merge" size={13} /> Merge
+                      </button>
+                      <button
                         onClick={() => handleBulkStatus('RESOLVED')}
                         disabled={selectedEvents.length === 0}
                         className={styles.cancelSelectionButton}
@@ -3125,6 +3212,14 @@ export default function Dashboard() {
                           </span>
                           <span className={styles.eventProject}>{issue.project?.name || 'Unknown project'}</span>
                           {isNewSinceLastVisit(issue) && <span className={styles.newBadge}>New</span>}
+                          {issue.regressedAt && issue.status === 'UNRESOLVED' && (
+                            <span
+                              className={styles.regressedBadge}
+                              title={`Reopened ${new Date(issue.regressedAt).toLocaleString()} after it was resolved`}
+                            >
+                              Regressed
+                            </span>
+                          )}
                           {(() => {
                             const typeBadge = getEventTypeBadge(issue);
                             return typeBadge ? (
@@ -3406,6 +3501,86 @@ export default function Dashboard() {
                 >
                   Close
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Duplicate review */}
+        {dupPreview && (
+          <div className={styles.modalOverlay} onClick={() => setDupPreview(null)}>
+            <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Duplicate issues" style={{ maxWidth: '640px', width: '92%' }} onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>
+                {dupPreview.groups.length > 0
+                  ? `${dupPreview.groups.length} group${dupPreview.groups.length === 1 ? '' : 's'} of duplicate issues`
+                  : 'Update issue grouping'}
+              </h3>
+              <p className={styles.modalText}>
+                {dupPreview.groups.length > 0
+                  ? 'Issues in a group have the same error signature. Merging keeps the oldest issue, moves every event and comment into it, and makes future events land there.'
+                  : `${dupPreview.outdated} issue${dupPreview.outdated === 1 ? ' uses' : 's use'} an older grouping key. Applying refreshes it so new events group correctly.`}
+              </p>
+              <div className={styles.dupList}>
+                {dupPreview.groups.map(group => (
+                  <label key={`${group.projectId}-${group.primaryId}`} className={styles.dupGroup}>
+                    <input
+                      type="checkbox"
+                      checked={dupSelected.includes(group.primaryId)}
+                      onChange={() => setDupSelected(prev => prev.includes(group.primaryId) ? prev.filter(id => id !== group.primaryId) : [...prev, group.primaryId])}
+                    />
+                    <div className={styles.dupGroupBody}>
+                      <div className={styles.dupGroupTitle}>{group.issues[0].title}</div>
+                      <div className={styles.dupGroupMeta}>
+                        {group.projectName} · {group.issues.length} issues · {group.issues.reduce((n, i) => n + i.count, 0)} events
+                        {' · '}keeps #{group.primaryId}, merges {group.issues.slice(1).map(i => `#${i.id}`).join(', ')}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className={styles.modalButtons}>
+                <button onClick={() => setDupPreview(null)} className={styles.modalButtonCancel}>Cancel</button>
+                <button
+                  onClick={applyDuplicates}
+                  disabled={isDeduplicating || (dupPreview.groups.length > 0 && dupSelected.length === 0)}
+                  className={styles.modalButtonSubmit}
+                >
+                  {isDeduplicating ? 'Merging…' : dupPreview.groups.length > 0 ? `Merge ${dupSelected.length} group${dupSelected.length === 1 ? '' : 's'}` : 'Apply'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Manual merge */}
+        {mergeDraft && (
+          <div className={styles.modalOverlay} onClick={() => setMergeDraft(null)}>
+            <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Merge issues" style={{ maxWidth: '560px', width: '92%' }} onClick={(e) => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>Merge {mergeDraft.issues.length} issues</h3>
+              <p className={styles.modalText}>
+                Choose the issue to keep. The others are removed and their events, comments and counts move into it. Future events matching any of them land in the kept issue.
+              </p>
+              <div className={styles.dupList}>
+                {mergeDraft.issues.map(issue => (
+                  <label key={issue.id} className={styles.dupGroup}>
+                    <input
+                      type="radio"
+                      name="merge-target"
+                      checked={mergeDraft.targetId === issue.id}
+                      onChange={() => setMergeDraft({ ...mergeDraft, targetId: issue.id })}
+                    />
+                    <div className={styles.dupGroupBody}>
+                      <div className={styles.dupGroupTitle}>{issue.title}</div>
+                      <div className={styles.dupGroupMeta}>
+                        #{issue.id} · {issue.count} events · first seen {formatDate(issue.firstSeen)} · {statusLabel(issue.status)}
+                      </div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className={styles.modalButtons}>
+                <button onClick={() => setMergeDraft(null)} className={styles.modalButtonCancel}>Cancel</button>
+                <button onClick={confirmMerge} className={styles.modalButtonSubmit}>Merge into #{mergeDraft.targetId}</button>
               </div>
             </div>
           </div>

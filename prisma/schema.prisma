@@ -76,6 +76,8 @@ model Issue {
   assignedTo        User?       @relation("AssignedIssues", fields: [assignedToId], references: [id], onDelete: SetNull)
   githubIssueUrl    String? // URL of the created GitHub issue (if auto-reported)
   githubIssueNumber Int? // GitHub issue number (if auto-reported)
+  mergedFingerprints String[] @default([]) // Fingerprints of issues merged into this one; new events with them attach here
+  regressedAt       DateTime? // Set when a resolved issue received a new event and was reopened
   // CSP-specific fields
   violatedDirective String? // CSP directive that was violated
   blockedUri        String? // URI that was blocked by CSP

@@ -2194,6 +2194,65 @@
   padding: var(--space-4);
 }
 
+/* Regression + duplicate review */
+.regressedBadge {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background-color: var(--warning-bg);
+  color: var(--warning);
+  font-size: 10px;
+  font-weight: var(--weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.dupList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 48vh;
+  overflow-y: auto;
+  margin-bottom: var(--space-4);
+}
+
+.dupGroup {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.dupGroup:hover {
+  background-color: var(--bg-hover);
+}
+
+.dupGroup input {
+  margin-top: 3px;
+  accent-color: var(--accent-primary);
+}
+
+.dupGroupBody {
+  min-width: 0;
+}
+
+.dupGroupTitle {
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.dupGroupMeta {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
 /* ===== Phone / small tablet layout ===== */
 @media (max-width: 768px) {
   .container {
@@ -2606,5 +2665,18 @@
 
   .detailHeaderActions {
     width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Bulk-action bar: let the buttons wrap instead of overflowing */
+  .selectionToolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .selectionToolbarRight {
+    flex-wrap: wrap;
   }
 }
