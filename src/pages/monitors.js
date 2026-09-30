@@ -480,7 +480,7 @@ export default function MonitorsPage() {
                           <div className={m.detailGrid}>
                             <div>
                               <h3 className={m.detailTitle}>Configuration</h3>
-                              <p className={m.detailLine}><span>Schedule</span> {mon.scheduleText ? <>{mon.scheduleText}{mon.scheduleText !== mon.schedule && <code className={m.code}>{mon.schedule}</code>}</> : 'None (SDK check-ins only)'}</p>
+                              <p className={m.detailLine}><span>Schedule</span> {mon.scheduleText ? <>{mon.scheduleText}{mon.schedule && mon.scheduleText !== mon.schedule && <code className={m.code}>{mon.schedule}</code>}</> : 'None (SDK check-ins only)'}</p>
                               <p className={m.detailLine}><span>Status</span> {mon.healthReason}</p>
                               <p className={m.detailLine}><span>Average run</span> {fmtDuration(mon.stats.avgDurationMs)}</p>
                               <p className={m.detailLine}><span>Last 24h</span> {mon.stats.ok24h} ok · {mon.stats.error24h} failed</p>

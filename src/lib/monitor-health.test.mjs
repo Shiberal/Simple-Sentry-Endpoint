@@ -52,3 +52,9 @@ test('first HTTP ping is not lost when the worker misses the exact minute', () =
   assert.equal(isMonitorDueForHttpPing(m, now), true, 'a slot passed since creation');
   assert.equal(isMonitorDueForHttpPing({ ...m, createdAt: at(1) }, now), false, 'nothing due yet');
 });
+
+test('interval monitors are due when the previous run was one interval minus clock drift ago', () => {
+  const m = { schedule: null, lastCheckInAt: new Date(now.getTime() - 59 * 1000), createdAt: at(60) };
+  assert.equal(isMonitorDueForHttpPing(m, now, 60000), true);
+  assert.equal(isMonitorDueForHttpPing({ ...m, lastCheckInAt: new Date(now.getTime() - 30 * 1000) }, now, 60000), false);
+});

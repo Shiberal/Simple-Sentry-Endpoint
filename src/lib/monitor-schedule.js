@@ -1,5 +1,8 @@
 const MINUTE_MS = 60 * 1000;
 const DEFAULT_FALLBACK_INTERVAL_MS = 5 * MINUTE_MS;
+// Poll ticks and check-in timestamps drift by a few seconds; without slack a monitor whose
+// interval equals the poll period is only picked up every other tick.
+const DUE_SLACK_MS = 5 * 1000;
 const MAX_LOOKBACK_MINUTES = 7 * 24 * 60;
 
 function parseCronNumber(value, min, max, normalize) {
@@ -150,13 +153,13 @@ export function isMonitorDueForHttpPing(
 
   if (!schedule) {
     if (!hasValidLastCheckIn) return true;
-    return now.getTime() - lastCheckInAt.getTime() >= fallbackIntervalMs;
+    return now.getTime() - lastCheckInAt.getTime() >= fallbackIntervalMs - DUE_SLACK_MS;
   }
 
   const parsedSchedule = parseCronSchedule(schedule);
   if (!parsedSchedule) {
     if (!hasValidLastCheckIn) return true;
-    return now.getTime() - lastCheckInAt.getTime() >= fallbackIntervalMs;
+    return now.getTime() - lastCheckInAt.getTime() >= fallbackIntervalMs - DUE_SLACK_MS;
   }
 
   if (!hasValidLastCheckIn) {

@@ -97,7 +97,12 @@ export default async function handler(req, res) {
           history: [...recent].reverse().map((c) => ({ status: c.status, durationMs: c.durationMs, at: c.createdAt })),
           health: health.health,
           healthReason: health.reason,
-          scheduleText: describeSchedule(m.schedule),
+          // Ping monitors without a cron schedule still run, on the default interval
+          scheduleText:
+            describeSchedule(m.schedule) ||
+            (m.pingUrls.length > 0
+              ? `Every ${Math.round(fallbackIntervalMs / 60000)} minutes (default, no schedule set)`
+              : null),
           nextRunAt: health.nextRunAt,
           lastExpectedAt: health.lastExpectedAt,
           lastRunAt: lastFinished?.createdAt || m.lastCheckInAt || null,
