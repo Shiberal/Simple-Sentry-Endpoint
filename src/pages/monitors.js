@@ -421,7 +421,7 @@ export default function MonitorsPage() {
                   </strong>{' '}
                   Monitors with ping URLs only run while a scheduler is running
                   {scheduler.overduePingMonitors > 0 && `, and ${scheduler.overduePingMonitors} ${scheduler.overduePingMonitors === 1 ? 'is' : 'are'} overdue`}.
-                  Start <code className={m.code}>npm run worker:ping</code>, use the Docker image (it starts the worker), set <code className={m.code}>ENABLE_MONITOR_HTTP_PINGER=true</code>,
+                  Start <code className={m.code}>npm run worker:ping</code>, use the Docker image (it starts the worker), set <code className={m.code}>ENABLE_MONITOR_HTTP_PINGER=true</code> (not effective in Docker),
                   or call <code className={m.code}>/api/cron/monitors-ping</code> from an external scheduler.
                   {scheduler.workers[0]?.lastError && <> Last error: <code className={m.code}>{scheduler.workers[0].lastError}</code></>}
                 </div>
