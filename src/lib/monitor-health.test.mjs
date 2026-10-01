@@ -58,3 +58,35 @@ test('interval monitors are due when the previous run was one interval minus clo
   assert.equal(isMonitorDueForHttpPing(m, now, 60000), true);
   assert.equal(isMonitorDueForHttpPing({ ...m, lastCheckInAt: new Date(now.getTime() - 30 * 1000) }, now, 60000), false);
 });
+
+test('network failures report their real cause, not just "fetch failed"', async () => {
+  const { pingUrlListSequential, describeFetchError } = await import('./monitor-http-ping.js');
+  assert.equal(describeFetchError(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ENOTFOUND' } })), 'fetch failed (ENOTFOUND)');
+  const net = await import('node:net');
+  const probe = net.createServer();
+  await new Promise((r) => probe.listen(0, r));
+  const closedPort = probe.address().port;
+  await new Promise((r) => probe.close(r)); // nothing listens here any more
+  const refused = await pingUrlListSequential([`http://127.0.0.1:${closedPort}/`], { retries: 0, timeoutMs: 3000 });
+  assert.equal(refused.allOk, false);
+  assert.match(refused.results[0].error, /ECONNREFUSED/);
+  const missing = await pingUrlListSequential(['http://no-such-host.invalid/'], { retries: 0, timeoutMs: 5000 });
+  assert.match(missing.results[0].error, /ENOTFOUND|EAI_AGAIN/);
+});
+
+test('only a 2xx counts as up, so a 503 from a down service is never hidden', async () => {
+  const http = await import('node:http');
+  const { pingUrlListSequential } = await import('./monitor-http-ping.js');
+  const server = http.createServer((req, res) => { res.statusCode = req.url === '/ok' ? 200 : req.url === '/redirect' ? 302 : 503; if (req.url === '/redirect') res.setHeader('location', '/ok'); res.end('x'); });
+  await new Promise((r) => server.listen(0, r));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  try {
+    assert.equal((await pingUrlListSequential([`${base}/ok`], { retries: 0 })).allOk, true, '200 is up');
+    assert.equal((await pingUrlListSequential([`${base}/redirect`], { retries: 0 })).allOk, true, 'a redirect to a 200 is up');
+    const down = await pingUrlListSequential([`${base}/down`], { retries: 0 });
+    assert.equal(down.allOk, false);
+    assert.equal(down.results[0].status, 503);
+  } finally {
+    server.close();
+  }
+});

@@ -179,6 +179,14 @@
 }
 
 /* Status chip: dot + word, never colour alone */
+.reason {
+  font-size: 11px;
+  color: var(--error);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -367,11 +375,32 @@
   text-transform: capitalize;
 }
 
+.detailActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.editButton {
+  height: 28px;
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--font-xs);
+  cursor: pointer;
+}
+
+.editButton:hover {
+  background-color: var(--bg-hover);
+}
+
 .dangerLink {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: var(--space-3);
   padding: 0;
   background: none;
   border: none;

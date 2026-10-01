@@ -84,6 +84,17 @@ export default async function handler(req, res) {
         const latest = recent[0] || null;
         const lastFinished = recent.find((c) => c.status !== 'in_progress') || null;
         const health = computeMonitorHealth({ monitor: m, latest, lastFinished, now, fallbackIntervalMs });
+        if (health.health === 'failing') {
+          const failed = (lastFinished?.data?.results || []).filter((r) => r.ok === false);
+          if (failed.length) {
+            const why = failed.slice(0, 2).map((r) => {
+              let host = r.url;
+              try { host = new URL(r.url).host; } catch { /* keep raw */ }
+              return `${host}: ${r.status ? `HTTP ${r.status}` : r.error || 'failed'}`;
+            }).join('; ');
+            health.reason = `Last run failed: ${why}${failed.length > 2 ? ` (+${failed.length - 2} more)` : ''}`;
+          }
+        }
 
         const c24 = counts.filter((c) => c.monitorId === m.id);
         const ok24h = c24.filter((c) => c.status === 'ok').reduce((n, c) => n + c._count._all, 0);

@@ -98,6 +98,7 @@ export default function MonitorsPage() {
   const [error, setError] = useState('');
 
   const [showNew, setShowNew] = useState(false);
+  const [editing, setEditing] = useState(null); // monitor being edited, or null when creating
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ slug: '', name: '', schedule: '', environment: '', urls: '' });
 
@@ -181,23 +182,60 @@ export default function MonitorsPage() {
     return j;
   };
 
-  const handleCreate = async (e) => {
+  const closeDialog = () => {
+    setShowNew(false);
+    setEditing(null);
+    setForm({ slug: '', name: '', schedule: '', environment: '', urls: '' });
+  };
+
+  const openNew = () => {
+    setEditing(null);
+    setForm({ slug: '', name: '', schedule: '', environment: '', urls: '' });
+    setShowNew(true);
+  };
+
+  const openEdit = (mon) => {
+    setEditing(mon);
+    setForm({
+      slug: mon.slug,
+      name: mon.name || '',
+      schedule: mon.schedule || '',
+      environment: mon.environment || '',
+      urls: (mon.pingUrls || []).join('\n')
+    });
+    setShowNew(true);
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
     setCreating(true);
     setError('');
     try {
-      await api('', {
-        method: 'POST',
-        body: JSON.stringify({
-          slug: form.slug.trim(),
-          name: form.name.trim() || undefined,
-          schedule: form.schedule.trim() || undefined,
-          environment: form.environment.trim() || undefined,
-          urls: form.urls.trim()
-        })
-      });
-      setForm({ slug: '', name: '', schedule: '', environment: '', urls: '' });
-      setShowNew(false);
+      if (editing) {
+        // Empty strings clear a field; the slug is fixed because SDK check-ins are matched by it
+        await api('', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            monitorId: editing.id,
+            name: form.name.trim(),
+            schedule: form.schedule.trim(),
+            environment: form.environment.trim(),
+            urls: form.urls.trim()
+          })
+        });
+      } else {
+        await api('', {
+          method: 'POST',
+          body: JSON.stringify({
+            slug: form.slug.trim(),
+            name: form.name.trim() || undefined,
+            schedule: form.schedule.trim() || undefined,
+            environment: form.environment.trim() || undefined,
+            urls: form.urls.trim()
+          })
+        });
+      }
+      closeDialog();
       setFilter('all'); // make sure the new monitor is visible
       await loadMonitors(pid, { quiet: true });
     } catch (err) {
@@ -362,7 +400,7 @@ export default function MonitorsPage() {
                     <Icon name="play" size={14} /> <span className={m.headerLabel}>{busy === 'all' ? 'Running…' : 'Run all pings'}</span>
                   </button>
                 )}
-                <button type="button" onClick={() => setShowNew(true)} className={m.newButton} aria-label="New monitor">
+                <button type="button" onClick={openNew} className={m.newButton} aria-label="New monitor">
                   <Icon name="plus" size={14} strokeWidth={2.25} /> <span className={m.headerLabel}>New monitor</span>
                 </button>
               </div>
@@ -417,7 +455,7 @@ export default function MonitorsPage() {
                   Create a monitor with the same slug your Sentry SDK uses in <code className={m.code}>monitor_slug</code>,
                   or add ping URLs to have the server check them on a schedule.
                 </p>
-                <button type="button" onClick={() => setShowNew(true)} className={m.newButton}>
+                <button type="button" onClick={openNew} className={m.newButton}>
                   <Icon name="plus" size={14} strokeWidth={2.25} /> New monitor
                 </button>
               </div>
@@ -438,6 +476,7 @@ export default function MonitorsPage() {
                           <div className={m.names}>
                             <span className={m.name}>{mon.name || mon.slug}</span>
                             <span className={m.slug}>{mon.slug}{mon.environment ? ` · ${mon.environment}` : ''}</span>
+                            {mon.health === 'failing' && <span className={m.reason} title={mon.healthReason}>{mon.healthReason.replace('Last run failed: ', '')}</span>}
                           </div>
                         </div>
 
@@ -489,9 +528,12 @@ export default function MonitorsPage() {
                                   <ul className={m.urlList}>{mon.pingUrls.map((u) => <li key={u} className={m.mono}>{u}</li>)}</ul>
                                 </div>
                               )}
-                              <button type="button" className={m.dangerLink} onClick={() => deleteMonitor(mon)}>
-                                <Icon name="trash" size={13} /> Delete monitor
-                              </button>
+                              <div className={m.detailActions}>
+                                <button type="button" className={m.editButton} onClick={() => openEdit(mon)}>Edit monitor</button>
+                                <button type="button" className={m.dangerLink} onClick={() => deleteMonitor(mon)}>
+                                  <Icon name="trash" size={13} /> Delete
+                                </button>
+                              </div>
                             </div>
                             <div>
                               <h3 className={m.detailTitle}>Recent runs</h3>
@@ -530,14 +572,14 @@ export default function MonitorsPage() {
       </div>
 
       {showNew && (
-        <div className={m.overlay} onClick={() => setShowNew(false)}>
-          <form className={m.dialog} role="dialog" aria-modal="true" aria-label="New monitor" onClick={(e) => e.stopPropagation()} onSubmit={handleCreate}>
-            <h2 className={m.dialogTitle}>New monitor</h2>
+        <div className={m.overlay} onClick={closeDialog}>
+          <form className={m.dialog} role="dialog" aria-modal="true" aria-label={editing ? 'Edit monitor' : 'New monitor'} onClick={(e) => e.stopPropagation()} onSubmit={handleSave}>
+            <h2 className={m.dialogTitle}>{editing ? `Edit ${editing.slug}` : 'New monitor'}</h2>
             <p className={m.dialogText}>Use the same slug in your SDK&apos;s <code className={m.code}>monitor_slug</code>. Add ping URLs if the server should check them for you.</p>
 
             <label className={m.field}>
               <span className={m.label}>Slug</span>
-              <input required autoFocus value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="nightly-backup" pattern="^[a-zA-Z0-9_\-]{1,128}$" className={m.input} />
+              <input required autoFocus={!editing} disabled={!!editing} value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="nightly-backup" pattern="^[a-zA-Z0-9_\-]{1,128}$" className={m.input} />
             </label>
             <label className={m.field}>
               <span className={m.label}>Display name <em>(optional)</em></span>
@@ -562,8 +604,8 @@ export default function MonitorsPage() {
             </label>
 
             <div className={m.dialogActions}>
-              <button type="button" className={m.cancelButton} onClick={() => setShowNew(false)}>Cancel</button>
-              <button type="submit" className={m.newButton} disabled={creating || !scheduleOk}>{creating ? 'Creating…' : 'Create monitor'}</button>
+              <button type="button" className={m.cancelButton} onClick={closeDialog}>Cancel</button>
+              <button type="submit" className={m.newButton} disabled={creating || !scheduleOk}>{creating ? 'Saving…' : editing ? 'Save changes' : 'Create monitor'}</button>
             </div>
           </form>
         </div>

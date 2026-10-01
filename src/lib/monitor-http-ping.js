@@ -54,6 +54,17 @@ export function sanitizePingUrls(urls) {
   return [...new Set(out)];
 }
 
+/**
+ * Node's fetch reports every network failure as just "fetch failed"; the useful part
+ * (ENOTFOUND, ECONNREFUSED, a certificate error...) is on `cause`.
+ */
+export function describeFetchError(e) {
+  const message = String(e?.message || e);
+  const cause = e?.cause;
+  const detail = cause?.code || cause?.message;
+  return detail && !message.includes(detail) ? `${message} (${detail})` : message;
+}
+
 async function pingUrlOnce(url, timeoutMs) {
   const t0 = Date.now();
   const controller = new AbortController();
@@ -78,7 +89,7 @@ async function pingUrlOnce(url, timeoutMs) {
     const aborted = e?.name === 'AbortError';
     return {
       ok: false,
-      error: aborted ? `timeout (${timeoutMs}ms)` : String(e?.message || e),
+      error: aborted ? `timeout (${timeoutMs}ms)` : describeFetchError(e),
       ms: Date.now() - t0
     };
   }
