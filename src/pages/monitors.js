@@ -410,17 +410,37 @@ export default function MonitorsPage() {
           <main className={m.page}>
             {error ? <div className={m.error} role="alert">{error}</div> : null}
 
-            {scheduler?.warning && (
+            {scheduler?.hasPingMonitors && scheduler.state !== 'running' && (
               <div className={m.banner} role="status">
                 <Icon name="alert" size={18} />
                 <div>
-                  <strong>Scheduled pings are overdue.</strong>{' '}
-                  {scheduler.overduePingMonitors} monitor{scheduler.overduePingMonitors === 1 ? ' has' : 's have'} ping URLs but nothing has run them on schedule.
-                  Nothing in this app runs them unless you turn a scheduler on:
-                  start <code className={m.code}>npm run worker:ping</code>, set <code className={m.code}>ENABLE_MONITOR_HTTP_PINGER=true</code>,
+                  <strong>
+                    {scheduler.state === 'stopped'
+                      ? `The ping worker stopped reporting ${ago(scheduler.workers[0]?.lastTickAt, now)}.`
+                      : 'No ping worker has reported in.'}
+                  </strong>{' '}
+                  Monitors with ping URLs only run while a scheduler is running
+                  {scheduler.overduePingMonitors > 0 && `, and ${scheduler.overduePingMonitors} ${scheduler.overduePingMonitors === 1 ? 'is' : 'are'} overdue`}.
+                  Start <code className={m.code}>npm run worker:ping</code>, use the Docker image (it starts the worker), set <code className={m.code}>ENABLE_MONITOR_HTTP_PINGER=true</code>,
                   or call <code className={m.code}>/api/cron/monitors-ping</code> from an external scheduler.
-                  {!scheduler.inProcessPinger && !scheduler.cronEndpointConfigured && ' This server has neither the in-process pinger nor a cron secret configured.'}
+                  {scheduler.workers[0]?.lastError && <> Last error: <code className={m.code}>{scheduler.workers[0].lastError}</code></>}
                 </div>
+              </div>
+            )}
+
+            {scheduler?.hasPingMonitors && scheduler.state === 'running' && (
+              <div className={m.workerLine} role="status">
+                <span className={m.workerDot} />
+                {(() => {
+                  const w = scheduler.workers.find((x) => x.alive);
+                  return (
+                    <span>
+                      Scheduler running ({w.kind === 'in-process' ? 'in the web server' : w.kind === 'cron' ? 'external cron' : 'ping worker'}) · last check {ago(w.lastTickAt, now)} · {w.ticks} check{w.ticks === 1 ? '' : 's'} since {new Date(w.startedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      {w.lastError && <span className={m.textBad}> · last error: {w.lastError}</span>}
+                      {scheduler.overduePingMonitors > 0 && <span className={m.textWarn}> · {scheduler.overduePingMonitors} monitor{scheduler.overduePingMonitors === 1 ? '' : 's'} overdue, check the worker logs</span>}
+                    </span>
+                  );
+                })()}
               </div>
             )}
 

@@ -33,6 +33,9 @@ export default async function handler(req, res) {
       force,
       respectSchedule: !force
     });
+    const { recordHeartbeat } = await import('@/lib/worker-heartbeat');
+    // An external scheduler calls this endpoint; assume it calls at least every 15 minutes
+    await recordHeartbeat({ id: 'cron:endpoint', kind: 'cron', startedAt: new Date(), intervalMs: 15 * 60 * 1000, ran: summaries.length });
     return res.status(200).json({
       success: true,
       ranMonitors: summaries.length,

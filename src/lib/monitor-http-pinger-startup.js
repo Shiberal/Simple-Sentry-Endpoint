@@ -13,6 +13,6 @@ export async function maybeStartMonitorHttpPingerBackground() {
   started = true;
 
   const { startMonitorPingWorker } = await import('./monitor-ping-worker.js');
-  const worker = startMonitorPingWorker();
+  const worker = startMonitorPingWorker({ kind: 'in-process' });
   await worker.run();
 }

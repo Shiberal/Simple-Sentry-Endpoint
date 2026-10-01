@@ -1,4 +1,5 @@
 import prisma from './prisma.js';
+import { recordHeartbeat, workerInstanceId } from './worker-heartbeat.js';
 
 const MIN_POLL_INTERVAL_MS = 60000;
 
@@ -12,6 +13,9 @@ export function startMonitorPingWorker(options = {}) {
   let stopping = false;
   let timer = null;
   let tickInFlight = false;
+  const kind = options.kind || 'worker';
+  const instanceId = workerInstanceId(kind);
+  const startedAt = new Date();
 
   const tick = async () => {
     if (stopping || tickInFlight) return;
@@ -20,6 +24,7 @@ export function startMonitorPingWorker(options = {}) {
     try {
       const { runMonitorHttpPings } = await import('./monitor-ping-runner.js');
       const summaries = await runMonitorHttpPings({ respectSchedule: true });
+      await recordHeartbeat({ id: instanceId, kind, startedAt, intervalMs, ran: summaries.length });
       if (typeof options.onTick === 'function') {
         options.onTick(summaries);
       } else if (summaries.length > 0) {
@@ -27,6 +32,7 @@ export function startMonitorPingWorker(options = {}) {
       }
     } catch (error) {
       console.error('[monitor-ping-worker]', error.message || error);
+      await recordHeartbeat({ id: instanceId, kind, startedAt, intervalMs, error: String(error.message || error).slice(0, 300) });
     } finally {
       tickInFlight = false;
     }

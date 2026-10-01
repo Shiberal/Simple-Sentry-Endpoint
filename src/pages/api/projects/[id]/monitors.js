@@ -3,6 +3,7 @@ import { parsePingUrlsInput, sanitizePingUrls } from '@/lib/monitor-http-ping';
 import { parse } from 'cookie';
 import { computeMonitorHealth, describeSchedule, healthSeverity } from '@/lib/monitor-health';
 import { DEFAULT_MONITOR_PING_INTERVAL_MS } from '@/lib/monitor-schedule';
+import { isHeartbeatAlive } from '@/lib/worker-heartbeat';
 
 function getUser(req) {
   try {
@@ -136,13 +137,40 @@ export default async function handler(req, res) {
       summary.uptime24h = finished24 ? Math.round((ok24 / finished24) * 1000) / 10 : null;
       summary.runs24h = finished24;
 
-      // Scheduled pings only run if something drives them; flag when they are overdue
+      // Scheduled pings only run if something drives them. Workers report a heartbeat every tick,
+      // so we can say whether one is alive instead of guessing from overdue monitors.
       const overduePings = enriched.filter((m) => m.pingUrls.length > 0 && m.health === 'missed').length;
+      let beats = [];
+      try {
+        beats = await prisma.workerHeartbeat.findMany({
+          where: { lastTickAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) } },
+          orderBy: { lastTickAt: 'desc' }
+        });
+      } catch (e) {
+        // Table not created yet (deploy in progress): treat as no heartbeat information
+      }
+      const workers = beats.map((b) => ({
+        id: b.id,
+        kind: b.kind,
+        startedAt: b.startedAt,
+        lastTickAt: b.lastTickAt,
+        intervalMs: b.intervalMs,
+        ticks: b.ticks,
+        lastRan: b.lastRan,
+        lastError: b.lastError,
+        alive: isHeartbeatAlive(b, now.getTime())
+      }));
+      const alive = workers.some((w) => w.alive);
+      const hasPingMonitors = enriched.some((m) => m.pingUrls.length > 0 && m.status !== 'paused');
       const scheduler = {
         inProcessPinger: process.env.ENABLE_MONITOR_HTTP_PINGER === 'true' || process.env.ENABLE_MONITOR_HTTP_PINGER === '1',
         cronEndpointConfigured: !!String(process.env.MONITOR_CRON_SECRET || '').trim(),
+        hasPingMonitors,
+        // running: a scheduler ticked recently; stopped: one did before but not lately; never: none ever reported
+        state: alive ? 'running' : workers.length ? 'stopped' : 'never',
+        workers,
         overduePingMonitors: overduePings,
-        warning: overduePings > 0
+        warning: hasPingMonitors && (!alive || overduePings > 0)
       };
 
       return res.status(200).json({ success: true, monitors: enriched, summary, scheduler });

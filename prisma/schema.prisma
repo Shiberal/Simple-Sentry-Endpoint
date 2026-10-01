@@ -213,6 +213,18 @@ model MonitorCheckIn {
   @@index([monitorId, createdAt])
 }
 
+// One row per running scheduler (ping worker, in-process pinger, cron endpoint) so the UI can show it is alive
+model WorkerHeartbeat {
+  id         String   @id
+  kind       String
+  startedAt  DateTime
+  lastTickAt DateTime
+  intervalMs Int
+  ticks      Int      @default(0)
+  lastRan    Int      @default(0)
+  lastError  String?
+}
+
 model SystemSettings {
   id                    Int       @id @default(0)
   allowSelfRegistration Boolean   @default(true)
