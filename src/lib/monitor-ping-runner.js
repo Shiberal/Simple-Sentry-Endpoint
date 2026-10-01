@@ -88,6 +88,13 @@ export async function runMonitorHttpPings(filters = {}) {
     while (next < due.length) {
       const m = due[next++];
       try {
+        // Claim the monitor before pinging. With several workers or replicas, only the one whose
+        // update matches the lastCheckInAt it read wins, so each due monitor is pinged once.
+        const claimed = await prisma.cronMonitor.updateMany({
+          where: { id: m.id, lastCheckInAt: m.lastCheckInAt },
+          data: { lastCheckInAt: new Date() }
+        });
+        if (claimed.count === 0) continue;
         summaries.push(await pingOneMonitor(m, m.pingUrls));
       } catch (error) {
         console.error(`[monitor-ping-runner] monitor ${m.id} (${m.slug}) failed:`, error.message || error);

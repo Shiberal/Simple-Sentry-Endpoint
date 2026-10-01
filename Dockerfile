@@ -76,6 +76,8 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 ENV ENABLE_MONITOR_HTTP_PINGER=false
+# The entrypoint starts the monitor ping worker beside the server; set to false if a separate worker runs it
+ENV ENABLE_PING_WORKER=true
 ENV MONITOR_HTTP_PINGER_INTERVAL_MS=60000
 
 # Run migrations and start server

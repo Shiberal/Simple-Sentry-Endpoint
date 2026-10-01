@@ -35,6 +35,7 @@ Create a `.env` file in the project root:
 | `TELEGRAM_BOT_TOKEN` | No | Telegram bot token for notifications |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | Mail server settings for email alerts |
 | `EMAIL_FROM` | No | Sender address for mail (if omitted, `SMTP_USER` is used) |
+| `ENABLE_PING_WORKER` | No | Docker image only: the entrypoint starts the monitor ping worker beside the web server (default `true`). Set `false` if a separate worker container runs it, so pings are not doubled. Skipped automatically when `ENABLE_MONITOR_HTTP_PINGER=true` |
 | `ENABLE_MONITOR_HTTP_PINGER` | No | Set to `true` to run scheduled monitor HTTP pings inside the Next.js server process (off by default; use `npm run worker:ping` or a separate container instead) |
 | `MONITOR_HTTP_PINGER_INTERVAL_MS` | No | How often the ping worker checks for due monitors; defaults to `60000` |
 | `MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS` | No | Fallback interval for monitors without a valid cron schedule; defaults to 5 minutes |
@@ -117,7 +118,7 @@ The Monitors page shows each monitor's health at a glance:
 
 **Nothing runs scheduled HTTP pings unless you start a scheduler** (see below). The default is off, so ping-URL monitors will show as Missed and the page will say so. SDK check-in monitors do not need a scheduler.
 
-Run monitor HTTP pings in a dedicated worker process (recommended):
+The Docker image starts the ping worker for you (see `ENABLE_PING_WORKER`). Outside Docker, run monitor HTTP pings in a dedicated worker process (recommended):
 
 ```bash
 npm run worker:ping

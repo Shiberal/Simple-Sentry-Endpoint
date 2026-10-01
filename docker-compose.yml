@@ -6,6 +6,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL}
       ENABLE_MONITOR_HTTP_PINGER: "false"
+      # The dedicated ping-worker service below runs the pings, so the web image must not start its own
+      ENABLE_PING_WORKER: "false"
 
   ping-worker:
     build: .
