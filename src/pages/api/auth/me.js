@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
+import { readSession } from '@/lib/session';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -8,14 +8,11 @@ export default async function handler(req, res) {
 
   try {
     // Get session from cookie
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
+    const sessionData = readSession(req);
 
-    if (!session) {
+    if (!sessionData) {
       return res.status(200).json({ success: true, user: null });
     }
-
-    const sessionData = JSON.parse(session);
 
     // Get user from database
     const user = await prisma.user.findUnique({

@@ -1,9 +1,22 @@
 import prisma from '@/lib/prisma';
 import { updateGitHubIssueState } from '@/lib/github';
+import { requireProjectAccess } from '@/lib/session';
 
 export default async function handler(req, res) {
   const { method } = req;
   const { id } = req.query;
+
+  if (!['GET', 'PATCH', 'DELETE'].includes(method)) {
+    res.setHeader('Allow', ['GET', 'PATCH', 'DELETE']);
+    return res.status(405).end(`Method ${method} Not Allowed`);
+  }
+
+  // Every method requires a session with access to the issue's project
+  const issueId = parseInt(id);
+  const issueRef = isNaN(issueId)
+    ? null
+    : await prisma.issue.findUnique({ where: { id: issueId }, select: { projectId: true } });
+  if (!(await requireProjectAccess(req, res, issueRef ? issueRef.projectId : null))) return;
 
   switch (method) {
     case 'GET':

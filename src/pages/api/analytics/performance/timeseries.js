@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { requireProjectAccess } from '@/lib/session';
 import {
   extractDuration,
   extractMeasurements,
@@ -18,6 +19,8 @@ export default async function handler(req, res) {
     if (!projectId) {
       return res.status(400).json({ error: 'projectId is required' });
     }
+
+    if (!(await requireProjectAccess(req, res, parseInt(projectId, 10)))) return;
 
     // Calculate date range (default to last 30 days)
     const end = endDate ? new Date(endDate) : new Date();

@@ -1,6 +1,6 @@
 import prisma from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-import { serialize } from 'cookie';
+import { signSession, sessionCookie } from '@/lib/session';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -31,18 +31,8 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Create session (simple approach - storing user ID in cookie)
-    // In production, you'd want to use JWT or proper session management
-    const sessionData = JSON.stringify({ userId: user.id, email: user.email });
-    const cookie = serialize('session', sessionData, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 7, // 1 week
-      path: '/'
-    });
-
-    res.setHeader('Set-Cookie', cookie);
+    // Signed session cookie (fails with a 500 if SESSION_SECRET is not configured)
+    res.setHeader('Set-Cookie', sessionCookie(signSession({ userId: user.id, email: user.email })));
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = user;

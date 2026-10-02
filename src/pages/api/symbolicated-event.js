@@ -1,16 +1,6 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
+import { readSession as getUser } from '@/lib/session';
 import { symbolicatedEventPayload } from '@/lib/symbolicate';
-
-function getUser(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

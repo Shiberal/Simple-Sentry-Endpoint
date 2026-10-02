@@ -1,5 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
+import { readSession } from '@/lib/session';
 
 /**
  * Check if the current user is authenticated and is an admin
@@ -10,16 +10,13 @@ import { parse } from 'cookie';
 export async function checkAdminAuth(req) {
   try {
     // Get session from cookie
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
+    const sessionData = readSession(req);
 
-    if (!session) {
+    if (!sessionData) {
       const error = new Error('Not authenticated');
       error.statusCode = 401;
       throw error;
     }
-
-    const sessionData = JSON.parse(session);
     
     // Get user from database
     const user = await prisma.user.findUnique({

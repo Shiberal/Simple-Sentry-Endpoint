@@ -41,6 +41,7 @@ Create a `.env` file in the project root:
 | `MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS` | No | Fallback interval for monitors without a valid cron schedule; defaults to 5 minutes |
 | `MONITOR_HTTP_RETRY_COUNT` | No | Failed monitor HTTP pings are retried this many times before recording an error; defaults to `2` |
 | `MONITOR_HTTP_RETRY_DELAY_MS` | No | Delay between monitor HTTP ping retries; defaults to `10000` |
+| `SESSION_SECRET` | Yes | Random secret (16+ characters, for example `openssl rand -hex 32`) used to sign session cookies. Login and every authenticated route fail closed when it is unset; changing it logs everyone out |
 | `MONITOR_CRON_SECRET` | No | Secret for external calls to `/api/cron/monitors-ping` |
 
 ## Local setup
@@ -152,11 +153,11 @@ npm run prisma:studio            # Open a simple database browser
 
 ## Docker
 
-The Docker image runs `prisma db push` (with `--accept-data-loss`) on startup, then starts the app. You must set `DATABASE_URL`.
+The Docker image runs `prisma db push` (with `--accept-data-loss`) on startup, then starts the app. You must set `DATABASE_URL` and `SESSION_SECRET`.
 
 ```bash
 docker build -t sentry-monitor .
-docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." sentry-monitor
+docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." -e SESSION_SECRET="$(openssl rand -hex 32)" sentry-monitor
 ```
 
 Run the ping worker as a second container from the same image (web handles migrations; worker only pings):
