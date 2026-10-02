@@ -1,0 +1,16 @@
+{
+  "name": "sentry-monitor-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MCP server for a self-hosted Sentry Monitor instance",
+  "type": "module",
+  "bin": { "sentry-monitor-mcp": "./src/index.mjs" },
+  "scripts": {
+    "start": "node src/index.mjs",
+    "test": "node --test --test-force-exit test/*.test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.31.0",
+    "zod": "^3.25.0"
+  }
+}
