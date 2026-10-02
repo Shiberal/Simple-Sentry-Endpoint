@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { scopeToAccessibleProjects } from '@/lib/session';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -8,6 +9,9 @@ export default async function handler(req, res) {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end(`Method ${method} Not Allowed`);
   }
+
+  const scope = await scopeToAccessibleProjects(req, res, projectId);
+  if (!scope) return;
 
   try {
     const daysInt = parseInt(days);
@@ -21,8 +25,10 @@ export default async function handler(req, res) {
       }
     };
 
-    if (projectId) {
-      where.projectId = parseInt(projectId);
+    if (scope.projectId !== undefined) {
+      where.projectId = scope.projectId;
+    } else {
+      where.project = scope.projectWhere;
     }
 
     // Fetch all issues within date range

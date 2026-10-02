@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { scopeToAccessibleProjects } from '@/lib/session';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -9,11 +10,16 @@ export default async function handler(req, res) {
     return res.status(405).end(`Method ${method} Not Allowed`);
   }
 
+  const scope = await scopeToAccessibleProjects(req, res, projectId);
+  if (!scope) return;
+
   try {
     const where = {};
 
-    if (projectId) {
-      where.projectId = parseInt(projectId);
+    if (scope.projectId !== undefined) {
+      where.projectId = scope.projectId;
+    } else {
+      where.project = scope.projectWhere;
     }
 
     // Optionally filter by date range

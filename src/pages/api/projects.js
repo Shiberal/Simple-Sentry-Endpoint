@@ -1,17 +1,6 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
+import { readSession as getUserFromCookie } from '@/lib/session';
 import crypto from 'crypto';
-
-function getUserFromCookie(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    if (!session) return null;
-    return JSON.parse(session);
-  } catch {
-    return null;
-  }
-}
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -20,14 +9,18 @@ export default async function handler(req, res) {
   switch (method) {
     case 'GET':
       try {
-        // If user is logged in, only show their projects
-        const where = user ? {
+        if (!user) {
+          return res.status(401).json({ error: 'Not authenticated' });
+        }
+
+        // Only show the user's projects
+        const where = {
           users: {
             some: {
               id: user.userId
             }
           }
-        } : {};
+        };
 
         const projects = await prisma.project.findMany({
           where,

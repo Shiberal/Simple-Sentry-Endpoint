@@ -9,7 +9,7 @@ Transport: stdio. Read-only unless you opt in to writes.
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `SENTRY_MONITOR_URL` | Yes | Base URL, for example `https://errors.example.com` |
-| `SENTRY_MONITOR_EMAIL`, `SENTRY_MONITOR_PASSWORD` | Yes | Account the server logs in as. It sees the same projects that user can see |
+| `SENTRY_MONITOR_EMAIL`, `SENTRY_MONITOR_PASSWORD` | Yes | Account the server logs in as. It sees the same projects that user can see. The monitor server must have `SESSION_SECRET` set, or login fails; the session cookie it receives is signed and expires after a week (the client logs in again on a 401) |
 | `SENTRY_MCP_ALLOW_WRITES` | No | Set to `1` to register the write tools below |
 | `MONITOR_CRON_SECRET` | No | Same value as on the server; enables `run_cron_monitors_ping` (needs writes enabled too) |
 

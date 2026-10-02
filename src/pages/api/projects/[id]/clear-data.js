@@ -1,16 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
-
-function getUserFromCookie(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    if (!session) return null;
-    return JSON.parse(session);
-  } catch {
-    return null;
-  }
-}
+import { readSession as getUserFromCookie } from '@/lib/session';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

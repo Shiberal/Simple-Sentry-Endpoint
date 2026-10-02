@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { requireProjectAccess } from '@/lib/session';
 import { sendTestAlert } from '@/lib/email';
 
 export default async function handler(req, res) {
@@ -12,6 +13,7 @@ export default async function handler(req, res) {
 
   try {
     const projectId = parseInt(id);
+    if (!(await requireProjectAccess(req, res, projectId))) return;
     const { email } = req.body;
 
     if (!email) {

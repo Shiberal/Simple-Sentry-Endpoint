@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { scopeToAccessibleProjects } from '@/lib/session';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -28,6 +29,14 @@ export default async function handler(req, res) {
   const safePage = Math.max(parseInt(page) || 1, 1);
   const safePageSize = Math.min(Math.max(parseInt(pageSize) || 50, 1), 200);
 
+  if (method !== 'GET') {
+    res.setHeader('Allow', ['GET']);
+    return res.status(405).end(`Method ${method} Not Allowed`);
+  }
+
+  const scope = await scopeToAccessibleProjects(req, res, projectId);
+  if (!scope) return;
+
   switch (method) {
     case 'GET':
       try {
@@ -35,8 +44,10 @@ export default async function handler(req, res) {
           mergedIntoId: null
         };
 
-        if (projectId) {
-          where.projectId = parseInt(projectId);
+        if (scope.projectId !== undefined) {
+          where.projectId = scope.projectId;
+        } else {
+          where.project = scope.projectWhere;
         }
 
         // "active" means anything that is not resolved or ignored

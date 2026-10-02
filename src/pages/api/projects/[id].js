@@ -1,16 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
-
-function getUserFromCookie(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    if (!session) return null;
-    return JSON.parse(session);
-  } catch {
-    return null;
-  }
-}
+import { readSession as getUserFromCookie } from '@/lib/session';
 
 async function isProjectOwner(userId, projectId) {
   const project = await prisma.project.findUnique({
@@ -63,8 +52,12 @@ export default async function handler(req, res) {
           return res.status(404).json({ error: 'Project not found' });
         }
 
+        if (!user) {
+          return res.status(401).json({ error: 'Not authenticated' });
+        }
+
         // Check if user has access to this project
-        if (user && !project.users.some(u => u.id === user.userId)) {
+        if (!project.users.some(u => u.id === user.userId)) {
           return res.status(403).json({ error: 'Access denied' });
         }
 

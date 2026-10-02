@@ -1,4 +1,4 @@
-import { serialize } from 'cookie';
+import { clearSessionCookie } from '@/lib/session';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -6,15 +6,7 @@ export default async function handler(req, res) {
   }
 
   // Clear session cookie
-  const cookie = serialize('session', '', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 0,
-    path: '/'
-  });
-
-  res.setHeader('Set-Cookie', cookie);
+  res.setHeader('Set-Cookie', clearSessionCookie());
   res.status(200).json({ success: true, message: 'Logged out successfully' });
 }
 

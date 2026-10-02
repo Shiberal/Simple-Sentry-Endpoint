@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { requireProjectAccess } from '@/lib/session';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -11,15 +12,20 @@ export default async function handler(req, res) {
         
         // Check if event exists
         const event = await prisma.event.findUnique({
-          where: { id: eventId }
+          where: { id: eventId },
+          select: { id: true, projectId: true }
         });
 
         if (!event) {
+          // Still require a session so ids can't be probed anonymously
+          if (!(await requireProjectAccess(req, res, null))) return;
           return res.status(404).json({
             success: false,
             error: 'Event not found'
           });
         }
+
+        if (!(await requireProjectAccess(req, res, event.projectId))) return;
 
         // Delete the event
         await prisma.event.delete({

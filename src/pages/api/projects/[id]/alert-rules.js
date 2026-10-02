@@ -1,10 +1,13 @@
 import prisma from '@/lib/prisma';
+import { requireProjectAccess } from '@/lib/session';
 import { sendTestAlert } from '@/lib/email';
 
 export default async function handler(req, res) {
   const { method } = req;
   const { id } = req.query;
   const projectId = parseInt(id);
+
+  if (!(await requireProjectAccess(req, res, projectId))) return;
 
   switch (method) {
     case 'GET':
@@ -120,10 +123,15 @@ export default async function handler(req, res) {
         }
         if (enabled !== undefined) updateData.enabled = enabled;
 
-        const alertRule = await prisma.alertRule.update({
-          where: { id: parseInt(ruleId) },
+        // Scope to this project so rules from other projects can't be edited
+        const { count } = await prisma.alertRule.updateMany({
+          where: { id: parseInt(ruleId), projectId },
           data: updateData
         });
+        if (count === 0) {
+          return res.status(404).json({ success: false, error: 'Alert rule not found' });
+        }
+        const alertRule = await prisma.alertRule.findUnique({ where: { id: parseInt(ruleId) } });
 
         res.status(200).json({
           success: true,
@@ -150,9 +158,12 @@ export default async function handler(req, res) {
           });
         }
 
-        await prisma.alertRule.delete({
-          where: { id: parseInt(ruleId) }
+        const { count } = await prisma.alertRule.deleteMany({
+          where: { id: parseInt(ruleId), projectId }
         });
+        if (count === 0) {
+          return res.status(404).json({ success: false, error: 'Alert rule not found' });
+        }
 
         res.status(200).json({
           success: true,

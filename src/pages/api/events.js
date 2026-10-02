@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { scopeToAccessibleProjects } from '@/lib/session';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -11,10 +12,18 @@ export default async function handler(req, res) {
     cursor
   } = req.query;
 
+  if (method !== 'GET') {
+    res.setHeader('Allow', ['GET']);
+    return res.status(405).end(`Method ${method} Not Allowed`);
+  }
+
+  const scope = await scopeToAccessibleProjects(req, res, projectId);
+  if (!scope) return;
+
   switch (method) {
     case 'GET':
       try {
-        const where = projectId ? { projectId: parseInt(projectId) } : {};
+        const where = scope.projectId !== undefined ? { projectId: scope.projectId } : { project: scope.projectWhere };
 
         if (promotedPageUrl) {
           where.promotedPageUrl = {

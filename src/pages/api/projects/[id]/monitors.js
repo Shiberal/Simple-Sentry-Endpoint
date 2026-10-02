@@ -1,19 +1,9 @@
 import prisma from '@/lib/prisma';
 import { parsePingUrlsInput, sanitizePingUrls } from '@/lib/monitor-http-ping';
-import { parse } from 'cookie';
+import { readSession as getUser } from '@/lib/session';
 import { computeMonitorHealth, describeSchedule, healthSeverity } from '@/lib/monitor-health';
 import { DEFAULT_MONITOR_PING_INTERVAL_MS } from '@/lib/monitor-schedule';
 import { isHeartbeatAlive } from '@/lib/worker-heartbeat';
-
-function getUser(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
 
 function validSlug(slug) {
   return typeof slug === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(slug.trim());

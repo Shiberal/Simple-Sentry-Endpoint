@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { requireProjectAccess } from '@/lib/session';
 import {
   extractDuration,
   extractMeasurements,
@@ -25,6 +26,8 @@ export default async function handler(req, res) {
     if (isNaN(id)) {
       return res.status(400).json({ error: 'Invalid projectId format' });
     }
+
+    if (!(await requireProjectAccess(req, res, id))) return;
 
     const createdAtFilter = {};
     if (startDate) {
