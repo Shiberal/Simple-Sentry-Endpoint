@@ -821,3 +821,34 @@ a.editButton { display: inline-block; text-decoration: none; }
 .heat4 { background-color: var(--error); }
 .heatLegend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 11px; color: var(--text-tertiary); }
 .heatLegend .heatCell { cursor: default; }
+
+/* Master-detail: monitor list on the left, one monitor on the right */
+.split { display: flex; flex: 1; min-height: 0; }
+.split > .page { min-width: 0; }
+.sideList { width: 280px; flex-shrink: 0; display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-right: 1px solid var(--border-primary); overflow-y: auto; }
+.sideSearch { width: 100%; padding: 6px 10px; border-radius: var(--radius-md); border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary); }
+.sideItems { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sideItem { display: flex; align-items: center; gap: var(--space-2); padding: 8px; border-radius: var(--radius-md); color: var(--text-primary); text-decoration: none; }
+.sideItem:hover, .sideItemOn { background-color: var(--bg-tertiary); }
+.sideBadge { min-width: 44px; text-align: center; padding: 1px 6px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #fff; }
+.sideBadgeOk { background-color: var(--success); }
+.sideBadgeWarn { background-color: var(--warning); }
+.sideBadgeBad { background-color: var(--error); }
+.sideBadgeNone { background-color: var(--border-primary); }
+.sideName { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sideName small { color: var(--text-tertiary); font-size: 11px; }
+.sideStrip { width: 56px; height: 18px; flex-shrink: 0; }
+.sideStrip .history { height: 18px; gap: 1px; }
+.sideStrip .bar, .sideStrip .barEmpty { min-width: 1px; }
+
+/* Big heartbeat strip */
+.beat { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-4); background-color: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: var(--radius-lg); }
+.beatBar { flex: 1; min-width: 0; }
+.beatBar .history { height: 40px; gap: 3px; }
+.beatBadge { padding: 6px 18px; border-radius: 999px; font-size: 18px; font-weight: 700; color: #fff; background-color: var(--text-tertiary); }
+.beatBadge.tone_ok { background-color: var(--success); }
+.beatBadge.tone_bad { background-color: var(--error); }
+.beatBadge.tone_warn { background-color: var(--warning); }
+.beatBadge.tone_info { background-color: var(--info); }
+
+@media (max-width: 900px) { .sideList { display: none; } }

@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
 import {
-  CHART_MODES, ChartPanel, CheckInHistory, HEALTH, Heatmap, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
+  CHART_MODES, ChartPanel, CheckInHistory, HEALTH, Heatmap, History, MonitorSidebar, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
 } from '@/components/monitors/shared';
 import styles from '@/styles/Dashboard.module.css';
 import m from '@/styles/Monitors.module.css';
@@ -201,14 +201,20 @@ export default function MonitorDetailPage() {
             </div>
           </header>
 
+          <div className={m.split}>
+          <MonitorSidebar activeId={monitor?.id ?? parseInt(id, 10)} />
           <main className={m.page}>
             {error && <div className={m.error} role="alert">{error}</div>}
             {!monitor ? <div className={m.skeletonList} aria-busy="true"><div className={m.skeleton} /></div> : (
               <>
                 <section className={m.detailHead}>
-                  <span className={`${m.status} ${m[`tone_${h.tone}`]} ${monitor.health === 'running' ? m.pulse : ''}`}><span className={m.statusDot} />{h.label}</span>
-                  <span className={m.faint}>{monitor.healthReason}</span>
                   <span className={m.slug}>{monitor.project?.name} · {monitor.slug}{monitor.environment ? ` · ${monitor.environment}` : ''}</span>
+                  <span className={m.faint}>{monitor.healthReason}</span>
+                </section>
+
+                <section className={m.beat} aria-label="Recent runs">
+                  <div className={m.beatBar}><History history={monitor.history || []} slots={60} /></div>
+                  <span className={`${m.beatBadge} ${m[`tone_${h.tone}`]}`}>{h.label}</span>
                 </section>
 
                 {monitor.alertState === 'alerting' && (
@@ -236,7 +242,7 @@ export default function MonitorDetailPage() {
                       ))}
                     </div>
                   </div>
-                  <ChartPanel series={stats.daily} range={range} height={190} modes={CHART_MODES} />
+                  <ChartPanel series={stats.daily} range={range} height={190} modes={[CHART_MODES[1], CHART_MODES[0], CHART_MODES[2]]} />
                 </section>
 
                 <section className={m.overview}>
@@ -309,6 +315,7 @@ export default function MonitorDetailPage() {
               </>
             )}
           </main>
+          </div>
         </div>
       </div>
       {editing && monitor && (

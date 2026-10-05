@@ -16,7 +16,7 @@ export async function loadMonitorViews(where, { range = '30d', now = new Date() 
       project: { select: { id: true, name: true, key: true } },
       checkIns: {
         orderBy: { createdAt: 'desc' },
-        take: 30,
+        take: 60,
         select: { id: true, status: true, durationMs: true, environment: true, data: true, createdAt: true }
       }
     }
