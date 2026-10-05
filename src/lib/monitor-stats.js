@@ -122,7 +122,7 @@ export function computeMonitorStats({ checkIns, now = new Date(), range = '30d' 
       longestMs: shaped.length ? Math.max(...shaped.map((i) => i.durationMs)) : null,
       mttrMs: resolved.length ? Math.round(resolved.reduce((a, i) => a + i.durationMs, 0) / resolved.length) : null,
       last: shaped.length ? shaped[shaped.length - 1] : null,
-      recent: shaped.slice(-10).reverse()
+      recent: shaped.slice(-25).reverse()
     },
     range,
     bucketMs,

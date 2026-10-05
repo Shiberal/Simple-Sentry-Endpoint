@@ -192,6 +192,14 @@ model CronMonitor {
   environment   String?
   pingUrls      String[]          @default([])
   lastCheckInAt DateTime?
+  // Alerting on state changes (all additive, defaults keep existing monitors working)
+  alertsEnabled    Boolean   @default(true)
+  failureThreshold Int       @default(1)
+  alertEmails      String    @default("")
+  alertSlackUrl    String?
+  alertWebhookUrl  String?
+  alertState       String    @default("ok")
+  alertedAt        DateTime?
   checkIns      MonitorCheckIn[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt

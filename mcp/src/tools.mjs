@@ -149,6 +149,18 @@ export function buildTools(client) {
       run: async ({ projectId }) => client.get(`/api/projects/${projectId}/monitors`)
     },
     {
+      name: 'get_monitor',
+      description: 'One monitor: health, config incl. alert settings, stats, daily/hourly series and the incident list (newest first). Open the UI at /monitors/<id>.',
+      schema: { monitorId: z.number().int(), range: z.enum(['24h', '7d', '30d', '90d']).optional() },
+      run: async ({ monitorId, range }) => client.get(`/api/monitors/${monitorId}${range ? `?range=${range}` : ''}`)
+    },
+    {
+      name: 'list_all_monitors',
+      description: 'Monitors across every project the account can see, with health, stats and a rollup.',
+      schema: { range: z.enum(['24h', '7d', '30d', '90d']).optional() },
+      run: async ({ range }) => client.get(`/api/monitors${range ? `?range=${range}` : ''}`)
+    },
+    {
       name: 'monitor_stats',
       description: 'Monitor statistics only (no check-in rows): uptime %, run counts, avg/p95/max run time for 24h/7d/30d, current streak, incidents (count, avg recovery time, longest, recent list) and a 30-day daily series. Pass monitorId for one monitor, or omit for every monitor plus a project rollup.',
       schema: {
@@ -218,7 +230,12 @@ export function buildTools(client) {
         schedule: z.string().optional(),
         environment: z.string().optional(),
         status: z.enum(['active', 'paused']).optional(),
-        pingUrls: z.array(z.string()).optional()
+        pingUrls: z.array(z.string()).optional(),
+        alertsEnabled: z.boolean().optional().describe('Notify on failing / recovered'),
+        failureThreshold: z.number().int().min(1).max(20).optional().describe('Failed runs in a row before alerting'),
+        alertEmails: z.string().optional().describe('Comma separated'),
+        alertSlackUrl: z.string().optional(),
+        alertWebhookUrl: z.string().optional()
       },
       run: async ({ projectId, ...body }) => client.post(`/api/projects/${projectId}/monitors`, body)
     },
@@ -233,7 +250,12 @@ export function buildTools(client) {
         schedule: z.string().optional(),
         environment: z.string().optional(),
         status: z.enum(['active', 'paused']).optional(),
-        pingUrls: z.array(z.string()).optional()
+        pingUrls: z.array(z.string()).optional(),
+        alertsEnabled: z.boolean().optional().describe('Notify on failing / recovered'),
+        failureThreshold: z.number().int().min(1).max(20).optional().describe('Failed runs in a row before alerting'),
+        alertEmails: z.string().optional().describe('Comma separated'),
+        alertSlackUrl: z.string().optional(),
+        alertWebhookUrl: z.string().optional()
       },
       run: async ({ projectId, ...body }) => client.patch(`/api/projects/${projectId}/monitors`, body)
     },

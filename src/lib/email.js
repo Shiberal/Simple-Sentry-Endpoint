@@ -247,3 +247,26 @@ export async function sendTestAlert({ recipient, projectName }) {
 }
 
 
+
+/**
+ * Send a monitor state-change email (down / recovered). Logged to the console when SMTP is not configured.
+ */
+export async function sendMonitorAlertEmail({ recipients, subject, text }) {
+  const transporter = createTransporter();
+  if (!transporter) {
+    console.log('📧 [MONITOR ALERT - SMTP not configured]', recipients.join(', '), subject);
+    return { success: true, message: 'Logged to console (SMTP not configured)' };
+  }
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+      to: recipients.join(', '),
+      subject,
+      text
+    });
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Error sending monitor alert email:', error);
+    return { success: false, error: error.message };
+  }
+}

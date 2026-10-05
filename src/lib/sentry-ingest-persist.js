@@ -1,3 +1,4 @@
+import { evaluateMonitorAlerts } from '@/lib/monitor-incidents';
 import { upsertRelease } from '@/lib/release-service';
 import { upsertIssueForEvent } from '@/lib/issues';
 import { generateFingerprint, extractTitle, extractCulprit, extractLevel } from '@/lib/fingerprint';
@@ -129,6 +130,8 @@ export async function persistCheckInEvent(prisma, project, payload, tracker) {
       data: withPerformance(payload, tracker.getTimings())
     }
   });
+
+  if (payload.status === 'ok' || payload.status === 'error') await evaluateMonitorAlerts(monitor.id);
 
   return { ok: true, event };
 }

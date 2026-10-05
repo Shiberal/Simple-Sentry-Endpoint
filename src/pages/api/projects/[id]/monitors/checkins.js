@@ -11,7 +11,7 @@ function getUser(req) {
 }
 
 /**
- * GET /api/projects/:id/monitors/checkins?monitorId=N[&status=ok|error|in_progress][&days=N][&before=<id>][&limit=N]
+ * GET /api/projects/:id/monitors/checkins?monitorId=N[&status=ok|error|in_progress][&days=N][&from=ISO][&to=ISO][&before=<id>][&limit=N]
  * Newest-first check-in history for one monitor, paged by id (pass the last id as `before`).
  */
 export default async function handler(req, res) {
@@ -37,6 +37,10 @@ export default async function handler(req, res) {
     if (['ok', 'error', 'in_progress'].includes(req.query.status)) where.status = req.query.status;
     const days = parseInt(req.query.days, 10);
     if (days > 0) where.createdAt = { gte: new Date(Date.now() - days * 86400000) };
+    const from = req.query.from ? new Date(req.query.from) : null;
+    const to = req.query.to ? new Date(req.query.to) : null;
+    if (from && !isNaN(from)) where.createdAt = { ...(where.createdAt || {}), gte: from };
+    if (to && !isNaN(to)) where.createdAt = { ...(where.createdAt || {}), lte: to };
     const before = parseInt(req.query.before, 10);
     if (!isNaN(before)) where.id = { lt: before };
 

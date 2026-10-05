@@ -1,4 +1,5 @@
 import prisma from './prisma.js';
+import { evaluateMonitorAlerts } from './monitor-incidents.js';
 import { pingUrlListSequential } from './monitor-http-ping.js';
 import {
   DEFAULT_MONITOR_PING_INTERVAL_MS,
@@ -56,6 +57,8 @@ async function pingOneMonitor(m, urls) {
       }
     });
   });
+
+  await evaluateMonitorAlerts(m.id);
 
   return { monitorId: m.id, slug: m.slug, allOk, urls, totalMs, results };
 }

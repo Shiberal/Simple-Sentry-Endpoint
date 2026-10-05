@@ -783,3 +783,26 @@
 .clickRow { cursor: pointer; }
 .clickRow:hover { background-color: var(--bg-primary); }
 .resultCell { padding: var(--space-2) var(--space-3); font-size: var(--font-xs); overflow-wrap: anywhere; }
+
+.nameLink { color: var(--text-primary); text-decoration: none; }
+.nameLink:hover { text-decoration: underline; }
+.check { display: flex; gap: var(--space-2); align-items: center; margin-bottom: var(--space-3); font-size: var(--font-sm); }
+a.editButton { display: inline-block; text-decoration: none; }
+
+.crumb { color: var(--text-secondary); text-decoration: none; }
+.crumb:hover { text-decoration: underline; }
+.crumbSep { margin: 0 var(--space-2); color: var(--text-tertiary); }
+.detailHead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); }
+.sideStack { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; }
+.slot { border-style: dashed; }
+.strip { position: relative; height: 28px; margin: var(--space-3) 0 var(--space-5); background-color: var(--bg-secondary); border-radius: var(--radius-md); }
+.stripBar { position: absolute; top: 4px; bottom: 4px; min-width: 4px; padding: 0; border: 0; border-radius: 2px; background-color: var(--error); opacity: 0.8; cursor: pointer; }
+.stripBar:hover, .stripSelected { opacity: 1; outline: 2px solid var(--text-primary); }
+.stripOngoing { background-image: repeating-linear-gradient(45deg, transparent 0 4px, rgba(255,255,255,0.35) 4px 8px); }
+.stripLabel { position: absolute; top: 100%; left: 0; font-size: 10px; color: var(--text-tertiary); }
+.stripLabelEnd { left: auto; right: 0; }
+.incidentRows { list-style: none; margin: 0; padding: 0; }
+.incidentRow { display: flex; flex-wrap: wrap; gap: var(--space-4); width: 100%; padding: 6px 8px; font-size: var(--font-sm); text-align: left; color: var(--text-primary); background: transparent; border: 0; border-bottom: 1px solid var(--border-secondary); cursor: pointer; }
+.incidentRow:hover, .incidentRowOn { background-color: var(--bg-secondary); }
+.incidentDetail { margin: var(--space-4) 0; padding: var(--space-4); background-color: var(--bg-secondary); border-radius: var(--radius-md); }
+.dialog { max-height: 92vh; overflow-y: auto; }
