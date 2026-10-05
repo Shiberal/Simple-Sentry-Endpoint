@@ -513,7 +513,7 @@ export function MonitorSidebar({ activeId }) {
 }
 
 
-/** Last 24h as 30-minute slices: green = all ok, red = any failure (taller with more failures), gray = no runs. */
+/** Last 24h as 5-minute slices: green = all ok, red = any failure (taller with more failures), gray = no runs. */
 export function ActivityStrip({ slices }) {
   const peak = Math.max(1, ...slices.map((s) => s.error));
   return (

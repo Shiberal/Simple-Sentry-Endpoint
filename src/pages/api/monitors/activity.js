@@ -10,11 +10,11 @@ function getUser(req) {
   }
 }
 
-const SLICE_S = 30 * 60;
+const SLICE_S = 5 * 60;
 
 /**
  * GET /api/monitors/activity[?projectId=N][&tzOffset=minutes-east-of-UTC]
- * Run counts across every monitor the user can see (or one project): last 24h in 30-minute slices,
+ * Run counts across every monitor the user can see (or one project): last 24h in 5-minute slices,
  * and the last year per local day.
  */
 export default async function handler(req, res) {
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
     const now = Date.now();
     const lastSlice = Math.floor(now / 1000 / SLICE_S) * SLICE_S;
-    const firstSlice = lastSlice - 47 * SLICE_S;
+    const firstSlice = lastSlice - 287 * SLICE_S;
     const [sliceRows, days] = await Promise.all([
       prisma.$queryRaw`
         SELECT (floor(extract(epoch FROM "createdAt") / ${SLICE_S}) * ${SLICE_S})::bigint AS t,
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         ORDER BY 1`
     ]);
     const byT = new Map(sliceRows.map((r) => [Number(r.t), r]));
-    const slices = Array.from({ length: 48 }, (_, i) => {
+    const slices = Array.from({ length: 288 }, (_, i) => {
       const t = firstSlice + i * SLICE_S;
       const r = byT.get(t);
       return { at: new Date(t * 1000).toISOString(), ok: r?.ok || 0, error: r?.error || 0 };
