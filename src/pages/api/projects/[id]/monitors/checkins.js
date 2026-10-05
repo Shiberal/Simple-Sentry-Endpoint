@@ -1,14 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
-
-function getUser(req) {
-  try {
-    const session = parse(req.headers.cookie || '').session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
+import { resolveMonitorScope } from '@/lib/monitor-scope';
 
 /**
  * GET /api/projects/:id/monitors/checkins?monitorId=N[&status=ok|error|in_progress][&days=N][&from=ISO][&to=ISO][&before=<id>][&limit=N]
@@ -19,17 +10,13 @@ export default async function handler(req, res) {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end();
   }
-  const user = getUser(req);
-  if (!user) return res.status(401).json({ error: 'Not authenticated' });
-  const projectId = parseInt(req.query.id, 10);
+  const scope = await resolveMonitorScope(req, req.query.id);
+  if (scope.error) return res.status(scope.status).json({ error: scope.error });
   const monitorId = parseInt(req.query.monitorId, 10);
-  if (isNaN(projectId) || isNaN(monitorId)) return res.status(400).json({ error: 'Bad project or monitor id' });
+  if (isNaN(monitorId)) return res.status(400).json({ error: 'Bad monitor id' });
 
   try {
-    const project = await prisma.project.findUnique({ where: { id: projectId }, include: { users: { select: { id: true } } } });
-    if (!project) return res.status(404).json({ error: 'Not found' });
-    if (!project.users.some((u) => u.id === user.userId)) return res.status(403).json({ error: 'Forbidden' });
-    const monitor = await prisma.cronMonitor.findFirst({ where: { id: monitorId, projectId }, select: { id: true } });
+    const monitor = await prisma.cronMonitor.findFirst({ where: { id: monitorId, ...scope.where }, select: { id: true } });
     if (!monitor) return res.status(404).json({ error: 'Monitor not found' });
 
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 25));

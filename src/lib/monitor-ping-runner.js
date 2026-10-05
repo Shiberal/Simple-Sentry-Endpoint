@@ -40,7 +40,8 @@ async function pingOneMonitor(m, urls) {
       }
     });
 
-    await tx.event.create({
+    // Check-in events are project-level records; standalone monitors have no project
+    if (m.projectId != null) await tx.event.create({
       data: {
         projectId: m.projectId,
         issueId: null,
@@ -67,6 +68,7 @@ export async function runMonitorHttpPings(filters = {}) {
   const where = {};
   if (filters.monitorId != null) where.id = filters.monitorId;
   if (filters.projectId != null) where.projectId = filters.projectId;
+  if (filters.scope) Object.assign(where, filters.scope);
 
   const monitors = await prisma.cronMonitor.findMany({ where });
   const now = filters.now instanceof Date ? filters.now : new Date();

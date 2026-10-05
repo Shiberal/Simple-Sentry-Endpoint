@@ -1,14 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
-
-function getUser(req) {
-  try {
-    const session = parse(req.headers.cookie || '').session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
+import { resolveMonitorScope } from '@/lib/monitor-scope';
 
 /**
  * GET /api/projects/:id/monitors/heatmap?monitorId=N[&days=365][&tzOffset=minutes-east-of-UTC]
@@ -19,17 +10,16 @@ export default async function handler(req, res) {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end();
   }
-  const user = getUser(req);
-  if (!user) return res.status(401).json({ error: 'Not authenticated' });
-  const projectId = parseInt(req.query.id, 10);
+  const scope = await resolveMonitorScope(req, req.query.id);
+  if (scope.error) return res.status(scope.status).json({ error: scope.error });
   const monitorId = parseInt(req.query.monitorId, 10);
-  if (isNaN(projectId) || isNaN(monitorId)) return res.status(400).json({ error: 'Bad project or monitor id' });
+  if (isNaN(monitorId)) return res.status(400).json({ error: 'Bad monitor id' });
   const days = Math.min(400, Math.max(1, parseInt(req.query.days, 10) || 365));
   const tzOffset = Math.min(840, Math.max(-720, parseInt(req.query.tzOffset, 10) || 0));
 
   try {
     const monitor = await prisma.cronMonitor.findFirst({
-      where: { id: monitorId, projectId, project: { users: { some: { id: user.userId } } } },
+      where: { id: monitorId, ...scope.where },
       select: { id: true }
     });
     if (!monitor) return res.status(404).json({ error: 'Monitor not found' });

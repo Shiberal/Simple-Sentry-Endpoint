@@ -1,16 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
-
-function getUser(req) {
-  try {
-    const session = parse(req.headers.cookie || '').session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
-
-const SLICE_S = 5 * 60;
+import { getSessionUser, visibleMonitorsWhere } from '@/lib/monitor-scope';
 
 /**
  * GET /api/monitors/activity[?projectId=N][&tzOffset=minutes-east-of-UTC]
@@ -22,14 +11,14 @@ export default async function handler(req, res) {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end();
   }
-  const user = getUser(req);
+  const user = getSessionUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   const projectId = parseInt(req.query.projectId, 10);
   const tzOffset = Math.min(840, Math.max(-720, parseInt(req.query.tzOffset, 10) || 0));
 
   try {
     const monitors = await prisma.cronMonitor.findMany({
-      where: { project: { users: { some: { id: user.userId } } }, ...(isNaN(projectId) ? {} : { projectId }) },
+      where: { ...visibleMonitorsWhere(user.userId), ...(isNaN(projectId) ? {} : { projectId }) },
       select: { id: true }
     });
     const ids = monitors.map((x) => x.id);

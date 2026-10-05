@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
 import {
-  CHART_MODES, ChartPanel, CheckInHistory, HEALTH, Heatmap, History, MonitorSidebar, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
+  CHART_MODES, ChartPanel, CheckInHistory, HEALTH, Heatmap, History, MonitorSidebar, projectLabel, scopeOf, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
 } from '@/components/monitors/shared';
 import styles from '@/styles/Dashboard.module.css';
 import m from '@/styles/Monitors.module.css';
@@ -49,7 +49,7 @@ function IncidentDetail({ monitor, incident, now }) {
       from: new Date(incident.startedAt).toISOString(),
       to: new Date(incident.endedAt || Date.now()).toISOString()
     });
-    fetch(`/api/projects/${monitor.projectId}/monitors/checkins?${q}`)
+    fetch(`/api/projects/${scopeOf(monitor)}/monitors/checkins?${q}`)
       .then((r) => r.json())
       .then((j) => setRows(j.checkIns || []))
       .catch(() => setRows([]));
@@ -202,13 +202,13 @@ export default function MonitorDetailPage() {
           </header>
 
           <div className={m.split}>
-          <MonitorSidebar activeId={monitor?.id ?? parseInt(id, 10)} />
+          <MonitorSidebar activeId={monitor?.id ?? parseInt(id, 10)} scope={monitor ? scopeOf(monitor) : null} />
           <main className={m.page}>
             {error && <div className={m.error} role="alert">{error}</div>}
             {!monitor ? <div className={m.skeletonList} aria-busy="true"><div className={m.skeleton} /></div> : (
               <>
                 <section className={m.detailHead}>
-                  <span className={m.slug}>{monitor.project?.name} · {monitor.slug}{monitor.environment ? ` · ${monitor.environment}` : ''}</span>
+                  <span className={m.slug}>{projectLabel(monitor)} · {monitor.slug}{monitor.environment ? ` · ${monitor.environment}` : ''}</span>
                   <span className={m.faint}>{monitor.healthReason}</span>
                 </section>
 
@@ -250,7 +250,7 @@ export default function MonitorDetailPage() {
                     <h2 className={m.detailTitle}>Daily history</h2>
                     {selectedDay && <button type="button" className={m.linkButton} onClick={() => setSelectedDay(null)}>Clear day</button>}
                   </div>
-                  <Heatmap projectId={monitor.projectId} monitorId={monitor.id} selected={selectedDay} onSelect={setSelectedDay} refreshKey={String(monitor.lastRunAt)} />
+                  <Heatmap projectId={scopeOf(monitor)} monitorId={monitor.id} selected={selectedDay} onSelect={setSelectedDay} refreshKey={String(monitor.lastRunAt)} />
                 </section>
 
                 <section className={m.overview} id="incidents">
@@ -280,7 +280,7 @@ export default function MonitorDetailPage() {
 
                 <div className={m.detailGrid}>
                   <section className={m.overview}>
-                    <CheckInHistory projectId={monitor.projectId} monitorId={monitor.id} now={now} refreshKey={String(monitor.lastRunAt)} day={selectedDay} />
+                    <CheckInHistory projectId={scopeOf(monitor)} monitorId={monitor.id} now={now} refreshKey={String(monitor.lastRunAt)} day={selectedDay} />
                   </section>
                   <div className={m.sideStack}>
                     <section className={m.overview}>

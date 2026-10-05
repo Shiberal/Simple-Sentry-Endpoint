@@ -7,8 +7,7 @@ import MonitorDialog from '@/components/monitors/MonitorDialog';
 import styles from '@/styles/Dashboard.module.css';
 import {
   ActivityOverview, CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, PRESETS, REFRESH_MS, RANGE_OPTIONS,
-  StatsPanel, monitorApi, ago, fmtDuration, pct, rateTone, until
-} from '@/components/monitors/shared';
+  StatsPanel, monitorApi, ago, fmtDuration, pct, rateTone, until, projectLabel, scopeOf } from '@/components/monitors/shared';
 
 import m from '@/styles/Monitors.module.css';
 
@@ -134,7 +133,7 @@ export default function MonitorsPage() {
   const runNow = async (monitorId) => {
     if (monitorId) return guarded(monitorId, () => monitorApi.run(data.monitors.find((x) => x.id === monitorId)));
     // Run all (or all of the selected project): one request per project
-    const ids = [...new Set(data.monitors.map((x) => x.projectId))];
+    const ids = [...new Set(data.monitors.map((x) => x.projectId ?? 'standalone'))];
     return guarded('all', () => Promise.all(ids.map((projectId) => fetch(`/api/projects/${projectId}/monitors/ping`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -229,6 +228,15 @@ export default function MonitorsPage() {
             ALL
             <div className={styles.navItemTooltip}>All projects</div>
           </button>
+          <button
+            type="button"
+            className={`${styles.navProjectItem} ${pid === 'standalone' ? styles.navProjectItemActive : ''}`}
+            onClick={() => setPid('standalone')}
+            title="Standalone monitors (no project)"
+          >
+            --
+            <div className={styles.navItemTooltip}>Standalone (no project)</div>
+          </button>
           {projects.map((project) => (
             <button
               key={project.id}
@@ -271,11 +279,11 @@ export default function MonitorsPage() {
                 <select
                   className={styles.filterSelect}
                   value={pid || ''}
-                  onChange={(e) => setPid(e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10))}
-                  disabled={!projects.length}
+                  onChange={(e) => setPid(e.target.value === 'all' || e.target.value === 'standalone' ? e.target.value : parseInt(e.target.value, 10))}
                   aria-label="Project"
                 >
                   <option value="all">All projects</option>
+                  <option value="standalone">Standalone (no project)</option>
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>{project.name}</option>
                   ))}
@@ -432,7 +440,7 @@ export default function MonitorsPage() {
                           </span>
                           <div className={m.names}>
                             <Link href={`/monitors/${mon.id}`} className={`${m.name} ${m.nameLink}`}>{mon.name || mon.slug}</Link>
-                            <span className={m.slug}>{pid === 'all' && mon.project ? `${mon.project.name} · ` : ''}{mon.slug}{mon.environment ? ` · ${mon.environment}` : ''}</span>
+                            <span className={m.slug}>{pid === 'all' ? `${projectLabel(mon)} · ` : ''}{mon.slug}{mon.environment ? ` · ${mon.environment}` : ''}</span>
                             {mon.health === 'failing' && <span className={m.reason} title={mon.healthReason}>{mon.healthReason.replace('Last run failed: ', '')}</span>}
                           </div>
                         </div>
@@ -496,7 +504,7 @@ export default function MonitorsPage() {
                               </div>
                             </div>
                             <StatsPanel stats={mon.stats} now={now} range={range} />
-                            <CheckInHistory projectId={mon.projectId} monitorId={mon.id} now={now} refreshKey={String(mon.lastRunAt)} />
+                            <CheckInHistory projectId={scopeOf(mon)} monitorId={mon.id} now={now} refreshKey={String(mon.lastRunAt)} />
                           </div>
                         </div>
                       )}

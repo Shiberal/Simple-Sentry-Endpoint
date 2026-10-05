@@ -1,62 +1,21 @@
 import prisma from '@/lib/prisma';
 import { parsePingUrlsInput, sanitizePingUrls } from '@/lib/monitor-http-ping';
-import { parse } from 'cookie';
+import { resolveMonitorScope } from '@/lib/monitor-scope';
 import { loadMonitorViews, loadSchedulerInfo } from '@/lib/monitor-view';
 import { parseAlertFields } from '@/lib/monitor-alerts';
-
-function getUser(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
 
 function validSlug(slug) {
   return typeof slug === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(slug.trim());
 }
 
-async function loadProjectAccess(req, projectId) {
-  const user = getUser(req);
-  if (!user) return { error: 'unauthorized', status: 401, user: null, project: null };
-  if (isNaN(projectId)) return { error: 'bad_project', status: 400, user: null, project: null };
-
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: { users: { select: { id: true } } }
-  });
-
-  if (!project) return { error: 'not_found', status: 404, user: null, project: null };
-  if (!project.users.some((u) => u.id === user.userId)) {
-    return { error: 'forbidden', status: 403, user: null, project: null };
-  }
-
-  return { error: null, user, project };
-}
-
 export default async function handler(req, res) {
-  const projectId = parseInt(req.query.id, 10);
-  const access = await loadProjectAccess(req, projectId);
-
-  if (access.error === 'unauthorized') {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-  if (access.error === 'bad_project') {
-    return res.status(400).json({ error: 'Bad project id' });
-  }
-  if (access.error === 'not_found') {
-    return res.status(404).json({ error: 'Not found' });
-  }
-  if (access.error === 'forbidden') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+  const scope = await resolveMonitorScope(req, req.query.id);
+  if (scope.error) return res.status(scope.status).json({ error: scope.error });
 
   if (req.method === 'GET') {
     try {
       const now = new Date();
-      const { monitors: enriched, summary } = await loadMonitorViews({ projectId }, { range: req.query.range, now });
+      const { monitors: enriched, summary } = await loadMonitorViews(scope.where, { range: req.query.range, now });
       const scheduler = await loadSchedulerInfo(enriched, now);
       return res.status(200).json({ success: true, monitors: enriched, summary, scheduler });
     } catch (e) {
@@ -77,6 +36,10 @@ export default async function handler(req, res) {
     }
 
     const parsedUrls = sanitizePingUrls(parsePingUrlsInput(pingRaw ?? urls));
+    // Without a project there is no DSN, so SDK check-ins cannot reach the monitor: it has to be pinged
+    if (scope.projectId == null && !parsedUrls.length) {
+      return res.status(400).json({ error: 'Standalone monitors need at least one ping URL' });
+    }
     const alerts = parseAlertFields(req.body);
     if (alerts.error) return res.status(400).json({ error: alerts.error });
 
@@ -84,7 +47,7 @@ export default async function handler(req, res) {
       const monitor = await prisma.cronMonitor.create({
         data: {
           ...alerts.data,
-          projectId,
+          ...scope.create,
           slug: s,
           name: name != null && String(name).trim() ? String(name).trim() : null,
           schedule:
@@ -116,7 +79,7 @@ export default async function handler(req, res) {
     }
 
     const existing = await prisma.cronMonitor.findFirst({
-      where: { id: mid, projectId }
+      where: { id: mid, ...scope.where }
     });
     if (!existing) {
       return res.status(404).json({ error: 'Monitor not found' });
@@ -163,7 +126,7 @@ export default async function handler(req, res) {
     }
 
     const existing = await prisma.cronMonitor.findFirst({
-      where: { id: mid, projectId }
+      where: { id: mid, ...scope.where }
     });
     if (!existing) {
       return res.status(404).json({ error: 'Monitor not found' });

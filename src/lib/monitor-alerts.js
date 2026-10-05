@@ -18,7 +18,7 @@ export function buildAlertMessage({ kind, monitor, project, reason, downForMs, b
   const name = monitor.name || monitor.slug;
   const link = baseUrl ? `${baseUrl}/monitors/${monitor.id}` : null;
   const head = kind === 'down' ? `🔴 Monitor offline: ${name}` : `✅ Monitor back online: ${name}`;
-  const lines = [head, `Project: ${project?.name || monitor.projectId}${monitor.environment ? ` · ${monitor.environment}` : ''}`];
+  const lines = [head, `Project: ${project?.name || 'Standalone'}${monitor.environment ? ` · ${monitor.environment}` : ''}`];
   if (kind === 'down' && reason) lines.push(`Reason: ${reason}`);
   if (kind === 'recovered' && downForMs != null) lines.push(`Down for ${Math.max(1, Math.round(downForMs / 60000))} min`);
   if (link) lines.push(link);

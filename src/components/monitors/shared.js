@@ -364,10 +364,14 @@ async function send(url, options) {
 }
 
 /** Actions on one monitor; each throws an Error with a readable message. */
+/** Route id for a monitor's scope: its project id, or "standalone" when it has none. */
+export const scopeOf = (mon) => mon.projectId ?? 'standalone';
+export const projectLabel = (mon) => mon.project?.name || 'Standalone';
+
 export const monitorApi = {
-  run: (mon) => send(`/api/projects/${mon.projectId}/monitors/ping`, { method: 'POST', body: JSON.stringify({ monitorId: mon.id }) }),
-  setPaused: (mon, paused) => send(`/api/projects/${mon.projectId}/monitors`, { method: 'PATCH', body: JSON.stringify({ monitorId: mon.id, status: paused ? 'paused' : 'active' }) }),
-  remove: (mon) => send(`/api/projects/${mon.projectId}/monitors?monitorId=${mon.id}`, { method: 'DELETE' })
+  run: (mon) => send(`/api/projects/${scopeOf(mon)}/monitors/ping`, { method: 'POST', body: JSON.stringify({ monitorId: mon.id }) }),
+  setPaused: (mon, paused) => send(`/api/projects/${scopeOf(mon)}/monitors`, { method: 'PATCH', body: JSON.stringify({ monitorId: mon.id, status: paused ? 'paused' : 'active' }) }),
+  remove: (mon) => send(`/api/projects/${scopeOf(mon)}/monitors?monitorId=${mon.id}`, { method: 'DELETE' })
 };
 
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -471,7 +475,7 @@ export function Heatmap({ projectId, monitorId, selected, onSelect, refreshKey, 
 
 
 /** Left rail on the monitor page: every monitor with its 24h success badge and a mini run strip, searchable. */
-export function MonitorSidebar({ activeId }) {
+export function MonitorSidebar({ activeId, scope = null }) {
   const [monitors, setMonitors] = useState(null);
   const [q, setQ] = useState('');
 
@@ -487,7 +491,7 @@ export function MonitorSidebar({ activeId }) {
   }, []);
 
   const term = q.trim().toLowerCase();
-  const shown = (monitors || []).filter((x) => !term || `${x.name || ''} ${x.slug} ${x.project?.name || ''}`.toLowerCase().includes(term));
+  const shown = (monitors || []).filter((x) => (scope == null || scopeOf(x) === scope) && (!term || `${x.name || ''} ${x.slug} ${projectLabel(x)}`.toLowerCase().includes(term)));
 
   return (
     <aside className={m.sideList} aria-label="Monitors">
@@ -499,7 +503,7 @@ export function MonitorSidebar({ activeId }) {
             <li key={x.id}>
               <Link href={`/monitors/${x.id}`} className={`${m.sideItem} ${x.id === activeId ? m.sideItemOn : ''}`}>
                 <span className={`${m.sideBadge} ${up == null ? m.sideBadgeNone : up >= 99 ? m.sideBadgeOk : up >= 95 ? m.sideBadgeWarn : m.sideBadgeBad}`}>{up == null ? '–' : `${Math.round(up)}%`}</span>
-                <span className={m.sideName}>{x.name || x.slug}<small>{x.project?.name}</small></span>
+                <span className={m.sideName}>{x.name || x.slug}<small>{projectLabel(x)}</small></span>
                 <span className={m.sideStrip}><History history={x.history || []} slots={12} /></span>
               </Link>
             </li>
@@ -581,7 +585,7 @@ export function SiteGlance({ monitors, slicesById }) {
               <span className={`${m.glanceUptime} ${rateTone(w?.uptime)}`}>{pct(w?.uptime)}</span>
             </div>
             <div className={m.glanceName} title={label}>{label}</div>
-            <div className={m.glanceSub}>{host && host !== label ? `${host} · ` : ''}{x.project?.name}{x.environment ? ` · ${x.environment}` : ''}</div>
+            <div className={m.glanceSub}>{host && host !== label ? `${host} · ` : ''}{projectLabel(x)}{x.environment ? ` · ${x.environment}` : ''}</div>
             <ActivityStrip slices={slicesById[x.id] || []} />
             <div className={m.glanceFoot}>
               <span>{x.lastRunAt ? `Last run ${ago(x.lastRunAt, now)}` : 'No runs yet'}{x.lastDurationMs != null ? ` · ${fmtDuration(x.lastDurationMs)}` : ''}</span>

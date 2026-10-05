@@ -1,15 +1,6 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
+import { getSessionUser, visibleMonitorsWhere } from '@/lib/monitor-scope';
 import { loadMonitorViews } from '@/lib/monitor-view';
-
-function getUser(req) {
-  try {
-    const session = parse(req.headers.cookie || '').session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * GET /api/monitors/:id[?range=24h|7d|30d|90d]
@@ -21,13 +12,13 @@ export default async function handler(req, res) {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end();
   }
-  const user = getUser(req);
+  const user = getSessionUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
   const id = parseInt(req.query.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: 'Bad monitor id' });
   try {
     const row = await prisma.cronMonitor.findFirst({
-      where: { id, project: { users: { some: { id: user.userId } } } },
+      where: { id, ...visibleMonitorsWhere(user.userId) },
       select: { id: true }
     });
     if (!row) return res.status(404).json({ error: 'Monitor not found' });

@@ -40,6 +40,7 @@ model User {
   assignedIssues Issue[]   @relation("AssignedIssues")
   ownedProjects  Project[] @relation("ProjectOwners")
   comments       Comment[]
+  ownedMonitors            CronMonitor[]     @relation("OwnedMonitors")
 }
 
 model Project {
@@ -187,8 +188,10 @@ model DebugFile {
 
 model CronMonitor {
   id            Int               @id @default(autoincrement())
-  projectId     Int
-  project       Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId     Int? // null = standalone monitor (not part of a project)
+  project       Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ownerId       Int? // owner of a standalone monitor
+  owner         User?             @relation("OwnedMonitors", fields: [ownerId], references: [id], onDelete: Cascade)
   slug          String
   name          String?
   status        String            @default("active")
@@ -209,6 +212,7 @@ model CronMonitor {
   updatedAt     DateTime          @updatedAt
 
   @@unique([projectId, slug])
+  @@unique([ownerId, slug])
   @@index([projectId, status])
 }
 

@@ -1,16 +1,7 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
+import { resolveMonitorScope } from '@/lib/monitor-scope';
 import { loadMonitorStats } from '@/lib/monitor-stats-load';
 import { summarizeProjectStats, RANGES } from '@/lib/monitor-stats';
-
-function getUser(req) {
-  try {
-    const session = parse(req.headers.cookie || '').session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * GET /api/projects/:id/monitors/stats[?monitorId=N][&range=24h|7d|30d|90d]
@@ -23,17 +14,11 @@ export default async function handler(req, res) {
     res.setHeader('Allow', ['GET']);
     return res.status(405).end();
   }
-  const user = getUser(req);
-  if (!user) return res.status(401).json({ error: 'Not authenticated' });
-  const projectId = parseInt(req.query.id, 10);
-  if (isNaN(projectId)) return res.status(400).json({ error: 'Bad project id' });
+  const scope = await resolveMonitorScope(req, req.query.id);
+  if (scope.error) return res.status(scope.status).json({ error: scope.error });
 
   try {
-    const project = await prisma.project.findUnique({ where: { id: projectId }, include: { users: { select: { id: true } } } });
-    if (!project) return res.status(404).json({ error: 'Not found' });
-    if (!project.users.some((u) => u.id === user.userId)) return res.status(403).json({ error: 'Forbidden' });
-
-    const where = { projectId };
+    const where = { ...scope.where };
     if (req.query.monitorId !== undefined) {
       const mid = parseInt(req.query.monitorId, 10);
       if (isNaN(mid)) return res.status(400).json({ error: 'Bad monitorId' });

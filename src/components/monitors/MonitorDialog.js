@@ -7,7 +7,7 @@ import m from '@/styles/Monitors.module.css';
 /** Create (monitor = null) or edit a monitor, including its alert settings. */
 export default function MonitorDialog({ projects, monitor = null, defaultProjectId, onClose, onSaved }) {
   const [form, setForm] = useState(() => ({
-    projectId: monitor?.projectId ?? defaultProjectId ?? projects[0]?.id,
+    projectId: monitor ? (monitor.projectId ?? 'standalone') : (defaultProjectId ?? projects[0]?.id ?? 'standalone'),
     slug: monitor?.slug || '',
     name: monitor?.name || '',
     schedule: monitor?.schedule || '',
@@ -62,13 +62,17 @@ export default function MonitorDialog({ projects, monitor = null, defaultProject
         <p className={m.dialogText}>Use the same slug in your SDK&apos;s <code className={m.code}>monitor_slug</code>. Add ping URLs if the server should check them for you.</p>
         {error && <div className={m.error} role="alert">{error}</div>}
 
-        {!monitor && projects.length > 1 && (
+        {!monitor && (
           <label className={m.field}>
             <span className={m.label}>Project</span>
-            <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: parseInt(e.target.value, 10) })} className={m.input}>
+            <select value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value === 'standalone' ? 'standalone' : parseInt(e.target.value, 10) })} className={m.input}>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              <option value="standalone">No project (standalone)</option>
             </select>
           </label>
+        )}
+        {form.projectId === 'standalone' && (
+          <p className={m.dialogText}>Standalone monitors belong to you, not a project. They are checked by ping URL (at least one is required) and alert through the channels below; a project&apos;s Telegram chat is not used.</p>
         )}
         <label className={m.field}>
           <span className={m.label}>Slug</span>
