@@ -89,8 +89,12 @@ export function buildTools(client) {
     // ---- events ----
     {
       name: 'list_events',
-      description: 'List the most recent events (newest first).',
-      schema: { projectId: projectId.optional(), limit: z.number().int().min(1).max(200).default(50) },
+      description: 'List the most recent events (newest first). Monitor check-ins are excluded unless eventType is CHECK_IN.',
+      schema: {
+        projectId: projectId.optional(),
+        limit: z.number().int().min(1).max(200).default(50),
+        eventType: z.enum(['ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE', 'CHECK_IN']).optional()
+      },
       run: async (args) => client.get('/api/events', args)
     },
     {

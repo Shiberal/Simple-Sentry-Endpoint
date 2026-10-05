@@ -8,6 +8,7 @@ export default async function handler(req, res) {
     promotedPageUrl,
     promotedRelease,
     promotedEnv,
+    eventType,
     cursor
   } = req.query;
 
@@ -15,6 +16,10 @@ export default async function handler(req, res) {
     case 'GET':
       try {
         const where = projectId ? { projectId: parseInt(projectId) } : {};
+
+        // Monitor check-ins (SDK and server pings) are not errors: keep them out of the event
+        // list that feeds issue views unless they are asked for explicitly
+        where.eventType = eventType ? String(eventType).toUpperCase() : { not: 'CHECK_IN' };
 
         if (promotedPageUrl) {
           where.promotedPageUrl = {

@@ -21,10 +21,11 @@ export default async function handler(req, res) {
     const [users, projects, events, issues, recentEvents, recentIssues] = await Promise.all([
       prisma.user.count(),
       prisma.project.count(),
-      prisma.event.count(),
+      prisma.event.count({ where: { eventType: { not: 'CHECK_IN' } } }),
       prisma.issue.count(),
       prisma.event.count({
         where: {
+          eventType: { not: 'CHECK_IN' },
           createdAt: {
             gte: last24Hours
           }

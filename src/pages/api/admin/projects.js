@@ -34,7 +34,7 @@ export default async function handler(req, res) {
             },
             _count: {
               select: {
-                events: true,
+                events: { where: { eventType: { not: 'CHECK_IN' } } },
                 issues: true
               }
             }
