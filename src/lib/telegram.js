@@ -11,7 +11,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
  * @param {string} message - Message text (supports Markdown)
  * @returns {Promise<Object>} Response from Telegram API
  */
-export async function sendTelegramMessage(chatId, message, { parseMode = 'Markdown' } = {}) {
+async function sendRaw(chatId, message, { parseMode = 'Markdown' } = {}) {
   if (!TELEGRAM_BOT_TOKEN) {
     console.warn('TELEGRAM_BOT_TOKEN not configured. Skipping Telegram notification.');
     return { success: false, error: 'TELEGRAM_BOT_TOKEN not configured' };
@@ -251,5 +251,27 @@ export async function pollLinkKeys() {
     return { keys };
   } catch (e) {
     return { keys: [], error: e.message };
+  }
+}
+
+
+/** Last deliveries from this server process (newest first), for the debug panel. Lost on restart. */
+export const recentSends = [];
+
+export async function sendTelegramMessage(chatId, message, options) {
+  const result = await sendRaw(chatId, message, options);
+  recentSends.unshift({ at: new Date().toISOString(), chatId: String(chatId ?? ''), ok: !!result.success, error: result.success ? null : result.error, preview: String(message).replace(/\s+/g, ' ').slice(0, 80) });
+  recentSends.length = Math.min(recentSends.length, 20);
+  return result;
+}
+
+/** Raw Bot API call for diagnostics; returns Telegram's JSON, or { ok: false, description } on network errors. */
+export async function telegramApi(method, params = {}) {
+  if (!TELEGRAM_BOT_TOKEN) return { ok: false, description: 'TELEGRAM_BOT_TOKEN not configured' };
+  try {
+    const res = await fetch(`${API()}/${method}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params) });
+    return await res.json();
+  } catch (e) {
+    return { ok: false, description: e.message };
   }
 }
