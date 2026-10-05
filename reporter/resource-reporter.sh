@@ -17,7 +17,7 @@ if [ -z "$SENTRY_REPORT_URL" ] || [ -z "$SENTRY_REPORT_TOKEN" ]; then
   exit 1
 fi
 
-CG=/sys/fs/cgroup
+CG="${SENTRY_CGROUP_ROOT:-/sys/fs/cgroup}"  # override only for testing
 
 # Prints "cpu_usec mem_used_bytes mem_limit_bytes cpu_limit_cores"; empty fields become "null".
 read_cgroup() {
