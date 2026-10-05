@@ -20,7 +20,9 @@ import styles from '@/styles/Dashboard.module.css';
 
 const DETAILED_LIVE_REFRESH_INTERVAL_MS = 1000;
 const TIMESERIES_LIVE_REFRESH_INTERVAL_MS = 5000;
-const DETAILED_CHART_WINDOW_MS = 6 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DETAILED_WINDOWS = [['1h', HOUR_MS], ['6h', 6 * HOUR_MS], ['24h', 24 * HOUR_MS], ['7d', 168 * HOUR_MS], ['30d', 720 * HOUR_MS]];
+const DETAILED_ROW_CAP = 2000; // keep in sync with the API's result limit for date-bounded requests
 const DETAILED_CHART_RECENT_WINDOW_MS = 60 * 60 * 1000;
 const DETAILED_CHART_BUCKET_MINUTES = 5;
 const DETAILED_CHART_BUCKET_MS = DETAILED_CHART_BUCKET_MINUTES * 60 * 1000;
@@ -55,6 +57,8 @@ export default function PerformancePage() {
   const [availableEndpoints, setAvailableEndpoints] = useState([]);
   const [error, setError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [detailedWindow, setDetailedWindow] = useState('6h');
+  const DETAILED_CHART_WINDOW_MS = DETAILED_WINDOWS.find(([k]) => k === detailedWindow)[1];
   const refreshFnRef = useRef(null);
   const refreshInFlightRef = useRef(false);
   const selectedProjectRef = useRef(selectedProject);
@@ -89,20 +93,20 @@ export default function PerformancePage() {
     } else {
       fetchTransactions();
     }
-  }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter]);
+  }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter, detailedWindow]);
 
   useEffect(() => {
     // Update the ref whenever the fetch functions or viewMode change
     refreshFnRef.current = viewMode === 'timeseries'
       ? (id) => fetchTimeSeries(id)
       : (id) => fetchTransactions(id);
-  }, [viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter]);
+  }, [viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter, detailedWindow]);
 
   useEffect(() => {
     if (!autoRefresh || selectedProject == null) return;
 
     const refreshIntervalMs = viewMode === 'detailed'
-      ? DETAILED_LIVE_REFRESH_INTERVAL_MS
+      ? (DETAILED_CHART_WINDOW_MS > 6 * HOUR_MS ? 15000 : DETAILED_LIVE_REFRESH_INTERVAL_MS)
       : TIMESERIES_LIVE_REFRESH_INTERVAL_MS;
 
     const refreshLiveData = async () => {
@@ -642,8 +646,10 @@ export default function PerformancePage() {
       getCSSVariable('--info') || '#06b6d4'
     ];
 
+    // Longer periods get coarser buckets so the chart stays around 200 points
+    const bucketMs = Math.max(DETAILED_CHART_BUCKET_MS, Math.ceil(DETAILED_CHART_WINDOW_MS / 200 / 60000) * 60000);
     const nowMs = Date.now();
-    const windowEndMs = Math.ceil(nowMs / DETAILED_CHART_BUCKET_MS) * DETAILED_CHART_BUCKET_MS;
+    const windowEndMs = Math.ceil(nowMs / bucketMs) * bucketMs;
     const windowStartMs = windowEndMs - DETAILED_CHART_WINDOW_MS;
     const recentStartMs = windowEndMs - DETAILED_CHART_RECENT_WINDOW_MS;
     const toFiniteNumber = (value) => {
@@ -697,7 +703,7 @@ export default function PerformancePage() {
               return;
             }
 
-            const bucketStartMs = Math.floor(timestampMs / DETAILED_CHART_BUCKET_MS) * DETAILED_CHART_BUCKET_MS;
+            const bucketStartMs = Math.floor(timestampMs / bucketMs) * bucketMs;
             const bucket = buckets.get(bucketStartMs) || {
               count: 0,
               durationSum: 0,
@@ -722,7 +728,7 @@ export default function PerformancePage() {
         const bucketedPoints = Array.from(buckets.entries())
           .sort(([a], [b]) => a - b)
           .map(([bucketStartMs, bucket]) => {
-            const bucketEndMs = bucketStartMs + DETAILED_CHART_BUCKET_MS;
+            const bucketEndMs = bucketStartMs + bucketMs;
             const timestamp = new Date(bucketStartMs).toISOString();
             const point = {
               ...bucket.lastPoint,
@@ -1623,6 +1629,26 @@ export default function PerformancePage() {
             </div>
           )}
         </>
+            )}
+
+            {viewMode === 'detailed' && (
+              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
+                <span style={{ fontSize: 'var(--font-sm)', color: 'var(--text-secondary)' }}>Period</span>
+                <div role="group" aria-label="Period" style={{ display: 'inline-flex', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                  {DETAILED_WINDOWS.map(([k]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={detailedWindow === k}
+                      onClick={() => setDetailedWindow(k)}
+                      style={{ padding: '6px 14px', border: 0, cursor: 'pointer', background: detailedWindow === k ? 'var(--accent-primary)' : 'transparent', color: detailedWindow === k ? 'white' : 'var(--text-secondary)' }}
+                    >Last {k}</button>
+                  ))}
+                </div>
+                {transactions.length >= DETAILED_ROW_CAP && (
+                  <span style={{ fontSize: 'var(--font-xs)', color: 'var(--warning)' }}>Showing the newest {DETAILED_ROW_CAP} transactions in this period.</span>
+                )}
+              </div>
             )}
 
             {viewMode === 'detailed' && analytics && (
