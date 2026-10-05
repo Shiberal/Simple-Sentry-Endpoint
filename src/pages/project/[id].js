@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import TelegramConnect from '@/components/TelegramConnect';
+import usePersistedState from '@/hooks/usePersistedState';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -10,6 +11,10 @@ export default function ProjectSettings() {
   const router = useRouter();
   const { id } = router.query;
   const [project, setProject] = useState(null);
+  // Which base URL the DSN and snippets use (same project key, different deployments); '' = the site you are on
+  const [baseChoice, setBaseChoice] = usePersistedState('project-dsn-base', '');
+  const [customBase, setCustomBase] = usePersistedState('project-dsn-custom-bases', []);
+  const [newBase, setNewBase] = useState('');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -480,10 +485,32 @@ export default function ProjectSettings() {
     return baseUrl.replace(/^https?:\/\//, '');
   };
 
-  const baseUrl = getBaseUrl();
-  const host = getHost();
+  const normalizeBase = (value) => {
+    const raw = String(value || '').trim().replace(/\/+$/, '');
+    if (!raw) return null;
+    try { return new URL(/^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`); } catch { return null; }
+  };
+  const hrefOf = (u) => u.href.replace(/\/$/, '');
+  const originBase = getBaseUrl();
+  const baseOptions = [...new Set([
+    originBase,
+    ...String(process.env.NEXT_PUBLIC_BASE_URLS || '').split(','),
+    ...customBase
+  ].map((x) => normalizeBase(x)).filter(Boolean).map(hrefOf))];
+  const wanted = normalizeBase(baseChoice);
+  const chosen = (wanted && baseOptions.includes(hrefOf(wanted)) ? wanted : null) || normalizeBase(originBase) || normalizeBase(getHost());
+  const baseUrl = hrefOf(chosen);
+  const host = chosen.host + chosen.pathname.replace(/\/$/, '');
   const envelopeUrl = `${baseUrl}/api/${project.id}/envelope`;
-  const dsn = `https://${project.key}@${host}/${project.id}`;
+  const dsn = `${chosen.protocol}//${project.key}@${host}/${project.id}`;
+  const addBase = () => {
+    const u = normalizeBase(newBase);
+    if (!u) return;
+    const href = hrefOf(u);
+    if (!baseOptions.includes(href)) setCustomBase([...customBase, href]);
+    setBaseChoice(href);
+    setNewBase('');
+  };
 
   const curlExample = `curl -X POST ${envelopeUrl} \\
   -H "Content-Type: application/json" \\
@@ -674,6 +701,26 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
             <p className={styles.sectionDescription}>
               Use this DSN with the official Sentry SDK. This is the recommended method.
             </p>
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Server URL</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                <select value={baseUrl} onChange={(e) => setBaseChoice(e.target.value)} className={styles.input} style={{ flex: '1 1 260px' }} aria-label="Server URL used in the DSN">
+                  {baseOptions.map((u) => <option key={u} value={u}>{u}{u === hrefOf(normalizeBase(originBase)) ? ' (this site)' : ''}</option>)}
+                </select>
+                <input
+                  type="text"
+                  value={newBase}
+                  onChange={(e) => setNewBase(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addBase(); } }}
+                  placeholder="Add another URL, e.g. https://errors.example.com"
+                  className={styles.input}
+                  style={{ flex: '1 1 260px' }}
+                  aria-label="Add a server URL"
+                />
+                <button type="button" onClick={addBase} className={styles.copyButton} disabled={!normalizeBase(newBase)}>Add</button>
+              </div>
+              <p className={styles.helpText}>Same project key on every URL. The DSN and the snippets below follow the selection and it is remembered in this browser. To preset URLs for everyone, set <code>NEXT_PUBLIC_BASE_URLS</code> (comma separated, at build time).</p>
+            </div>
             <div className={styles.codeContainer}>
               <code className={styles.code}>{dsn}</code>
               <button 
