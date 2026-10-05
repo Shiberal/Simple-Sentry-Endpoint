@@ -852,3 +852,6 @@ a.editButton { display: inline-block; text-decoration: none; }
 .beatBadge.tone_info { background-color: var(--info); }
 
 @media (max-width: 900px) { .sideList { display: none; } }
+
+.activityStrip { display: flex; align-items: flex-end; gap: 3px; height: 44px; }
+.activityStrip .bar, .activityStrip .barEmpty { min-height: 0; }

@@ -383,11 +383,14 @@ function dayLevel(d) {
 const WEEKS = 53;
 
 /** GitHub-style year grid: one cell per local day, colour = share of failed runs. Click a day to select it. */
-export function Heatmap({ projectId, monitorId, selected, onSelect, refreshKey }) {
-  const [days, setDays] = useState(null);
+export function Heatmap({ projectId, monitorId, selected, onSelect, refreshKey, daysData = null }) {
+  const [fetched, setFetched] = useState(null);
+  const days = daysData || fetched;
+  const setDays = setFetched;
   const [err, setErr] = useState('');
 
   useEffect(() => {
+    if (daysData) return undefined;
     let live = true;
     const q = new URLSearchParams({ monitorId: String(monitorId), days: String(WEEKS * 7), tzOffset: String(-new Date().getTimezoneOffset()) });
     fetch(`/api/projects/${projectId}/monitors/heatmap?${q}`)
@@ -399,7 +402,7 @@ export function Heatmap({ projectId, monitorId, selected, onSelect, refreshKey }
       })
       .catch((e) => live && setErr(e.message));
     return () => { live = false; };
-  }, [projectId, monitorId, refreshKey]);
+  }, [projectId, monitorId, refreshKey, daysData]);
 
   if (err) return <p className={m.textBad}>{err}</p>;
   if (!days) return <p className={m.faint}>Loading history…</p>;
@@ -506,5 +509,52 @@ export function MonitorSidebar({ activeId }) {
       </ul>
       <Link href="/monitors" className={m.editButton}>All monitors</Link>
     </aside>
+  );
+}
+
+
+/** Last 24h as 30-minute slices: green = all ok, red = any failure (taller with more failures), gray = no runs. */
+export function ActivityStrip({ slices }) {
+  const peak = Math.max(1, ...slices.map((s) => s.error));
+  return (
+    <div className={m.activityStrip} role="img" aria-label="Runs over the last 24 hours">
+      {slices.map((s) => {
+        const total = s.ok + s.error;
+        const tone = !total ? m.barEmpty : s.error ? m.barBad : m.barOk;
+        const height = !total ? 12 : s.error ? 55 + Math.round((s.error / peak) * 45) : 30;
+        return (
+          <span
+            key={s.at}
+            className={`${m.bar} ${tone}`}
+            style={{ height: `${height}%` }}
+            title={`${new Date(s.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · ${total ? `${s.error} failed of ${total} runs` : 'no runs'}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+/** All-projects activity: 24h strip plus the yearly grid, across every monitor. */
+export function ActivityOverview({ projectId = null, refreshKey }) {
+  const [data, setData] = useState(null);
+  const [day, setDay] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    const q = new URLSearchParams({ tzOffset: String(-new Date().getTimezoneOffset()) });
+    if (projectId) q.set('projectId', String(projectId));
+    fetch(`/api/monitors/activity?${q}`).then((r) => r.json()).then((j) => live && j.success && setData(j)).catch(() => {});
+    return () => { live = false; };
+  }, [projectId, refreshKey]);
+
+  if (!data || !data.slices.length) return null;
+  return (
+    <section className={m.overview} aria-label="Activity">
+      <h2 className={m.detailTitle}>Last 24 hours</h2>
+      <ActivityStrip slices={data.slices} />
+      <h2 className={m.detailTitle}>Last year</h2>
+      <Heatmap daysData={Object.fromEntries(data.days.map((d) => [d.date, d]))} selected={day} onSelect={setDay} />
+    </section>
   );
 }

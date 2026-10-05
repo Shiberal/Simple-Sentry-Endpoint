@@ -6,7 +6,7 @@ import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
 import styles from '@/styles/Dashboard.module.css';
 import {
-  CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, PRESETS, REFRESH_MS, RANGE_OPTIONS,
+  ActivityOverview, CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, PRESETS, REFRESH_MS, RANGE_OPTIONS,
   StatsPanel, monitorApi, ago, fmtDuration, pct, rateTone, until
 } from '@/components/monitors/shared';
 
@@ -365,6 +365,8 @@ export default function MonitorsPage() {
                 </div>
               </section>
             )}
+
+            {pid === 'all' && monitors.length > 0 && <ActivityOverview refreshKey={String(summary?.runs24h)} />}
 
             {monitors.length > 0 && summary?.stats && (
               <section className={m.overview} aria-label="Project overview">
