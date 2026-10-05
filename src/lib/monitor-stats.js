@@ -6,7 +6,15 @@ export const STATS_WINDOWS = [
   ['7d', 7 * DAY_MS],
   ['30d', 30 * DAY_MS]
 ];
-export const STATS_MAX_DAYS = 30;
+export const STATS_MAX_DAYS = 90;
+
+/** Chart ranges: how far back and how coarse the buckets are. */
+export const RANGES = {
+  '24h': { ms: DAY_MS, bucketMs: HOUR_MS },
+  '7d': { ms: 7 * DAY_MS, bucketMs: 6 * HOUR_MS },
+  '30d': { ms: 30 * DAY_MS, bucketMs: DAY_MS },
+  '90d': { ms: 90 * DAY_MS, bucketMs: DAY_MS }
+};
 
 const round1 = (n) => Math.round(n * 10) / 10;
 
@@ -33,7 +41,8 @@ function durationStats(values) {
  *
  * @param {{ checkIns: Array<{status, durationMs, createdAt}>, now?: Date }} input  any order
  */
-export function computeMonitorStats({ checkIns, now = new Date() }) {
+export function computeMonitorStats({ checkIns, now = new Date(), range = '30d' }) {
+  const { ms: rangeMs, bucketMs } = RANGES[range] || RANGES['30d'];
   const finished = checkIns
     .filter((c) => c.status === 'ok' || c.status === 'error')
     .map((c) => ({ status: c.status, durationMs: c.durationMs, at: new Date(c.createdAt) }))
@@ -56,7 +65,7 @@ export function computeMonitorStats({ checkIns, now = new Date() }) {
 
   const incidents = [];
   let open = null;
-  for (const c of finished) {
+  for (const c of finished.filter((r) => nowMs - r.at.getTime() <= 30 * DAY_MS)) {
     if (c.status === 'error') {
       if (!open) open = { startedAt: c.at, failedRuns: 0 };
       open.failedRuns += 1;
@@ -89,17 +98,16 @@ export function computeMonitorStats({ checkIns, now = new Date() }) {
 
   const lastOf = (status) => [...finished].reverse().find((c) => c.status === status)?.at || null;
 
-  const days = [];
-  const startDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - (STATS_MAX_DAYS - 1) * DAY_MS);
-  for (let i = 0; i < STATS_MAX_DAYS; i += 1) {
-    days.push({ date: new Date(startDay.getTime() + i * DAY_MS).toISOString().slice(0, 10), ok: 0, error: 0, sumMs: 0, timed: 0 });
-  }
+  const count = Math.round(rangeMs / bucketMs);
+  const lastBucket = Math.floor(nowMs / bucketMs) * bucketMs;
+  const firstBucket = lastBucket - (count - 1) * bucketMs;
+  const buckets = Array.from({ length: count }, (_, i) => ({ t: firstBucket + i * bucketMs, ok: 0, error: 0, durations: [] }));
   for (const c of finished) {
-    const idx = Math.floor((c.at.getTime() - startDay.getTime()) / DAY_MS);
-    if (idx < 0 || idx >= days.length) continue;
-    const d = days[idx];
+    const idx = Math.floor((c.at.getTime() - firstBucket) / bucketMs);
+    if (idx < 0 || idx >= count) continue;
+    const d = buckets[idx];
     d[c.status] += 1;
-    if (c.status === 'ok' && c.durationMs != null) { d.sumMs += c.durationMs; d.timed += 1; }
+    if (c.status === 'ok' && c.durationMs != null) d.durations.push(c.durationMs);
   }
 
   return {
@@ -116,13 +124,20 @@ export function computeMonitorStats({ checkIns, now = new Date() }) {
       last: shaped.length ? shaped[shaped.length - 1] : null,
       recent: shaped.slice(-10).reverse()
     },
-    daily: days.map((d) => ({
-      date: d.date,
-      ok: d.ok,
-      error: d.error,
-      uptime: d.ok + d.error ? round1((d.ok / (d.ok + d.error)) * 100) : null,
-      avgMs: d.timed ? Math.round(d.sumMs / d.timed) : null
-    }))
+    range,
+    bucketMs,
+    daily: buckets.map((d) => {
+      const sorted = d.durations.sort((x, y) => x - y);
+      const total = d.ok + d.error;
+      return {
+        date: new Date(d.t).toISOString(),
+        ok: d.ok,
+        error: d.error,
+        uptime: total ? round1((d.ok / total) * 100) : null,
+        avgMs: sorted.length ? Math.round(sorted.reduce((x, y) => x + y, 0) / sorted.length) : null,
+        p95Ms: sorted.length ? Math.round(percentile(sorted, 95)) : null
+      };
+    })
   };
 }
 
@@ -148,13 +163,14 @@ export function summarizeProjectStats(statsList) {
   });
   const dailyByDate = new Map();
   statsList.forEach((s) => s.daily.forEach((d) => {
-    const cur = dailyByDate.get(d.date) || { date: d.date, ok: 0, error: 0 };
+    const cur = dailyByDate.get(d.date) || { date: d.date, ok: 0, error: 0, avgs: [] };
+    if (d.avgMs != null) cur.avgs.push(d.avgMs);
     cur.ok += d.ok;
     cur.error += d.error;
     dailyByDate.set(d.date, cur);
   }));
   out.daily = [...dailyByDate.values()]
     .sort((a, b) => a.date.localeCompare(b.date))
-    .map((d) => ({ ...d, uptime: d.ok + d.error ? round1((d.ok / (d.ok + d.error)) * 100) : null }));
+    .map(({ avgs, ...d }) => ({ ...d, uptime: d.ok + d.error ? round1((d.ok / (d.ok + d.error)) * 100) : null, avgMs: avgs.length ? Math.round(avgs.reduce((x, y) => x + y, 0) / avgs.length) : null }));
   return out;
 }

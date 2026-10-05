@@ -24,7 +24,7 @@ Claude Code: `claude mcp add sentry-monitor -e SENTRY_MONITOR_URL=... -e SENTRY_
 
 ## Tools
 
-Read: `list_projects`, `get_project`, `projects_summary`, `list_releases`, `list_issues`, `get_issue`, `list_issue_comments`, `find_duplicate_issues`, `top_issues`, `list_events`, `get_event`, `error_trends`, `error_breakdown`, `performance_stats`, `performance_timeseries`, `list_monitors`, `monitor_stats`.
+Read: `list_projects`, `get_project`, `projects_summary`, `list_releases`, `list_issues`, `get_issue`, `list_issue_comments`, `find_duplicate_issues`, `top_issues`, `list_events`, `get_event`, `error_trends`, `error_breakdown`, `performance_stats`, `performance_timeseries`, `list_monitors`, `monitor_stats`, `monitor_checkins`.
 
 Write (need `SENTRY_MCP_ALLOW_WRITES=1`): `update_issue`, `add_issue_comment`, `merge_issues`, `create_monitor`, `update_monitor` (pause/resume), `ping_monitors`, `run_cron_monitors_ping`.
 

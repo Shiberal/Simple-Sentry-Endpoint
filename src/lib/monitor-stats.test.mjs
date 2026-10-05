@@ -44,7 +44,10 @@ test('empty monitor yields nulls and a full daily series', () => {
   assert.equal(s.windows['24h'].uptime, null);
   assert.equal(s.streak, null);
   assert.equal(s.daily.length, 30);
-  assert.equal(s.daily[29].date, '2026-10-05');
+  assert.equal(s.daily[29].date, '2026-10-05T00:00:00.000Z');
+  assert.equal(computeMonitorStats({ now, checkIns: [], range: '24h' }).daily.length, 24);
+  assert.equal(computeMonitorStats({ now, checkIns: [], range: '7d' }).daily.length, 28);
+  assert.equal(computeMonitorStats({ now, checkIns: [], range: '90d' }).daily.length, 90);
 });
 
 test('project summary pools runs across monitors', () => {

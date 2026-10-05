@@ -56,6 +56,8 @@ test('monitor_stats hits the stats endpoint, optionally for one monitor', async 
   await c.callTool({ name: 'monitor_stats', arguments: { projectId: 2, monitorId: 7 } });
   const urls = seen.filter((s) => s.url.includes('/stats')).map((s) => s.url);
   assert.deepEqual(urls, ['/api/projects/2/monitors/stats', '/api/projects/2/monitors/stats?monitorId=7']);
+  await c.callTool({ name: 'monitor_checkins', arguments: { projectId: 2, monitorId: 7, status: 'error', limit: 5 } });
+  assert.equal(seen.at(-1).url, '/api/projects/2/monitors/checkins?monitorId=7&status=error&limit=5');
   server.close();
 });
 

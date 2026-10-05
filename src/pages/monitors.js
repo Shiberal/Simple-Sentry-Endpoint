@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -63,28 +63,132 @@ function until(date, now) {
 const pct = (v) => (v == null ? '-' : `${v}%`);
 const rateTone = (v) => (v == null ? '' : v >= 99 ? m.textOk : v >= 95 ? m.textWarn : m.textBad);
 
-function Daily({ daily }) {
-  const slowest = Math.max(1, ...daily.map((d) => d.avgMs || 0));
+const RANGE_OPTIONS = ['24h', '7d', '30d', '90d'];
+const CHART_MODES = [['uptime', 'Uptime'], ['latency', 'Response time'], ['failures', 'Runs']];
+
+function bucketLabel(iso, range) {
+  const d = new Date(iso);
+  if (range === '24h') return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (range === '7d') return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+/** Interactive chart over a bucketed series: hover for exact values. */
+function Chart({ series, range, mode, height = 150 }) {
+  const [hover, setHover] = useState(null);
+  // Draw at the real pixel width so axis text stays readable at any size
+  const wrapRef = useRef(null);
+  const [W, setW] = useState(640);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return undefined;
+    const measure = () => setW(Math.max(280, Math.round(el.clientWidth)));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const padL = 40;
+  const padB = 18;
+  const padT = 8;
+  const H = height;
+  const n = series.length;
+  const step = (W - padL) / Math.max(1, n);
+  const x = (i) => padL + step * i + step / 2;
+
+  let max = 100;
+  if (mode === 'latency') max = Math.max(10, ...series.map((d) => d.p95Ms || d.avgMs || 0));
+  if (mode === 'failures') max = Math.max(1, ...series.map((d) => d.ok + d.error));
+  const y = (v) => padT + (H - padT - padB) * (1 - v / max);
+  const line = (key) => {
+    let path = '';
+    let pen = false;
+    series.forEach((d, i) => {
+      if (d[key] == null) { pen = false; return; }
+      path += `${pen ? 'L' : 'M'}${x(i).toFixed(1)} ${y(d[key]).toFixed(1)} `;
+      pen = true;
+    });
+    return path;
+  };
+  const ticks = [0, 0.5, 1].map((f) => max * f);
+  const fmtTick = (v) => (mode === 'uptime' ? `${Math.round(v)}%` : mode === 'latency' ? fmtDuration(v) : Math.round(v));
+  const labelEvery = Math.max(1, Math.ceil(n / Math.max(2, Math.floor((W - padL) / 110))));
+
+  const onMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - rect.left) / rect.width) * W;
+    setHover(Math.min(n - 1, Math.max(0, Math.floor((px - padL) / step))));
+  };
+  const h = hover != null ? series[hover] : null;
+
   return (
-    <div className={m.daily} role="img" aria-label="Daily success rate and average run time, last 30 days">
-      {daily.map((d) => {
-        const total = d.ok + d.error;
-        const tone = !total ? m.barEmpty : d.error ? m.barBad : m.barOk;
-        const height = !total ? 12 : Math.max(20, Math.round(((d.avgMs || 0) / slowest) * 100));
-        return (
-          <span
-            key={d.date}
-            className={`${m.dailyBar} ${tone}`}
-            style={{ height: `${height}%` }}
-            title={total ? `${d.date}: ${d.ok}/${total} ok (${d.uptime}%)${d.avgMs != null ? ` · avg ${fmtDuration(d.avgMs)}` : ''}` : `${d.date}: no runs`}
-          />
-        );
-      })}
+    <div className={m.chartWrap} ref={wrapRef}>
+      <svg viewBox={`0 0 ${W} ${H}`} className={m.chart} role="img" aria-label={`${mode} over the last ${range}`} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={padL} x2={W} y1={y(t)} y2={y(t)} className={m.gridLine} />
+            <text x={padL - 6} y={y(t) + 3} textAnchor="end" className={m.axisText}>{fmtTick(t)}</text>
+          </g>
+        ))}
+        {series.map((d, i) => i % labelEvery === 0 && (
+          <text key={d.date} x={x(i)} y={H - 4} textAnchor="middle" className={m.axisText}>{bucketLabel(d.date, range)}</text>
+        ))}
+        {mode === 'failures' && series.map((d, i) => {
+          const bw = Math.max(2, step * 0.7);
+          const okH = (H - padT - padB) * (d.ok / max);
+          const errH = (H - padT - padB) * (d.error / max);
+          return (
+            <g key={d.date}>
+              <rect x={x(i) - bw / 2} y={H - padB - okH} width={bw} height={okH} className={m.fillOk} />
+              <rect x={x(i) - bw / 2} y={H - padB - okH - errH} width={bw} height={errH} className={m.fillBad} />
+            </g>
+          );
+        })}
+        {mode === 'uptime' && (
+          <>
+            {series.map((d, i) => d.uptime != null && d.uptime < 90 && <rect key={d.date} x={x(i) - step / 2} y={padT} width={step} height={H - padT - padB} className={m.fillBadSoft} />)}
+            <path d={line('uptime')} className={m.lineOk} fill="none" />
+            {series.map((d, i) => d.uptime != null && <circle key={d.date} cx={x(i)} cy={y(d.uptime)} r={n > 40 ? 1.5 : 2.5} className={d.error ? m.dotBad : m.dotOk} />)}
+          </>
+        )}
+        {mode === 'latency' && (
+          <>
+            <path d={line('p95Ms')} className={m.lineWarn} fill="none" strokeDasharray="4 3" />
+            <path d={line('avgMs')} className={m.lineInfo} fill="none" />
+          </>
+        )}
+        {hover != null && <line x1={x(hover)} x2={x(hover)} y1={padT} y2={H - padB} className={m.cursor} />}
+      </svg>
+      {h && (
+        <div className={m.tooltip} style={{ left: `${(x(hover) / W) * 100}%` }}>
+          <strong>{bucketLabel(h.date, range)}</strong>
+          <span>{h.ok + h.error} run{h.ok + h.error === 1 ? '' : 's'} · {h.error} failed</span>
+          <span>Uptime {pct(h.uptime)}</span>
+          <span>Avg {fmtDuration(h.avgMs)}{h.p95Ms != null && <> · p95 {fmtDuration(h.p95Ms)}</>}</span>
+        </div>
+      )}
+      {mode === 'latency' && <p className={m.legend}><span className={m.keyInfo} /> Average <span className={m.keyWarn} /> p95 (successful runs)</p>}
+      {mode === 'failures' && <p className={m.legend}><span className={m.keyOk} /> Succeeded <span className={m.keyBad} /> Failed</p>}
     </div>
   );
 }
 
-function StatsPanel({ stats, now }) {
+function ChartPanel({ series, range, modes = CHART_MODES, height }) {
+  const [mode, setMode] = useState(modes[0][0]);
+  return (
+    <div>
+      <div className={m.segmented} role="tablist" aria-label="Chart">
+        {modes.map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={mode === k} className={`${m.segment} ${mode === k ? m.segmentOn : ''}`} onClick={() => setMode(k)}>{label}</button>
+        ))}
+      </div>
+      <Chart series={series} range={range} mode={mode} height={height} />
+    </div>
+  );
+}
+
+function StatsPanel({ stats, now, range }) {
   const rows = [['24h', '24 hours'], ['7d', '7 days'], ['30d', '30 days']];
   const inc = stats.incidents;
   return (
@@ -120,16 +224,105 @@ function StatsPanel({ stats, now }) {
           ? 'None in 30 days'
           : <>{inc.count30d} in 30 days{inc.mttrMs != null && <> · avg recovery {fmtDuration(inc.mttrMs)}</>}{inc.longestMs != null && <> · longest {fmtDuration(inc.longestMs)}</>}</>}
       </p>
-      {inc.last && (
-        <p className={m.detailLine}>
-          <span>Last incident</span>
-          {inc.last.ongoing
-            ? <span className={m.textBad}>Ongoing for {fmtDuration(inc.last.durationMs)} ({inc.last.failedRuns} failed run{inc.last.failedRuns === 1 ? '' : 's'})</span>
-            : <span title={new Date(inc.last.startedAt).toLocaleString()}>{ago(inc.last.startedAt, now)}, down {fmtDuration(inc.last.durationMs)} ({inc.last.failedRuns} failed run{inc.last.failedRuns === 1 ? '' : 's'})</span>}
-        </p>
+      {inc.recent.length > 0 && (
+        <ul className={m.incidentList}>
+          {inc.recent.slice(0, 5).map((i) => (
+            <li key={String(i.startedAt)} title={new Date(i.startedAt).toLocaleString()}>
+              <span className={i.ongoing ? m.textBad : m.faint}>{i.ongoing ? 'Ongoing' : 'Resolved'}</span> {ago(i.startedAt, now)} · {i.ongoing ? 'down' : 'lasted'} {fmtDuration(i.durationMs)} · {i.failedRuns} failed run{i.failedRuns === 1 ? '' : 's'}
+            </li>
+          ))}
+        </ul>
       )}
-      <Daily daily={stats.daily} />
-      <p className={m.faint}>Last 30 days, bar height is average run time. Rates count runs that reported; missed runs are shown as health, not here.</p>
+      <ChartPanel series={stats.daily} range={range} />
+      <p className={m.faint}>Rates count runs that reported; missed runs show as health, not here.</p>
+    </div>
+  );
+}
+
+function CheckInHistory({ projectId, monitorId, now, refreshKey }) {
+  const [status, setStatus] = useState('all');
+  const [days, setDays] = useState(0);
+  const [rows, setRows] = useState([]);
+  const [next, setNext] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(null);
+  const [err, setErr] = useState('');
+
+  const load = useCallback(async (before) => {
+    setBusy(true);
+    setErr('');
+    try {
+      const q = new URLSearchParams({ monitorId: String(monitorId), limit: '25' });
+      if (status !== 'all') q.set('status', status);
+      if (days) q.set('days', String(days));
+      if (before) q.set('before', String(before));
+      const res = await fetch(`/api/projects/${projectId}/monitors/checkins?${q}`);
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || 'Could not load check-ins');
+      setRows((prev) => (before ? [...prev, ...j.checkIns] : j.checkIns));
+      setNext(j.nextBefore);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }, [projectId, monitorId, status, days]);
+
+  useEffect(() => { load(null); }, [load, refreshKey]);
+
+  return (
+    <div>
+      <h3 className={m.detailTitle}>Check-ins</h3>
+      <div className={m.filterRow}>
+        <div className={m.segmented}>
+          {[['all', 'All'], ['error', 'Failed'], ['ok', 'Succeeded']].map(([k, label]) => (
+            <button key={k} type="button" aria-pressed={status === k} className={`${m.segment} ${status === k ? m.segmentOn : ''}`} onClick={() => setStatus(k)}>{label}</button>
+          ))}
+        </div>
+        <select className={m.select} value={days} onChange={(e) => setDays(parseInt(e.target.value, 10))} aria-label="Time range">
+          <option value={0}>All time</option>
+          <option value={1}>Last 24h</option>
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+        </select>
+      </div>
+      {err && <p className={m.textBad}>{err}</p>}
+      {!busy && !rows.length && !err ? (
+        <p className={m.faint}>No check-ins match.</p>
+      ) : (
+        <table className={m.runs}>
+          <thead><tr><th>When</th><th>Result</th><th>Took</th><th>Source</th></tr></thead>
+          <tbody>
+            {rows.map((c) => {
+              const failed = (c.results || []).filter((r) => !r.ok);
+              const expandable = !!c.results?.length;
+              return (
+                <Fragment key={c.id}>
+                  <tr className={expandable ? m.clickRow : ''} onClick={expandable ? () => setOpen(open === c.id ? null : c.id) : undefined}>
+                    <td title={new Date(c.createdAt).toLocaleString()}>{ago(c.createdAt, now)}</td>
+                    <td><span className={`${m.runResult} ${c.status === 'ok' ? m.textOk : c.status === 'error' ? m.textBad : m.textInfo}`}>{c.status === 'in_progress' ? 'started' : c.status}</span>
+                      {failed.length > 0 && <span className={m.faint}> {failed.map((r) => r.status || r.error).join(', ')}</span>}
+                    </td>
+                    <td className={m.mono}>{fmtDuration(c.durationMs)}</td>
+                    <td>{c.source === 'server_http' ? 'Server ping' : 'SDK'}{expandable ? (open === c.id ? ' ▾' : ' ▸') : ''}</td>
+                  </tr>
+                  {open === c.id && (
+                    <tr><td colSpan={4} className={m.resultCell}>
+                      <div className={m.faint}>{new Date(c.createdAt).toLocaleString()}{c.environment ? ` · ${c.environment}` : ''}</div>
+                      {c.results.map((r, i) => (
+                        <div key={i} className={m.mono}>
+                          <span className={r.ok ? m.textOk : m.textBad}>{r.ok ? 'OK' : 'FAIL'}</span> {r.url} {r.status ? `· HTTP ${r.status}` : ''}{r.error ? ` · ${r.error}` : ''}{r.durationMs != null ? ` · ${fmtDuration(r.durationMs)}` : ''}
+                        </div>
+                      ))}
+                    </td></tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {next && <button type="button" className={m.editButton} disabled={busy} onClick={() => load(next)}>{busy ? 'Loading…' : 'Load older'}</button>}
     </div>
   );
 }
@@ -168,6 +361,10 @@ export default function MonitorsPage() {
   const [now, setNow] = useState(() => Date.now());
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState(null);
+  const [range, setRange] = useState('30d');
+  const [search, setSearch] = useState('');
+  const [envFilter, setEnvFilter] = useState('all');
+  const [sort, setSort] = useState('status');
   const [busy, setBusy] = useState(null); // monitor id, or 'all'
   const [error, setError] = useState('');
 
@@ -180,7 +377,7 @@ export default function MonitorsPage() {
     if (!projectId) return;
     if (!quiet) setLoadingMonitors(true);
     try {
-      const res = await fetch(`/api/projects/${projectId}/monitors`);
+      const res = await fetch(`/api/projects/${projectId}/monitors?range=${range}`);
       const j = await res.json();
       if (!res.ok) {
         if (!quiet) setError(j.error || 'Could not load monitors');
@@ -191,7 +388,7 @@ export default function MonitorsPage() {
     } finally {
       setLoadingMonitors(false);
     }
-  }, []);
+  }, [range]);
 
   useEffect(() => {
     (async () => {
@@ -362,10 +559,25 @@ export default function MonitorsPage() {
   };
 
   const { monitors, summary, scheduler } = data;
-  const visible = useMemo(
-    () => (filter === 'all' ? monitors : monitors.filter((mon) => mon.health === filter)),
-    [monitors, filter]
-  );
+  const environments = useMemo(() => [...new Set(monitors.map((mon) => mon.environment).filter(Boolean))].sort(), [monitors]);
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const list = monitors.filter((mon) =>
+      (filter === 'all' || mon.health === filter) &&
+      (envFilter === 'all' || mon.environment === envFilter) &&
+      (!q || `${mon.name || ''} ${mon.slug}`.toLowerCase().includes(q))
+    );
+    const rate = (mon) => mon.stats.windows[range === '24h' ? '24h' : range === '7d' ? '7d' : '30d'].uptime;
+    const sorters = {
+      status: null, // API order: worst health first
+      name: (a, b) => (a.name || a.slug).localeCompare(b.name || b.slug),
+      uptime: (a, b) => (rate(a) ?? 101) - (rate(b) ?? 101),
+      slowest: (a, b) => (b.stats.windows['24h'].p95Ms ?? -1) - (a.stats.windows['24h'].p95Ms ?? -1),
+      failures: (a, b) => b.stats.windows['30d'].error - a.stats.windows['30d'].error,
+      recent: (a, b) => new Date(b.lastRunAt || 0) - new Date(a.lastRunAt || 0)
+    };
+    return sorters[sort] ? [...list].sort(sorters[sort]) : list;
+  }, [monitors, filter, envFilter, search, sort, range]);
   const hasPingMonitors = monitors.some((mon) => mon.pingUrls.length > 0);
   const scheduleOk = !form.schedule.trim() || !!parseCronSchedule(form.schedule.trim());
 
@@ -552,6 +764,40 @@ export default function MonitorsPage() {
               </section>
             )}
 
+            {monitors.length > 0 && summary?.stats && (
+              <section className={m.overview} aria-label="Project overview">
+                <div className={m.overviewHead}>
+                  <h2 className={m.detailTitle}>All monitors</h2>
+                  <div className={m.segmented} role="group" aria-label="Range">
+                    {RANGE_OPTIONS.map((r) => (
+                      <button key={r} type="button" aria-pressed={range === r} className={`${m.segment} ${range === r ? m.segmentOn : ''}`} onClick={() => setRange(r)}>{r}</button>
+                    ))}
+                  </div>
+                </div>
+                <ChartPanel series={summary.stats.daily} range={range} height={170} modes={[CHART_MODES[0], CHART_MODES[2]]} />
+              </section>
+            )}
+
+            {monitors.length > 0 && (
+              <div className={m.toolbar}>
+                <input type="search" className={m.search} placeholder="Search monitors" value={search} onChange={(e) => setSearch(e.target.value)} aria-label="Search monitors" />
+                {environments.length > 0 && (
+                  <select className={m.select} value={envFilter} onChange={(e) => setEnvFilter(e.target.value)} aria-label="Environment">
+                    <option value="all">All environments</option>
+                    {environments.map((env) => <option key={env} value={env}>{env}</option>)}
+                  </select>
+                )}
+                <select className={m.select} value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort by">
+                  <option value="status">Sort: needs attention</option>
+                  <option value="uptime">Sort: lowest success rate</option>
+                  <option value="slowest">Sort: slowest (p95)</option>
+                  <option value="failures">Sort: most failures (30d)</option>
+                  <option value="recent">Sort: last run</option>
+                  <option value="name">Sort: name</option>
+                </select>
+              </div>
+            )}
+
             {loadingMonitors && !monitors.length ? (
               <div className={m.skeletonList} aria-busy="true">{[0, 1, 2].map((n) => <div key={n} className={m.skeleton} />)}</div>
             ) : monitors.length === 0 ? (
@@ -568,7 +814,7 @@ export default function MonitorsPage() {
               </div>
             ) : (
               <ul className={m.list}>
-                {visible.length === 0 && <li className={m.noMatch}>No monitors match this filter. <button className={m.linkButton} onClick={() => setFilter('all')}>Show all</button></li>}
+                {visible.length === 0 && <li className={m.noMatch}>No monitors match these filters. <button className={m.linkButton} onClick={() => { setFilter('all'); setSearch(''); setEnvFilter('all'); }}>Clear filters</button></li>}
                 {visible.map((mon) => {
                   const h = HEALTH[mon.health] || HEALTH.unknown;
                   const open = expanded === mon.id;
@@ -644,31 +890,8 @@ export default function MonitorsPage() {
                                 </button>
                               </div>
                             </div>
-                            <StatsPanel stats={mon.stats} now={now} />
-                            <div>
-                              <h3 className={m.detailTitle}>Recent runs</h3>
-                              {mon.checkIns.length === 0 ? (
-                                <p className={m.faint}>No runs recorded yet.</p>
-                              ) : (
-                                <table className={m.runs}>
-                                  <thead><tr><th>When</th><th>Result</th><th>Took</th><th>Source</th></tr></thead>
-                                  <tbody>
-                                    {mon.checkIns.map((c) => (
-                                      <tr key={c.id}>
-                                        <td title={new Date(c.createdAt).toLocaleString()}>{ago(c.createdAt, now)}</td>
-                                        <td><span className={`${m.runResult} ${c.status === 'ok' ? m.textOk : c.status === 'error' ? m.textBad : m.textInfo}`}>{c.status === 'in_progress' ? 'started' : c.status}</span>
-                                          {c.results && c.status === 'error' && (
-                                            <span className={m.faint}> {c.results.filter((r) => !r.ok).map((r) => r.status || r.error).join(', ')}</span>
-                                          )}
-                                        </td>
-                                        <td className={m.mono}>{fmtDuration(c.durationMs)}</td>
-                                        <td>{c.source === 'server_http' ? 'Server ping' : 'SDK'}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              )}
-                            </div>
+                            <StatsPanel stats={mon.stats} now={now} range={range} />
+                            <CheckInHistory projectId={pid} monitorId={mon.id} now={now} refreshKey={String(mon.lastRunAt)} />
                           </div>
                         </div>
                       )}

@@ -4,7 +4,7 @@ import { parse } from 'cookie';
 import { computeMonitorHealth, describeSchedule, healthSeverity } from '@/lib/monitor-health';
 import { DEFAULT_MONITOR_PING_INTERVAL_MS } from '@/lib/monitor-schedule';
 import { loadMonitorStats } from '@/lib/monitor-stats-load';
-import { summarizeProjectStats } from '@/lib/monitor-stats';
+import { summarizeProjectStats, RANGES } from '@/lib/monitor-stats';
 import { isHeartbeatAlive } from '@/lib/worker-heartbeat';
 
 function getUser(req) {
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       });
 
       const now = new Date();
-      const statsById = await loadMonitorStats(monitors.map((m) => m.id), now);
+      const statsById = await loadMonitorStats(monitors.map((m) => m.id), now, RANGES[req.query.range] ? req.query.range : '30d');
 
       const fallbackMs = parseInt(process.env.MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS || '', 10);
       const fallbackIntervalMs = Number.isFinite(fallbackMs) && fallbackMs >= 60000 ? fallbackMs : DEFAULT_MONITOR_PING_INTERVAL_MS;

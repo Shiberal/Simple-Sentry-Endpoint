@@ -147,9 +147,34 @@ export function buildTools(client) {
     {
       name: 'monitor_stats',
       description: 'Monitor statistics only (no check-in rows): uptime %, run counts, avg/p95/max run time for 24h/7d/30d, current streak, incidents (count, avg recovery time, longest, recent list) and a 30-day daily series. Pass monitorId for one monitor, or omit for every monitor plus a project rollup.',
-      schema: { projectId, monitorId: z.number().int().optional() },
-      run: async ({ projectId, monitorId }) =>
-        client.get(`/api/projects/${projectId}/monitors/stats${monitorId != null ? `?monitorId=${monitorId}` : ''}`)
+      schema: {
+        projectId,
+        monitorId: z.number().int().optional(),
+        range: z.enum(['24h', '7d', '30d', '90d']).optional().describe('Series range: hourly buckets for 24h, 6-hourly for 7d, daily for 30d/90d (default 30d)')
+      },
+      run: async ({ projectId, monitorId, range }) => {
+        const q = new URLSearchParams();
+        if (monitorId != null) q.set('monitorId', monitorId);
+        if (range) q.set('range', range);
+        return client.get(`/api/projects/${projectId}/monitors/stats${q.size ? `?${q}` : ''}`);
+      }
+    },
+    {
+      name: 'monitor_checkins',
+      description: 'Check-in history of one monitor, newest first: status, run time, source and per-URL results. Filter by status, look back N days, page with before=<last id>.',
+      schema: {
+        projectId,
+        monitorId: z.number().int(),
+        status: z.enum(['ok', 'error', 'in_progress']).optional(),
+        days: z.number().int().min(1).max(90).optional(),
+        before: z.number().int().optional(),
+        limit: z.number().int().min(1).max(100).optional()
+      },
+      run: async ({ projectId, ...rest }) => {
+        const q = new URLSearchParams();
+        Object.entries(rest).forEach(([k, v]) => v != null && q.set(k, v));
+        return client.get(`/api/projects/${projectId}/monitors/checkins?${q}`);
+      }
     },
 
     // ---- writes (opt-in) ----
