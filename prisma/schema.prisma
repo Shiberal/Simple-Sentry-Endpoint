@@ -112,6 +112,7 @@ model Event {
   issue            Issue?        @relation(fields: [issueId], references: [id], onDelete: SetNull)
   eventType        EventType     @default(ERROR)
   promotedPageUrl  String?
+  promotedOrigin   String? // host[:port] the event came from
   promotedRelease  String?
   promotedEnv      String?
   data             Json
@@ -122,6 +123,7 @@ model Event {
   @@index([projectId, createdAt])
   @@index([projectId, eventType])
   @@index([projectId, promotedPageUrl])
+  @@index([projectId, promotedOrigin])
   @@index([projectId, promotedRelease])
 }
 

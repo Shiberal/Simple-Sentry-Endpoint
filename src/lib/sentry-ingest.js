@@ -30,7 +30,7 @@ export async function ingestPreparedEnvelopePayload(prisma, project, payload, tr
   const data = prep.data;
 
   if (kind === 'transaction') {
-    const event = await persistTransactionEvent(prisma, project, data, tracker);
+    const event = await persistTransactionEvent(prisma, project, data, tracker, req);
     return { skipped: false, eventType: 'TRANSACTION', event, issue: null };
   }
 

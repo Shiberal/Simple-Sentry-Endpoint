@@ -18,6 +18,7 @@ export default async function handler(req, res) {
     assignedToUserId,
     pageUrlFacet,
     releaseFacet,
+    originFacet,
     inbox
   } = req.query;
 
@@ -71,6 +72,14 @@ export default async function handler(req, res) {
             contains: pageUrlFacet,
             mode: 'insensitive'
           };
+        }
+        if (originFacet) {
+          // Events saved before origins were recorded only have the page URL to go by
+          const origin = String(originFacet).toLowerCase();
+          eventSome.OR = [
+            { promotedOrigin: origin },
+            { promotedOrigin: null, promotedPageUrl: { contains: `://${origin}`, mode: 'insensitive' } }
+          ];
         }
         if (releaseFacet) {
           eventSome.promotedRelease = String(releaseFacet);

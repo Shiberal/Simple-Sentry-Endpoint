@@ -46,6 +46,8 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLevel, setFilterLevel] = usePersistedState('sm.filterLevel', 'error');
   const [filterStatus, setFilterStatus] = usePersistedState('sm.filterStatus', 'active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
+  const [filterOrigin, setFilterOrigin] = useState('all'); // host events came from
+  const [origins, setOrigins] = useState([]);
   const [filterEventType, setFilterEventType] = usePersistedState('sm.filterType', 'all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -237,6 +239,7 @@ export default function Dashboard() {
     if (selectedProject) params.set('projectId', selectedProject);
     if (filterLevel !== 'all') params.set('level', filterLevel);
     if (debouncedSearch) params.set('search', debouncedSearch);
+    if (filterOrigin !== 'all') params.set('originFacet', filterOrigin);
     return `/api/issues?${params.toString()}`;
   };
 
@@ -371,8 +374,18 @@ export default function Dashboard() {
     return () => clearTimeout(t);
   }, [searchQuery]);
 
+  // Sources (hosts) seen for the selected project; reset the filter if the project changes
+  useEffect(() => {
+    if (!user) return;
+    setFilterOrigin('all');
+    fetch(`/api/issues/origins${selectedProject ? `?projectId=${selectedProject}` : ''}`)
+      .then((r) => r.json())
+      .then((j) => setOrigins(j.origins || []))
+      .catch(() => setOrigins([]));
+  }, [selectedProject, user]);
+
   // Refetch from page 1 whenever server-side filters change
-  const filtersKey = `${selectedProject}|${filterLevel}|${filterStatus}|${sortBy}|${debouncedSearch}`;
+  const filtersKey = `${selectedProject}|${filterLevel}|${filterStatus}|${sortBy}|${debouncedSearch}|${filterOrigin}`;
   const filtersKeyRef = useRef(filtersKey);
   useEffect(() => {
     if (filtersKeyRef.current === filtersKey) return;
@@ -1334,13 +1347,14 @@ export default function Dashboard() {
     return matchesSearch && matchesLevel && matchesStatus && matchesEventType && matchesTime;
   });
 
-  const hasActiveFilters = filterLevel !== 'all' || filterStatus !== 'all' ||
+  const hasActiveFilters = filterLevel !== 'all' || filterStatus !== 'all' || filterOrigin !== 'all' ||
     filterEventType !== 'all' || timeRange !== 'all' || !!searchQuery;
 
   const clearFilters = () => {
     setFilterLevel('all');
     setFilterStatus('all');
     setFilterEventType('all');
+    setFilterOrigin('all');
     setTimeRange('all');
     setSearchQuery('');
   };
@@ -3144,6 +3158,13 @@ export default function Dashboard() {
                       <option key={value} value={value}>{r.label}</option>
                     ))}
                   </select>
+                  {(origins.length > 1 || filterOrigin !== 'all') && (
+                    <select className={styles.filterSelect} value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)} aria-label="Source host">
+                      <option value="all">All sources</option>
+                      {origins.map((o) => <option key={o.origin} value={o.origin}>From {o.origin} ({o.count})</option>)}
+                      {filterOrigin !== 'all' && !origins.some((o) => o.origin === filterOrigin) && <option value={filterOrigin}>From {filterOrigin}</option>}
+                    </select>
+                  )}
                   <select className={styles.filterSelect} value={filterEventType} onChange={(e) => setFilterEventType(e.target.value)} aria-label="Event type">
                     <option value="all">All types</option>
                     <option value="ERROR">Errors</option>

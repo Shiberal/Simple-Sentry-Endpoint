@@ -13,7 +13,7 @@ export async function persistErrorLikeEvent(prisma, project, preparedData, track
   const eventTypeEnum =
     eventData.message && !eventData.exception ? 'MESSAGE' : 'ERROR';
 
-  const facets = promoteEventFacets(eventData);
+  const facets = promoteEventFacets(eventData, req);
   await upsertRelease(prisma, project.id, facets.promotedRelease);
 
   const fingerprint = generateFingerprint(eventData, {
@@ -62,9 +62,9 @@ export async function persistErrorLikeEvent(prisma, project, preparedData, track
   return { issue, event, isNewIssue, wasRegression };
 }
 
-export async function persistTransactionEvent(prisma, project, preparedData, tracker) {
+export async function persistTransactionEvent(prisma, project, preparedData, tracker, req) {
   const eventData = preparedData;
-  const facets = promoteEventFacets(eventData);
+  const facets = promoteEventFacets(eventData, req);
   await upsertRelease(prisma, project.id, facets.promotedRelease);
 
   return prisma.event.create({
