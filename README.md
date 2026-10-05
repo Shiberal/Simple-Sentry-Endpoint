@@ -116,6 +116,8 @@ The Monitors page shows each monitor's health at a glance:
 - **Running**: an SDK `in_progress` check-in is open.
 - **Paused**: no runs are expected; check-ins are still recorded but do not resume the monitor.
 
+Each monitor also has stats, computed from the last 30 days of check-ins (no extra tables): success rate, run count and average / p95 run time for 24h, 7d and 30d, the current success or failure streak, incidents (a streak of failed runs; count, average recovery time, longest, last) and a 30-day daily chart. The page header rolls these up for the whole project. Rates count runs that reported, so missed runs show up as health, not as failures. The same data is available from `GET /api/projects/:id/monitors` (per-monitor `stats`, project `summary.stats`) and the lighter `GET /api/projects/:id/monitors/stats[?monitorId=N]`, and through the MCP `monitor_stats` tool.
+
 **Nothing runs scheduled HTTP pings unless you start a scheduler** (see below). The default is off, so ping-URL monitors will show as Missed and the page will say so. SDK check-in monitors do not need a scheduler.
 
 The Docker image starts the ping worker for you (see `ENABLE_PING_WORKER`). The Monitors page shows whether a scheduler is alive and when it last checked. Outside Docker, run monitor HTTP pings in a dedicated worker process (recommended):

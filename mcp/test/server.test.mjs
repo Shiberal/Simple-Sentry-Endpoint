@@ -49,6 +49,16 @@ test('read-only by default; logs in and sends cookie', async () => {
   server.close();
 });
 
+test('monitor_stats hits the stats endpoint, optionally for one monitor', async () => {
+  const { server, seen, port } = await stubApi();
+  const c = await connect({ port });
+  await c.callTool({ name: 'monitor_stats', arguments: { projectId: 2 } });
+  await c.callTool({ name: 'monitor_stats', arguments: { projectId: 2, monitorId: 7 } });
+  const urls = seen.filter((s) => s.url.includes('/stats')).map((s) => s.url);
+  assert.deepEqual(urls, ['/api/projects/2/monitors/stats', '/api/projects/2/monitors/stats?monitorId=7']);
+  server.close();
+});
+
 test('write tools and cron tool appear only when enabled', async () => {
   const { server, seen, port } = await stubApi();
   const c = await connect({ port, allowWrites: true, cronSecret: 's3' });

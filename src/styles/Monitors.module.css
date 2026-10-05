@@ -339,7 +339,7 @@
 
 .detailGrid {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(300px, 1.4fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--space-8);
 }
 
@@ -686,4 +686,18 @@
   .skeleton {
     animation: none;
   }
+}
+
+.daily {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 44px;
+  margin: var(--space-3) 0 var(--space-1);
+}
+
+.dailyBar {
+  flex: 1 1 0;
+  min-width: 2px;
+  border-radius: 1px;
 }

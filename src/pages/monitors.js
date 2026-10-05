@@ -60,6 +60,80 @@ function until(date, now) {
 }
 
 /** Last 30 runs as a strip of bars: colour = outcome, height = duration relative to the slowest. */
+const pct = (v) => (v == null ? '-' : `${v}%`);
+const rateTone = (v) => (v == null ? '' : v >= 99 ? m.textOk : v >= 95 ? m.textWarn : m.textBad);
+
+function Daily({ daily }) {
+  const slowest = Math.max(1, ...daily.map((d) => d.avgMs || 0));
+  return (
+    <div className={m.daily} role="img" aria-label="Daily success rate and average run time, last 30 days">
+      {daily.map((d) => {
+        const total = d.ok + d.error;
+        const tone = !total ? m.barEmpty : d.error ? m.barBad : m.barOk;
+        const height = !total ? 12 : Math.max(20, Math.round(((d.avgMs || 0) / slowest) * 100));
+        return (
+          <span
+            key={d.date}
+            className={`${m.dailyBar} ${tone}`}
+            style={{ height: `${height}%` }}
+            title={total ? `${d.date}: ${d.ok}/${total} ok (${d.uptime}%)${d.avgMs != null ? ` · avg ${fmtDuration(d.avgMs)}` : ''}` : `${d.date}: no runs`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function StatsPanel({ stats, now }) {
+  const rows = [['24h', '24 hours'], ['7d', '7 days'], ['30d', '30 days']];
+  const inc = stats.incidents;
+  return (
+    <div>
+      <h3 className={m.detailTitle}>Stats</h3>
+      <table className={m.runs}>
+        <thead><tr><th>Window</th><th>Uptime</th><th>Runs</th><th>Failed</th><th>Avg</th><th>p95</th></tr></thead>
+        <tbody>
+          {rows.map(([k, label]) => {
+            const w = stats.windows[k];
+            return (
+              <tr key={k}>
+                <td>{label}</td>
+                <td className={`${m.mono} ${rateTone(w.uptime)}`}>{pct(w.uptime)}</td>
+                <td className={m.mono}>{w.runs}</td>
+                <td className={m.mono}>{w.error}</td>
+                <td className={m.mono}>{fmtDuration(w.avgMs)}</td>
+                <td className={m.mono}>{fmtDuration(w.p95Ms)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className={m.detailLine}>
+        <span>Streak</span>
+        {stats.streak
+          ? <span className={stats.streak.status === 'ok' ? m.textOk : m.textBad}>{stats.streak.count} {stats.streak.status === 'ok' ? 'successful' : 'failed'} in a row, since {ago(stats.streak.since, now)}</span>
+          : 'No runs yet'}
+      </p>
+      <p className={m.detailLine}>
+        <span>Incidents</span>
+        {inc.count30d === 0
+          ? 'None in 30 days'
+          : <>{inc.count30d} in 30 days{inc.mttrMs != null && <> · avg recovery {fmtDuration(inc.mttrMs)}</>}{inc.longestMs != null && <> · longest {fmtDuration(inc.longestMs)}</>}</>}
+      </p>
+      {inc.last && (
+        <p className={m.detailLine}>
+          <span>Last incident</span>
+          {inc.last.ongoing
+            ? <span className={m.textBad}>Ongoing for {fmtDuration(inc.last.durationMs)} ({inc.last.failedRuns} failed run{inc.last.failedRuns === 1 ? '' : 's'})</span>
+            : <span title={new Date(inc.last.startedAt).toLocaleString()}>{ago(inc.last.startedAt, now)}, down {fmtDuration(inc.last.durationMs)} ({inc.last.failedRuns} failed run{inc.last.failedRuns === 1 ? '' : 's'})</span>}
+        </p>
+      )}
+      <Daily daily={stats.daily} />
+      <p className={m.faint}>Last 30 days, bar height is average run time. Rates count runs that reported; missed runs are shown as health, not here.</p>
+    </div>
+  );
+}
+
 function History({ history }) {
   const SLOTS = 30;
   const slowest = Math.max(1, ...history.map((h) => h.durationMs || 0));
@@ -458,9 +532,22 @@ export default function MonitorsPage() {
                     <span className={m.tileLabel}>{t.label}</span>
                   </button>
                 ))}
+                {['24h', '7d', '30d'].map((k) => {
+                  const w = summary.stats?.windows?.[k];
+                  return (
+                    <div key={k} className={`${m.tile} ${m.tileStatic}`}>
+                      <span className={`${m.tileValue} ${rateTone(w?.uptime)}`}>{pct(w?.uptime)}</span>
+                      <span className={m.tileLabel}>Success, {k} · {w?.runs ?? 0} runs</span>
+                    </div>
+                  );
+                })}
                 <div className={`${m.tile} ${m.tileStatic}`}>
-                  <span className={m.tileValue}>{summary.uptime24h == null ? '-' : `${summary.uptime24h}%`}</span>
-                  <span className={m.tileLabel}>Success, 24h · {summary.runs24h} runs</span>
+                  <span className={m.tileValue}>{fmtDuration(summary.stats?.windows?.['24h']?.avgMs)}</span>
+                  <span className={m.tileLabel}>Avg run, 24h · p95 {fmtDuration(summary.stats?.windows?.['24h']?.p95Ms)}</span>
+                </div>
+                <div className={`${m.tile} ${m.tileStatic}`}>
+                  <span className={`${m.tileValue} ${summary.stats?.incidentsOpen ? m.textBad : ''}`}>{summary.stats?.incidentsOpen ?? 0}</span>
+                  <span className={m.tileLabel}>Open incidents · {summary.stats?.incidents30d ?? 0} in 30d</span>
                 </div>
               </section>
             )}
@@ -517,6 +604,10 @@ export default function MonitorsPage() {
                               {mon.stats.uptime24h == null ? '-' : `${mon.stats.uptime24h}%`}
                             </dd>
                           </div>
+                          <div>
+                            <dt>Success 7d</dt>
+                            <dd className={rateTone(mon.stats.windows['7d'].uptime)}>{pct(mon.stats.windows['7d'].uptime)}</dd>
+                          </div>
                         </dl>
 
                         <div className={m.rowActions}>
@@ -541,8 +632,6 @@ export default function MonitorsPage() {
                               <h3 className={m.detailTitle}>Configuration</h3>
                               <p className={m.detailLine}><span>Schedule</span> {mon.scheduleText ? <>{mon.scheduleText}{mon.schedule && mon.scheduleText !== mon.schedule && <code className={m.code}>{mon.schedule}</code>}</> : 'None (SDK check-ins only)'}</p>
                               <p className={m.detailLine}><span>Status</span> {mon.healthReason}</p>
-                              <p className={m.detailLine}><span>Average run</span> {fmtDuration(mon.stats.avgDurationMs)}</p>
-                              <p className={m.detailLine}><span>Last 24h</span> {mon.stats.ok24h} ok · {mon.stats.error24h} failed</p>
                               {mon.pingUrls.length > 0 && (
                                 <div className={m.detailLine}><span>Ping URLs</span>
                                   <ul className={m.urlList}>{mon.pingUrls.map((u) => <li key={u} className={m.mono}>{u}</li>)}</ul>
@@ -555,6 +644,7 @@ export default function MonitorsPage() {
                                 </button>
                               </div>
                             </div>
+                            <StatsPanel stats={mon.stats} now={now} />
                             <div>
                               <h3 className={m.detailTitle}>Recent runs</h3>
                               {mon.checkIns.length === 0 ? (

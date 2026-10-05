@@ -140,9 +140,16 @@ export function buildTools(client) {
     // ---- monitors ----
     {
       name: 'list_monitors',
-      description: 'List cron monitors for a project with health, reason for failure, recent check-ins and 24h counts.',
+      description: 'List cron monitors for a project with health, reason for failure, recent check-ins and stats per monitor (uptime and latency for 24h/7d/30d, streak, incidents, daily series), plus a project summary.',
       schema: { projectId },
       run: async ({ projectId }) => client.get(`/api/projects/${projectId}/monitors`)
+    },
+    {
+      name: 'monitor_stats',
+      description: 'Monitor statistics only (no check-in rows): uptime %, run counts, avg/p95/max run time for 24h/7d/30d, current streak, incidents (count, avg recovery time, longest, recent list) and a 30-day daily series. Pass monitorId for one monitor, or omit for every monitor plus a project rollup.',
+      schema: { projectId, monitorId: z.number().int().optional() },
+      run: async ({ projectId, monitorId }) =>
+        client.get(`/api/projects/${projectId}/monitors/stats${monitorId != null ? `?monitorId=${monitorId}` : ''}`)
     },
 
     // ---- writes (opt-in) ----

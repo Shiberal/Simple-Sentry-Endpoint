@@ -3,6 +3,8 @@ import { parsePingUrlsInput, sanitizePingUrls } from '@/lib/monitor-http-ping';
 import { parse } from 'cookie';
 import { computeMonitorHealth, describeSchedule, healthSeverity } from '@/lib/monitor-health';
 import { DEFAULT_MONITOR_PING_INTERVAL_MS } from '@/lib/monitor-schedule';
+import { loadMonitorStats } from '@/lib/monitor-stats-load';
+import { summarizeProjectStats } from '@/lib/monitor-stats';
 import { isHeartbeatAlive } from '@/lib/worker-heartbeat';
 
 function getUser(req) {
@@ -68,14 +70,7 @@ export default async function handler(req, res) {
       });
 
       const now = new Date();
-      const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const counts = monitors.length
-        ? await prisma.monitorCheckIn.groupBy({
-            by: ['monitorId', 'status'],
-            where: { monitorId: { in: monitors.map((m) => m.id) }, createdAt: { gte: since } },
-            _count: { _all: true }
-          })
-        : [];
+      const statsById = await loadMonitorStats(monitors.map((m) => m.id), now);
 
       const fallbackMs = parseInt(process.env.MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS || '', 10);
       const fallbackIntervalMs = Number.isFinite(fallbackMs) && fallbackMs >= 60000 ? fallbackMs : DEFAULT_MONITOR_PING_INTERVAL_MS;
@@ -97,11 +92,8 @@ export default async function handler(req, res) {
           }
         }
 
-        const c24 = counts.filter((c) => c.monitorId === m.id);
-        const ok24h = c24.filter((c) => c.status === 'ok').reduce((n, c) => n + c._count._all, 0);
-        const error24h = c24.filter((c) => c.status === 'error').reduce((n, c) => n + c._count._all, 0);
-        const finished24h = ok24h + error24h;
-        const durations = recent.filter((c) => c.status !== 'in_progress' && c.durationMs != null).map((c) => c.durationMs);
+        const full = statsById.get(m.id);
+        const w24 = full.windows['24h'];
 
         return {
           ...m,
@@ -120,10 +112,17 @@ export default async function handler(req, res) {
           lastRunAt: lastFinished?.createdAt || m.lastCheckInAt || null,
           lastDurationMs: lastFinished?.durationMs ?? null,
           stats: {
-            ok24h,
-            error24h,
-            uptime24h: finished24h ? Math.round((ok24h / finished24h) * 1000) / 10 : null,
-            avgDurationMs: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length) : null
+            // Kept for older clients
+            ok24h: w24.ok,
+            error24h: w24.error,
+            uptime24h: w24.uptime,
+            avgDurationMs: w24.avgMs,
+            windows: full.windows,
+            streak: full.streak,
+            lastSuccessAt: full.lastSuccessAt,
+            lastFailureAt: full.lastFailureAt,
+            incidents: full.incidents,
+            daily: full.daily
           }
         };
       });
@@ -132,10 +131,10 @@ export default async function handler(req, res) {
 
       const summary = { total: enriched.length, ok: 0, failing: 0, missed: 0, running: 0, paused: 0, pending: 0, unknown: 0 };
       enriched.forEach((m) => { summary[m.health] += 1; });
-      const finished24 = enriched.reduce((n, m) => n + m.stats.ok24h + m.stats.error24h, 0);
-      const ok24 = enriched.reduce((n, m) => n + m.stats.ok24h, 0);
-      summary.uptime24h = finished24 ? Math.round((ok24 / finished24) * 1000) / 10 : null;
-      summary.runs24h = finished24;
+      const rollup = summarizeProjectStats(enriched.map((m) => m.stats));
+      summary.uptime24h = rollup.windows['24h'].uptime;
+      summary.runs24h = rollup.windows['24h'].runs;
+      summary.stats = rollup;
 
       // Scheduled pings only run if something drives them. Workers report a heartbeat every tick,
       // so we can say whether one is alive instead of guessing from overdue monitors.
