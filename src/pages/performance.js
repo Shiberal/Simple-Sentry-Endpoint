@@ -53,6 +53,8 @@ export default function PerformancePage() {
   const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = useState('all'); // Filter by endpoint/transaction name
   const [pageUrlFilter, setPageUrlFilter] = useState('');
+  const [originFilter, setOriginFilter] = useState('all'); // host events came from
+  const [origins, setOrigins] = useState([]);
   const [selectedMetric, setSelectedMetric] = useState('duration'); // duration, memory, cpu
   const [availableEndpoints, setAvailableEndpoints] = useState([]);
   const [error, setError] = useState(null);
@@ -78,6 +80,16 @@ export default function PerformancePage() {
     fetchProjects();
   }, []);
 
+  // Hosts that sent transactions for the selected project
+  useEffect(() => {
+    if (selectedProject == null) return;
+    setOriginFilter('all');
+    fetch(`/api/issues/origins?projectId=${selectedProject}&eventType=TRANSACTION`)
+      .then((r) => r.json())
+      .then((j) => setOrigins(j.origins || []))
+      .catch(() => setOrigins([]));
+  }, [selectedProject]);
+
   useEffect(() => {
     if (!router.isReady || !projects.length || !router.query.projectId) return;
 
@@ -95,14 +107,14 @@ export default function PerformancePage() {
     } else {
       fetchTransactions();
     }
-  }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter, detailedWindow]);
+  }, [selectedProject, viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter, originFilter, detailedWindow]);
 
   useEffect(() => {
     // Update the ref whenever the fetch functions or viewMode change
     refreshFnRef.current = viewMode === 'timeseries'
       ? (id) => fetchTimeSeries(id)
       : (id) => fetchTransactions(id);
-  }, [viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter, detailedWindow]);
+  }, [viewMode, timeRange, interval, customStartDate, customEndDate, pageUrlFilter, originFilter, detailedWindow]);
 
   useEffect(() => {
     if (!autoRefresh || selectedProject == null) return;
@@ -243,10 +255,11 @@ export default function PerformancePage() {
       });
       const pageUrl = typeof pageUrlFilter === 'string' ? pageUrlFilter.trim() : '';
       if (pageUrl) params.set('pageUrl', pageUrl);
+      if (originFilter !== 'all') params.set('origin', originFilter);
 
       // Overview numbers are aggregated server-side over the whole period; the row fetch below is capped
       // Background refreshes re-run the SQL at most every 10s for the same view
-      const overviewKey = `${projectId}|${detailedWindow}|${pageUrl}`;
+      const overviewKey = `${projectId}|${detailedWindow}|${pageUrl}|${originFilter}`;
       const overviewFresh = isBackgroundRefresh && overviewRef.current.key === overviewKey && Date.now() - overviewRef.current.at < 10000;
       const overviewRequest = overviewFresh ? Promise.resolve() : fetch(`/api/analytics/performance/overview?${params}`)
         .then((r) => (r.ok ? r.json() : null))
@@ -419,6 +432,7 @@ export default function PerformancePage() {
       const pqTrim =
         typeof pageUrlFilter === 'string' ? pageUrlFilter.trim() : '';
       if (pqTrim) params.set('pageUrl', pqTrim);
+      if (originFilter !== 'all') params.set('origin', originFilter);
 
       const response = await fetch(`/api/analytics/performance/timeseries?${params}`);
       const data = await response.json();
@@ -1150,6 +1164,25 @@ export default function PerformancePage() {
                       <option key={endpoint} value={endpoint}>{endpoint}</option>
                     ))}
                   </select>
+
+                  {(origins.length > 1 || originFilter !== 'all') && (
+                    <>
+                      <label style={{ fontSize: 'var(--font-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--space-1)', display: 'block' }}>
+                        From
+                      </label>
+                      <select
+                        value={originFilter}
+                        onChange={(e) => setOriginFilter(e.target.value)}
+                        className={styles.filterSelect}
+                        style={{ width: '100%', marginBottom: 'var(--space-3)' }}
+                        aria-label="Source host"
+                      >
+                        <option value="all">All sources</option>
+                        {origins.map((o) => <option key={o.origin} value={o.origin}>{o.origin} ({o.count})</option>)}
+                        {originFilter !== 'all' && !origins.some((o) => o.origin === originFilter) && <option value={originFilter}>{originFilter}</option>}
+                      </select>
+                    </>
+                  )}
 
                   <label style={{
                     fontSize: 'var(--font-xs)',

@@ -14,7 +14,7 @@ function getUser(req) {
 const BUCKETS = [50, 100, 250, 500, 1000, 2500];
 
 /**
- * GET /api/analytics/performance/overview?projectId=N&startDate=ISO&endDate=ISO[&pageUrl=]
+ * GET /api/analytics/performance/overview?projectId=N&startDate=ISO&endDate=ISO[&pageUrl=][&origin=host]
  * Latency percentiles, per-endpoint stats, distribution and slowest requests, aggregated in SQL
  * over every transaction in the range (no row cap).
  */
@@ -28,12 +28,16 @@ export default async function handler(req, res) {
   const end = req.query.endDate ? new Date(String(req.query.endDate)) : new Date();
   if (isNaN(projectId) || isNaN(start) || isNaN(end)) return res.status(400).json({ error: 'projectId and valid dates are required' });
   const pageUrl = String(req.query.pageUrl || '').trim();
+  const origin = String(req.query.origin || '').trim().toLowerCase();
 
   try {
     const allowed = await prisma.project.findFirst({ where: { id: projectId, users: { some: { id: user.userId } } }, select: { id: true } });
     if (!allowed) return res.status(403).json({ error: 'Forbidden' });
 
     const urlFilter = pageUrl ? Prisma.sql`AND "promotedPageUrl" ILIKE ${`%${pageUrl}%`}` : Prisma.empty;
+    const originFilter = origin
+      ? Prisma.sql`AND ("promotedOrigin" = ${origin} OR ("promotedOrigin" IS NULL AND "promotedPageUrl" ILIKE ${`%://${origin}%`}))`
+      : Prisma.empty;
     // One CTE shared by every query below; ms = duration in milliseconds
     const base = Prisma.sql`
       SELECT id, "createdAt", data->>'transaction' AS name,
@@ -43,7 +47,7 @@ export default async function handler(req, res) {
       WHERE "projectId" = ${projectId} AND "eventType" = 'TRANSACTION'
         AND "createdAt" >= ${start} AND "createdAt" <= ${end}
         AND jsonb_typeof(data->'timestamp') = 'number' AND jsonb_typeof(data->'start_timestamp') = 'number'
-        ${urlFilter}`;
+        ${urlFilter} ${originFilter}`;
     const mid = new Date((start.getTime() + end.getTime()) / 2);
 
     const [totals, endpoints, hist, slowest] = await Promise.all([

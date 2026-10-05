@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { originWhere } from '@/lib/origin-filter';
 import {
   extractDuration,
   extractMeasurements,
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { projectId, pageUrl, startDate, endDate } = req.query;
+    const { projectId, pageUrl, origin, startDate, endDate } = req.query;
 
     if (!projectId || projectId === '[object Object]') {
       return res.status(400).json({ error: 'Valid projectId is required' });
@@ -60,6 +61,9 @@ export default async function handler(req, res) {
         mode: 'insensitive'
       };
     }
+
+    const originFilter = originWhere(origin);
+    if (originFilter) whereEvt.AND = [originFilter];
 
     const monitorWhere = {
       monitor: {
