@@ -60,8 +60,8 @@ export default async function handler(req, res) {
   if (isNaN(id)) return res.status(400).json({ error: 'Bad project id' });
 
   try {
-    const owned = await prisma.project.findFirst({ where: { id, projectOwners: { some: { id: user.userId } } }, select: { id: true } });
-    if (!owned) return res.status(403).json({ error: 'Only project owners can change Telegram settings' });
+    const owned = await prisma.project.findFirst({ where: { id, users: { some: { id: user.userId } } }, select: { id: true } });
+    if (!owned) return res.status(403).json({ error: 'You do not have access to this project' });
 
     if (req.method === 'POST') {
       const { action } = req.body || {};
