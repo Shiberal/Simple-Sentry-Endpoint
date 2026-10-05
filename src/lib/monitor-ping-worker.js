@@ -24,6 +24,7 @@ export function startMonitorPingWorker(options = {}) {
     try {
       const { runMonitorHttpPings } = await import('./monitor-ping-runner.js');
       const summaries = await runMonitorHttpPings({ respectSchedule: true });
+      await (await import('./monitor-incidents.js')).evaluateMissedMonitors();
       await recordHeartbeat({ id: instanceId, kind, startedAt, intervalMs, ran: summaries.length });
       if (typeof options.onTick === 'function') {
         options.onTick(summaries);

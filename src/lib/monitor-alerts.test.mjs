@@ -16,10 +16,11 @@ test('threshold needs N consecutive failures, newest first', () => {
 test('messages name the monitor, reason and link', () => {
   const m = { id: 5, slug: 'api', name: 'API', environment: 'prod' };
   const down = buildAlertMessage({ kind: 'down', monitor: m, project: { name: 'Demo' }, reason: 'HTTP 500', baseUrl: 'https://x.io' });
-  assert.match(down.text, /Monitor failing: API/);
+  assert.match(down.text, /Monitor offline: API/);
   assert.match(down.text, /Reason: HTTP 500/);
   assert.match(down.text, /https:\/\/x.io\/monitors\/5/);
   const up = buildAlertMessage({ kind: 'recovered', monitor: m, project: { name: 'Demo' }, downForMs: 5 * 60000 });
+  assert.match(up.text, /Monitor back online: API/);
   assert.match(up.text, /Down for 5 min/);
 });
 
