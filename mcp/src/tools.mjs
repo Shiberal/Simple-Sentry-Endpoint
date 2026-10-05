@@ -145,6 +145,16 @@ export function buildTools(client) {
       run: async ({ projectId }) => client.get(`/api/projects/${projectId}/monitors`)
     },
 
+    {
+      name: 'monitor_resources',
+      description: 'CPU and RAM usage of a monitored service container (pushed by its resource reporter): latest sample plus up to ~240 points over the window. CPU 100 = one core. reportToken is omitted.',
+      schema: { projectId, monitorId: z.number().int(), hours: z.number().int().min(1).max(168).default(6).describe('Look-back window in hours') },
+      run: async ({ projectId, monitorId, hours }) => {
+        const { reportToken, ...rest } = await client.get(`/api/projects/${projectId}/monitors/resources`, { monitorId, hours });
+        return { ...rest, reporting: !!reportToken };
+      }
+    },
+
     // ---- writes (opt-in) ----
     {
       name: 'update_issue',

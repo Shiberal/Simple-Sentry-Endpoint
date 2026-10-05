@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import MonitorResources from '@/components/MonitorResources';
 import Icon from '@/components/Icon';
 import { describeSchedule } from '@/lib/monitor-health';
 import { parseCronSchedule } from '@/lib/monitor-schedule';
@@ -580,6 +581,7 @@ export default function MonitorsPage() {
                               )}
                             </div>
                           </div>
+                          <MonitorResources projectId={pid} monitorId={mon.id} />
                         </div>
                       )}
                     </li>
