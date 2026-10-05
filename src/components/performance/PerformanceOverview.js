@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react';
-import { summarizeTransactions } from '@/lib/performance-summary';
+import { useState } from 'react';
 import p from '@/styles/PerformanceOverview.module.css';
 
 const fmtMs = (ms) => (ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(ms < 10000 ? 2 : 1)} s`);
@@ -19,8 +18,7 @@ const COLUMNS = [
 ];
 
 /** Where the time goes: headline latency numbers, per-endpoint table, distribution and slowest requests. */
-export default function PerformanceOverview({ transactions, selectedEndpoint, onSelectEndpoint }) {
-  const sum = useMemo(() => summarizeTransactions(transactions || []), [transactions]);
+export default function PerformanceOverview({ summary: sum, selectedEndpoint, onSelectEndpoint }) {
   const [sort, setSort] = useState({ key: 'p95', dir: -1 });
   const [query, setQuery] = useState('');
   const [all, setAll] = useState(false);

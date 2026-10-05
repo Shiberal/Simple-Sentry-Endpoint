@@ -58,6 +58,8 @@ export default function PerformancePage() {
   const [error, setError] = useState(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [detailedWindow, setDetailedWindow] = useState('6h');
+  const [overview, setOverview] = useState(null);
+  const overviewRef = useRef({ key: '', at: 0 });
   const DETAILED_CHART_WINDOW_MS = DETAILED_WINDOWS.find(([k]) => k === detailedWindow)[1];
   const refreshFnRef = useRef(null);
   const refreshInFlightRef = useRef(false);
@@ -242,7 +244,16 @@ export default function PerformancePage() {
       const pageUrl = typeof pageUrlFilter === 'string' ? pageUrlFilter.trim() : '';
       if (pageUrl) params.set('pageUrl', pageUrl);
 
+      // Overview numbers are aggregated server-side over the whole period; the row fetch below is capped
+      // Background refreshes re-run the SQL at most every 10s for the same view
+      const overviewKey = `${projectId}|${detailedWindow}|${pageUrl}`;
+      const overviewFresh = isBackgroundRefresh && overviewRef.current.key === overviewKey && Date.now() - overviewRef.current.at < 10000;
+      const overviewRequest = overviewFresh ? Promise.resolve() : fetch(`/api/analytics/performance/overview?${params}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => { overviewRef.current = { key: overviewKey, at: Date.now() }; setOverview(j?.summary ?? null); })
+        .catch(() => {});
       const response = await fetch(`/api/analytics/performance?${params}`);
+      await overviewRequest;
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to fetch: ${response.statusText}`);
@@ -1646,14 +1657,14 @@ export default function PerformancePage() {
                   ))}
                 </div>
                 {transactions.length >= DETAILED_ROW_CAP && (
-                  <span style={{ fontSize: 'var(--font-xs)', color: 'var(--warning)' }}>Showing the newest {DETAILED_ROW_CAP} transactions in this period.</span>
+                  <span style={{ fontSize: 'var(--font-xs)', color: 'var(--warning)' }}>Overview covers the whole period; the charts below show the newest {DETAILED_ROW_CAP} transactions.</span>
                 )}
               </div>
             )}
 
             {viewMode === 'detailed' && analytics && (
               <>
-                <PerformanceOverview transactions={transactions} selectedEndpoint={selectedEndpoint} onSelectEndpoint={setSelectedEndpoint} />
+                <PerformanceOverview summary={overview} selectedEndpoint={selectedEndpoint} onSelectEndpoint={setSelectedEndpoint} />
 
                 {/* Performance Line Chart by Transaction Type */}
                 {Array.isArray(filteredPerformanceSeries) && renderLineChart(filteredPerformanceSeries, selectedMetric)}
