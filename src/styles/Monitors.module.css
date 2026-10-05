@@ -806,3 +806,18 @@ a.editButton { display: inline-block; text-decoration: none; }
 .incidentRow:hover, .incidentRowOn { background-color: var(--bg-secondary); }
 .incidentDetail { margin: var(--space-4) 0; padding: var(--space-4); background-color: var(--bg-secondary); border-radius: var(--radius-md); }
 .dialog { max-height: 92vh; overflow-y: auto; }
+
+.heatScroll { overflow-x: auto; padding-bottom: 4px; }
+.heatMonths, .heatGrid { display: grid; gap: 3px; width: max-content; }
+.heatMonths { font-size: 11px; color: var(--text-tertiary); margin-bottom: 4px; }
+.heatGrid { grid-auto-flow: column; grid-template-rows: repeat(7, 12px); grid-auto-columns: 12px; }
+.heatCell { width: 12px; height: 12px; padding: 0; border: 0; border-radius: 2px; cursor: pointer; }
+.heatCell:hover { outline: 1px solid var(--text-primary); }
+.heatSel { outline: 2px solid var(--text-primary); }
+.heat0 { background-color: var(--border-primary); opacity: 0.5; }
+.heat1 { background-color: var(--success); opacity: 0.85; }
+.heat2 { background-color: var(--error); opacity: 0.5; }
+.heat3 { background-color: var(--error); opacity: 0.75; }
+.heat4 { background-color: var(--error); }
+.heatLegend { display: flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 11px; color: var(--text-tertiary); }
+.heatLegend .heatCell { cursor: default; }

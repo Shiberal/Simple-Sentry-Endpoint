@@ -238,7 +238,7 @@ export function StatsPanel({ stats, now, range }) {
   );
 }
 
-export function CheckInHistory({ projectId, monitorId, now, refreshKey }) {
+export function CheckInHistory({ projectId, monitorId, now, refreshKey, day = null }) {
   const [status, setStatus] = useState('all');
   const [days, setDays] = useState(0);
   const [rows, setRows] = useState([]);
@@ -253,7 +253,11 @@ export function CheckInHistory({ projectId, monitorId, now, refreshKey }) {
     try {
       const q = new URLSearchParams({ monitorId: String(monitorId), limit: '25' });
       if (status !== 'all') q.set('status', status);
-      if (days) q.set('days', String(days));
+      if (day) {
+        const start = new Date(`${day}T00:00:00`);
+        q.set('from', start.toISOString());
+        q.set('to', new Date(start.getTime() + 86400000 - 1).toISOString());
+      } else if (days) q.set('days', String(days));
       if (before) q.set('before', String(before));
       const res = await fetch(`/api/projects/${projectId}/monitors/checkins?${q}`);
       const j = await res.json();
@@ -265,7 +269,7 @@ export function CheckInHistory({ projectId, monitorId, now, refreshKey }) {
     } finally {
       setBusy(false);
     }
-  }, [projectId, monitorId, status, days]);
+  }, [projectId, monitorId, status, days, day]);
 
   useEffect(() => { load(null); }, [load, refreshKey]);
 
@@ -278,7 +282,7 @@ export function CheckInHistory({ projectId, monitorId, now, refreshKey }) {
             <button key={k} type="button" aria-pressed={status === k} className={`${m.segment} ${status === k ? m.segmentOn : ''}`} onClick={() => setStatus(k)}>{label}</button>
           ))}
         </div>
-        <select className={m.select} value={days} onChange={(e) => setDays(parseInt(e.target.value, 10))} aria-label="Time range">
+        <select className={m.select} value={days} disabled={!!day} onChange={(e) => setDays(parseInt(e.target.value, 10))} aria-label="Time range">
           <option value={0}>All time</option>
           <option value={1}>Last 24h</option>
           <option value={7}>Last 7 days</option>
@@ -363,3 +367,99 @@ export const monitorApi = {
   setPaused: (mon, paused) => send(`/api/projects/${mon.projectId}/monitors`, { method: 'PATCH', body: JSON.stringify({ monitorId: mon.id, status: paused ? 'paused' : 'active' }) }),
   remove: (mon) => send(`/api/projects/${mon.projectId}/monitors?monitorId=${mon.id}`, { method: 'DELETE' })
 };
+
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 0 = no runs, 1 = all ok, 2 = under 5% failed, 3 = under 25%, 4 = 25%+ */
+function dayLevel(d) {
+  const total = d ? d.ok + d.error : 0;
+  if (!total) return 0;
+  const rate = d.error / total;
+  return rate === 0 ? 1 : rate < 0.05 ? 2 : rate < 0.25 ? 3 : 4;
+}
+
+const WEEKS = 53;
+
+/** GitHub-style year grid: one cell per local day, colour = share of failed runs. Click a day to select it. */
+export function Heatmap({ projectId, monitorId, selected, onSelect, refreshKey }) {
+  const [days, setDays] = useState(null);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    let live = true;
+    const q = new URLSearchParams({ monitorId: String(monitorId), days: String(WEEKS * 7), tzOffset: String(-new Date().getTimezoneOffset()) });
+    fetch(`/api/projects/${projectId}/monitors/heatmap?${q}`)
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => {
+        if (!live) return;
+        if (!ok) throw new Error(j.error || 'Could not load history');
+        setDays(Object.fromEntries(j.days.map((d) => [d.date, d])));
+      })
+      .catch((e) => live && setErr(e.message));
+    return () => { live = false; };
+  }, [projectId, monitorId, refreshKey]);
+
+  if (err) return <p className={m.textBad}>{err}</p>;
+  if (!days) return <p className={m.faint}>Loading history…</p>;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - ((WEEKS - 1) * 7 + today.getDay()));
+  const cells = [];
+  for (let i = 0; i < WEEKS * 7; i += 1) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    if (d > today) break;
+    cells.push({ date: d, key: dayKey(d), data: days[dayKey(d)] });
+  }
+  const months = [];
+  cells.forEach((c, i) => {
+    if (i % 7 === 0 && (i === 0 || c.date.getMonth() !== cells[i - 7].date.getMonth())) months.push({ week: i / 7, label: c.date.toLocaleString([], { month: 'short' }) });
+  });
+  const failedDays = Object.values(days).filter((d) => d.error > 0).length;
+  const runs = Object.values(days).reduce((n, d) => n + d.ok + d.error, 0);
+  const sel = selected ? days[selected] : null;
+
+  return (
+    <div>
+      <p className={m.faint}>{runs.toLocaleString()} runs in the last year · {failedDays} day{failedDays === 1 ? '' : 's'} with failures</p>
+      <div className={m.heatScroll}>
+        <div className={m.heatMonths} style={{ gridTemplateColumns: `repeat(${Math.ceil(cells.length / 7)}, 12px)` }}>
+          {months.map((mo) => <span key={mo.week} style={{ gridColumn: mo.week + 1 }}>{mo.label}</span>)}
+        </div>
+        <div className={m.heatGrid} role="group" aria-label="Daily results, last year">
+          {cells.map((c, i) => {
+            const total = c.data ? c.data.ok + c.data.error : 0;
+            const label = `${c.date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}: ${total ? `${c.data.error} failed of ${total} runs` : 'no runs'}`;
+            return (
+              <button
+                key={c.key}
+                type="button"
+                title={label}
+                aria-label={label}
+                aria-pressed={selected === c.key}
+                className={`${m.heatCell} ${m[`heat${dayLevel(c.data)}`]} ${selected === c.key ? m.heatSel : ''}`}
+                style={i < 7 ? { gridRow: c.date.getDay() + 1, gridColumn: 1 } : undefined}
+                onClick={() => onSelect(selected === c.key ? null : c.key)}
+              />
+            );
+          })}
+        </div>
+      </div>
+      <div className={m.heatLegend}>
+        <span>Healthy</span>
+        {[1, 2, 3, 4].map((l) => <span key={l} className={`${m.heatCell} ${m[`heat${l}`]}`} />)}
+        <span>Failing</span>
+      </div>
+      {selected && (
+        <p className={m.detailLine}>
+          <strong>{new Date(`${selected}T00:00:00`).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</strong>
+          {sel
+            ? <> · {sel.ok + sel.error} runs · <span className={sel.error ? m.textBad : m.textOk}>{sel.error} failed</span> · {Math.round((sel.ok / (sel.ok + sel.error)) * 1000) / 10}% success{sel.avgMs != null ? ` · avg ${fmtDuration(sel.avgMs)}` : ''}</>
+            : ' · no runs'}
+        </p>
+      )}
+    </div>
+  );
+}

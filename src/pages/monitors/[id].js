@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
 import {
-  CHART_MODES, ChartPanel, CheckInHistory, HEALTH, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
+  CHART_MODES, ChartPanel, CheckInHistory, HEALTH, Heatmap, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
 } from '@/components/monitors/shared';
 import styles from '@/styles/Dashboard.module.css';
 import m from '@/styles/Monitors.module.css';
@@ -103,6 +103,7 @@ export default function MonitorDetailPage() {
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
   const [showAllIncidents, setShowAllIncidents] = useState(false);
 
   const load = useCallback(async () => {
@@ -238,6 +239,14 @@ export default function MonitorDetailPage() {
                   <ChartPanel series={stats.daily} range={range} height={190} modes={CHART_MODES} />
                 </section>
 
+                <section className={m.overview}>
+                  <div className={m.overviewHead}>
+                    <h2 className={m.detailTitle}>Daily history</h2>
+                    {selectedDay && <button type="button" className={m.linkButton} onClick={() => setSelectedDay(null)}>Clear day</button>}
+                  </div>
+                  <Heatmap projectId={monitor.projectId} monitorId={monitor.id} selected={selectedDay} onSelect={setSelectedDay} refreshKey={String(monitor.lastRunAt)} />
+                </section>
+
                 <section className={m.overview} id="incidents">
                   <h2 className={m.detailTitle}>Incident timeline</h2>
                   {incidents.length === 0 ? <p className={m.faint}>No incidents in the last 30 days.</p> : (
@@ -265,7 +274,7 @@ export default function MonitorDetailPage() {
 
                 <div className={m.detailGrid}>
                   <section className={m.overview}>
-                    <CheckInHistory projectId={monitor.projectId} monitorId={monitor.id} now={now} refreshKey={String(monitor.lastRunAt)} />
+                    <CheckInHistory projectId={monitor.projectId} monitorId={monitor.id} now={now} refreshKey={String(monitor.lastRunAt)} day={selectedDay} />
                   </section>
                   <div className={m.sideStack}>
                     <section className={m.overview}>
