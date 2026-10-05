@@ -14,6 +14,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from 'recharts';
+import PerformanceOverview from '@/components/performance/PerformanceOverview';
 import PerformancePageSkeleton from '@/components/PerformancePageSkeleton';
 import styles from '@/styles/Dashboard.module.css';
 
@@ -1626,6 +1627,8 @@ export default function PerformancePage() {
 
             {viewMode === 'detailed' && analytics && (
               <>
+                <PerformanceOverview transactions={transactions} selectedEndpoint={selectedEndpoint} onSelectEndpoint={setSelectedEndpoint} />
+
                 {/* Performance Line Chart by Transaction Type */}
                 {Array.isArray(filteredPerformanceSeries) && renderLineChart(filteredPerformanceSeries, selectedMetric)}
                 
