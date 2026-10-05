@@ -34,7 +34,7 @@ export default function TelegramConnect({ projectId, styles, onChange }) {
   };
 
   if (!st) return <p className={styles.helpText}>{err || 'Loading…'}</p>;
-  if (!st.configured) return null;
+  if (!st.configured) return <div className={styles.warningBox}><p>⚠️ <code>TELEGRAM_BOT_TOKEN</code> is not visible to the server process. Set it in the container environment and restart.</p></div>;
 
   return (
     <div className={styles.formGroup}>

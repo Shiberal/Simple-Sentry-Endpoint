@@ -1186,11 +1186,6 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
               </div>
             </form>
             </details>
-            {!process.env.NEXT_PUBLIC_TELEGRAM_CONFIGURED && (
-              <div className={styles.warningBox}>
-                <p>⚠️ Telegram bot token not configured on the server. Contact your administrator to set the <code>TELEGRAM_BOT_TOKEN</code> environment variable.</p>
-              </div>
-            )}
           </section>
 
           {/* Ignored Issues Section */}
