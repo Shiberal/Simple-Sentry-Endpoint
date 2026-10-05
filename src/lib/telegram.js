@@ -11,7 +11,7 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
  * @param {string} message - Message text (supports Markdown)
  * @returns {Promise<Object>} Response from Telegram API
  */
-export async function sendTelegramMessage(chatId, message) {
+export async function sendTelegramMessage(chatId, message, { parseMode = 'Markdown' } = {}) {
   if (!TELEGRAM_BOT_TOKEN) {
     console.warn('TELEGRAM_BOT_TOKEN not configured. Skipping Telegram notification.');
     return { success: false, error: 'TELEGRAM_BOT_TOKEN not configured' };
@@ -32,7 +32,7 @@ export async function sendTelegramMessage(chatId, message) {
       body: JSON.stringify({
         chat_id: chatId,
         text: message,
-        parse_mode: 'Markdown',
+        ...(parseMode ? { parse_mode: parseMode } : {}),
         disable_web_page_preview: true,
       }),
     });
@@ -215,3 +215,41 @@ export async function sendErrorNotification(issue, event, project) {
 
 
 
+
+const API = () => `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`;
+
+let botUsername = null;
+export async function getBotUsername() {
+  if (!TELEGRAM_BOT_TOKEN) return null;
+  if (!botUsername) {
+    const r = await fetch(`${API()}/getMe`).then((x) => x.json()).catch(() => null);
+    botUsername = r?.result?.username || null;
+  }
+  return botUsername;
+}
+
+let updateOffset = 0;
+
+/**
+ * Pull pending bot messages and return the ones carrying a link key:
+ * `/start KEY`, `/link KEY` (also `/start@bot KEY`) or the bare key.
+ * Every project's pending key arrives through the same bot, so callers must handle all returned pairs.
+ * @returns {Promise<{ keys: Array<{ key: string, chatId: number, chatTitle: string }>, error?: string }>}
+ */
+export async function pollLinkKeys() {
+  if (!TELEGRAM_BOT_TOKEN) return { keys: [], error: 'TELEGRAM_BOT_TOKEN not configured' };
+  try {
+    const r = await fetch(`${API()}/getUpdates?timeout=0&allowed_updates=${encodeURIComponent('["message"]')}${updateOffset ? `&offset=${updateOffset}` : ''}`).then((x) => x.json());
+    if (!r.ok) return { keys: [], error: r.description || 'getUpdates failed' };
+    const keys = [];
+    for (const u of r.result) {
+      updateOffset = Math.max(updateOffset, u.update_id + 1);
+      const text = u.message?.text || '';
+      const m = text.match(/^\/(?:start|link)(?:@\w+)?\s+(\S+)/i) || text.match(/^(sm_[A-Z0-9]{8})$/);
+      if (m) keys.push({ key: m[1], chatId: u.message.chat.id, chatTitle: u.message.chat.title || u.message.chat.first_name || '' });
+    }
+    return { keys };
+  } catch (e) {
+    return { keys: [], error: e.message };
+  }
+}

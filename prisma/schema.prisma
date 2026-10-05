@@ -51,6 +51,8 @@ model Project {
   autoGithubReport         Boolean           @default(false)
   autoGithubReportFilters  Json?
   telegramChatId           String?
+  telegramLinkKey          String?
+  telegramLinkExpires      DateTime?
   fingerprintByPageUrl     Boolean           @default(false)
   ingestFilters            Json?
   scrubRules               Json?

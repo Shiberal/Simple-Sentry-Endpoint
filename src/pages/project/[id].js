@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import TelegramConnect from '@/components/TelegramConnect';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -1141,6 +1142,9 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
             <p className={styles.sectionDescription}>
               Receive instant error notifications in your Telegram channel or chat.
             </p>
+            {projectId && <TelegramConnect projectId={projectId} styles={styles} onChange={(chatId) => setTelegramChatId(chatId || '')} />}
+            <details>
+              <summary className={styles.helpText}>Enter a chat ID manually</summary>
             <form onSubmit={handleSaveTelegram} className={styles.form}>
               <div className={styles.formGroup}>
                 <label className={styles.label}>Telegram Chat ID</label>
@@ -1181,6 +1185,7 @@ register_shutdown_function(fn() => \\Sentry\\SentrySdk::getCurrentHub()->getClie
                 </button>
               </div>
             </form>
+            </details>
             {!process.env.NEXT_PUBLIC_TELEGRAM_CONFIGURED && (
               <div className={styles.warningBox}>
                 <p>⚠️ Telegram bot token not configured on the server. Contact your administrator to set the <code>TELEGRAM_BOT_TOKEN</code> environment variable.</p>
