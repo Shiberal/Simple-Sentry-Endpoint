@@ -536,7 +536,7 @@ export function ActivityStrip({ slices }) {
 }
 
 /** All-projects activity: 24h strip plus the yearly grid, across every monitor. */
-export function ActivityOverview({ projectId = null, refreshKey }) {
+export function ActivityOverview({ projectId = null, refreshKey, monitors = [] }) {
   const [data, setData] = useState(null);
   const [day, setDay] = useState(null);
 
@@ -550,11 +550,47 @@ export function ActivityOverview({ projectId = null, refreshKey }) {
 
   if (!data || !data.slices.length) return null;
   return (
+    <>
+    {monitors.length > 0 && <SiteGlance monitors={monitors} slicesById={data.perMonitor || {}} />}
     <section className={m.overview} aria-label="Activity">
       <h2 className={m.detailTitle}>Last 24 hours</h2>
       <ActivityStrip slices={data.slices} />
-      <h2 className={m.detailTitle}>Last year</h2>
+      <h2 className={`${m.detailTitle} ${m.activityGap}`}>Last year</h2>
       <Heatmap daysData={Object.fromEntries(data.days.map((d) => [d.date, d]))} selected={day} onSelect={setDay} />
+    </section>
+    </>
+  );
+}
+
+const hostOfUrl = (u) => { try { return new URL(u).host; } catch { return null; } };
+
+/** One card per monitored site: status, 24h success, last run and the last 24 hours in 5-minute slices. */
+export function SiteGlance({ monitors, slicesById }) {
+  const now = Date.now();
+  return (
+    <section aria-label="Sites at a glance" className={m.glanceGrid}>
+      {monitors.map((x) => {
+        const h = HEALTH[x.health] || HEALTH.unknown;
+        const w = x.stats?.windows?.['24h'];
+        const host = hostOfUrl(x.pingUrls?.[0]);
+        const label = x.name || x.slug;
+        return (
+          <Link key={x.id} href={`/monitors/${x.id}`} className={`${m.glanceCard} ${m[`glance_${h.tone}`]}`}>
+            <div className={m.glanceHead}>
+              <span className={`${m.status} ${m[`tone_${h.tone}`]}`}><span className={m.statusDot} />{h.label}</span>
+              <span className={`${m.glanceUptime} ${rateTone(w?.uptime)}`}>{pct(w?.uptime)}</span>
+            </div>
+            <div className={m.glanceName} title={label}>{label}</div>
+            <div className={m.glanceSub}>{host && host !== label ? `${host} · ` : ''}{x.project?.name}{x.environment ? ` · ${x.environment}` : ''}</div>
+            <ActivityStrip slices={slicesById[x.id] || []} />
+            <div className={m.glanceFoot}>
+              <span>{x.lastRunAt ? `Last run ${ago(x.lastRunAt, now)}` : 'No runs yet'}{x.lastDurationMs != null ? ` · ${fmtDuration(x.lastDurationMs)}` : ''}</span>
+              <span>{w?.runs ?? 0} runs · avg {fmtDuration(w?.avgMs)}</span>
+            </div>
+            {x.health !== 'ok' && x.healthReason && <div className={m.glanceReason}>{x.healthReason}</div>}
+          </Link>
+        );
+      })}
     </section>
   );
 }

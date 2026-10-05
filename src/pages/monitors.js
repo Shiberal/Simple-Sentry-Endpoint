@@ -366,7 +366,7 @@ export default function MonitorsPage() {
               </section>
             )}
 
-            {pid === 'all' && monitors.length > 0 && <ActivityOverview refreshKey={String(summary?.runs24h)} />}
+            {pid === 'all' && monitors.length > 0 && <ActivityOverview refreshKey={String(summary?.runs24h)} monitors={monitors} />}
 
             {monitors.length > 0 && summary?.stats && (
               <section className={m.overview} aria-label="Project overview">
