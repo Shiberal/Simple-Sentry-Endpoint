@@ -193,6 +193,9 @@ model CronMonitor {
   pingUrls      String[]          @default([])
   lastCheckInAt DateTime?
   checkIns      MonitorCheckIn[]
+  // Secret the monitored service's reporter uses to push CPU/RAM samples; null until generated
+  reportToken   String?           @unique
+  resourceSamples MonitorResourceSample[]
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
@@ -209,6 +212,20 @@ model MonitorCheckIn {
   durationMs  Float?
   data        Json?
   createdAt   DateTime     @default(now())
+
+  @@index([monitorId, createdAt])
+}
+
+// CPU/RAM readings pushed by a monitored service's own container (see reporter/)
+model MonitorResourceSample {
+  id            Int         @id @default(autoincrement())
+  monitorId     Int
+  monitor       CronMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  cpuPercent    Float?
+  memUsedBytes  Float?
+  memLimitBytes Float?
+  cpuLimitCores Float?
 
   @@index([monitorId, createdAt])
 }

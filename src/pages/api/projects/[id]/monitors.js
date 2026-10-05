@@ -105,6 +105,8 @@ export default async function handler(req, res) {
 
         return {
           ...m,
+          reportToken: undefined,
+          reportsResources: !!m.reportToken,
           checkIns: recent.slice(0, 8).map((c) => ({ ...c, source: c.data?.source || 'sdk', results: c.data?.results || null, data: undefined })),
           history: [...recent].reverse().map((c) => ({ status: c.status, durationMs: c.durationMs, at: c.createdAt })),
           health: health.health,
