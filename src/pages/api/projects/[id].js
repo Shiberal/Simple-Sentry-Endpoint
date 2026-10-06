@@ -1,16 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
-
-function getUserFromCookie(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    if (!session) return null;
-    return JSON.parse(session);
-  } catch {
-    return null;
-  }
-}
+import { getSessionPayload as getUserFromCookie } from '@/lib/session';
 
 export default async function handler(req, res) {
   const { method, query } = req;
@@ -20,6 +9,10 @@ export default async function handler(req, res) {
   switch (method) {
     case 'GET':
       try {
+        if (!user) {
+          return res.status(401).json({ error: 'Not authenticated' });
+        }
+
         const project = await prisma.project.findUnique({
           where: { id: parseInt(id) },
           include: {
@@ -50,7 +43,7 @@ export default async function handler(req, res) {
         }
 
         // Check if user has access to this project
-        if (user && !project.users.some(u => u.id === user.userId)) {
+        if (!project.users.some(u => u.id === user.userId)) {
           return res.status(403).json({ error: 'Access denied' });
         }
 

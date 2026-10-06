@@ -1,6 +1,8 @@
 import prisma from '@/lib/prisma';
 import { getSessionUser, visibleMonitorsWhere } from '@/lib/monitor-scope';
 
+const SLICE_S = 5 * 60;
+
 /**
  * GET /api/monitors/activity[?projectId=N][&tzOffset=minutes-east-of-UTC]
  * Run counts across every monitor the user can see (or one project): last 24h in 5-minute slices,
