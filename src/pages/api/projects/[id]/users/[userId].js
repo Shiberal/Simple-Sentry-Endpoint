@@ -1,16 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
-
-function getUserFromCookie(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    if (!session) return null;
-    return JSON.parse(session);
-  } catch {
-    return null;
-  }
-}
+import { getSessionPayload as getUserFromCookie } from '@/lib/session';
 
 async function isProjectOwner(userId, projectId) {
   const project = await prisma.project.findUnique({

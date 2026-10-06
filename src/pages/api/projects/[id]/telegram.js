@@ -1,19 +1,10 @@
 import crypto from 'crypto';
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
+import { getSessionPayload as getUser } from '@/lib/session';
 import { getBotUsername, pollLinkKeys, recentSends, sendTelegramMessage, telegramApi } from '@/lib/telegram';
 
 const KEY_TTL_MS = 15 * 60 * 1000;
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-
-function getUser(req) {
-  try {
-    const session = parse(req.headers.cookie || '').session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
 
 const newKey = () => `sm_${Array.from(crypto.randomBytes(8), (b) => ALPHABET[b % ALPHABET.length]).join('')}`;
 

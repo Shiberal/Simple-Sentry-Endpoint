@@ -1,17 +1,6 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
+import { getSessionPayload as getUserFromCookie } from '@/lib/session';
 import crypto from 'crypto';
-
-function getUserFromCookie(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    if (!session) return null;
-    return JSON.parse(session);
-  } catch {
-    return null;
-  }
-}
 
 export default async function handler(req, res) {
   const { method } = req;

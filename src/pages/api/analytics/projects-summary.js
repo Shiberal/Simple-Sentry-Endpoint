@@ -1,22 +1,12 @@
 import prisma from '@/lib/prisma';
 import { extractDuration } from '@/lib/sentry-transaction';
-import { parse } from 'cookie';
+import { getSessionPayload as getUserFromCookie } from '@/lib/session';
 
 const WINDOW_HOURS = {
   '24h': 24,
   '7d': 24 * 7,
   '30d': 24 * 30
 };
-
-function getUserFromCookie(req) {
-  try {
-    const cookies = parse(req.headers.cookie || '');
-    const session = cookies.session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
 
 function getStartDate(windowKey) {
   const hours = WINDOW_HOURS[windowKey] || WINDOW_HOURS['24h'];

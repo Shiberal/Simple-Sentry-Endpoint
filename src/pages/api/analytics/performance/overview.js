@@ -1,15 +1,6 @@
 import prisma from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma';
-import { parse } from 'cookie';
-
-function getUser(req) {
-  try {
-    const session = parse(req.headers.cookie || '').session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
+import { getSessionPayload as getUser } from '@/lib/session';
 
 const BUCKETS = [50, 100, 250, 500, 1000, 2500];
 

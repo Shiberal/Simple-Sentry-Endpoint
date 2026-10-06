@@ -1,14 +1,5 @@
 import prisma from '@/lib/prisma';
-import { parse } from 'cookie';
-
-function getUser(req) {
-  try {
-    const session = parse(req.headers.cookie || '').session;
-    return session ? JSON.parse(session) : null;
-  } catch {
-    return null;
-  }
-}
+import { getSessionPayload as getUser } from '@/lib/session';
 
 /**
  * GET /api/issues/origins[?projectId=N][&eventType=TRANSACTION]

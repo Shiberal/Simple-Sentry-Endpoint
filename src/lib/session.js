@@ -2,13 +2,23 @@ import prisma from '@/lib/prisma';
 import { parse } from 'cookie';
 
 /**
+ * Raw session cookie payload ({ userId, ... }) or null. Not verified against the database.
+ */
+export function getSessionPayload(req) {
+  try {
+    const session = parse(req.headers.cookie || '').session;
+    return session ? JSON.parse(session) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Current user from the session cookie, or null.
  */
 export async function getSessionUser(req) {
   try {
-    const session = parse(req.headers.cookie || '').session;
-    if (!session) return null;
-    const { userId } = JSON.parse(session);
+    const userId = getSessionPayload(req)?.userId;
     if (!userId) return null;
     return await prisma.user.findUnique({
       where: { id: userId },
