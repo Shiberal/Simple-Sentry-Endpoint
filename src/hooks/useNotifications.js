@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 
-// In-page toast queue: each toast removes itself after 10 seconds.
-export default function useNotifications() {
+// In-page toast queue: each toast removes itself after `timeoutMs`.
+export default function useNotifications(timeoutMs = 10000) {
   const [notifications, setNotifications] = useState([]);
 
   const removeNotification = useCallback((id) => {
@@ -11,8 +11,8 @@ export default function useNotifications() {
   const showNotification = useCallback((message, type = 'info', action = null) => {
     const id = Date.now() + Math.random();
     setNotifications(prev => [...prev, { id, message, type, action }]);
-    setTimeout(() => removeNotification(id), 10000);
-  }, [removeNotification]);
+    setTimeout(() => removeNotification(id), timeoutMs);
+  }, [removeNotification, timeoutMs]);
 
   return { notifications, showNotification, removeNotification };
 }
