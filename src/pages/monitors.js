@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import Router, { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
 import AppNav from '@/components/shared/AppNav';
 import shell from '@/styles/AppShell.module.css';
-import {
-  ActivityOverview, CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, REFRESH_MS, RANGE_OPTIONS,
-  StatsPanel, monitorApi, ago, fmtDuration, pct, rateTone, until, projectLabel, scopeOf, Sparkline } from '@/components/monitors/shared';
+import { ActivityOverview } from '@/components/monitors/ActivityOverview';
+import { CHART_MODES, HEALTH, REFRESH_MS, RANGE_OPTIONS, monitorApi, ago, fmtDuration, pct, rateTone, until, projectLabel, scopeOf } from '@/components/monitors/helpers';
+import { ChartPanel, Sparkline } from '@/components/monitors/charts';
+import { CheckInHistory, History, StatsPanel } from '@/components/monitors/panels';
 
 import m from '@/styles/Monitors.module.css';
 
@@ -66,14 +67,14 @@ export default function MonitorsPage() {
       try {
         const me = await fetch('/api/auth/me').then((r) => r.json());
         if (!me?.user) {
-          router.push('/login');
+          Router.push('/login');
           return;
         }
         setUser(me.user);
         const pr = await fetch('/api/projects').then((r) => r.json());
         const list = pr.projects || [];
         setProjects(list);
-        if (list.length && !pid) setPid('all');
+        if (list.length) setPid((current) => current || 'all');
       } finally {
         setLoading(false);
       }

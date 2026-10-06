@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { describeSchedule } from '@/lib/monitor-health';
 import { parseCronSchedule } from '@/lib/monitor-schedule';
-import { PRESETS } from './shared';
+import { PRESETS } from '@/components/monitors/helpers';
 import m from '@/styles/Monitors.module.css';
 
 /** Create (monitor = null) or edit a monitor, including its alert settings. */

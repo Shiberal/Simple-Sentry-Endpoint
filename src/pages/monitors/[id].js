@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
+import Router, { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
-import {
-  CHART_MODES, ChartPanel, CheckInHistory, HEALTH, Heatmap, History, MonitorSidebar, projectLabel, scopeOf, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
-} from '@/components/monitors/shared';
+import { CHART_MODES, HEALTH, projectLabel, scopeOf, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until } from '@/components/monitors/helpers';
+import { ChartPanel, Heatmap } from '@/components/monitors/charts';
+import { CheckInHistory, History } from '@/components/monitors/panels';
+import { MonitorSidebar } from '@/components/monitors/MonitorSidebar';
 import AppNav from '@/components/shared/AppNav';
 import shell from '@/styles/AppShell.module.css';
 import m from '@/styles/Monitors.module.css';
@@ -121,7 +122,7 @@ export default function MonitorDetailPage() {
   useEffect(() => {
     (async () => {
       const me = await fetch('/api/auth/me').then((r) => r.json());
-      if (!me?.user) { router.push('/login'); return; }
+      if (!me?.user) { Router.push('/login'); return; }
       setUser(me.user);
       const pr = await fetch('/api/projects').then((r) => r.json());
       setProjects(pr.projects || []);
