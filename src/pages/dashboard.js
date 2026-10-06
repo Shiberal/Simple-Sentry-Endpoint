@@ -6,6 +6,8 @@ import ThemeToggle from '@/components/ThemeToggle';
 import IssueListSkeleton from '@/components/IssueListSkeleton';
 import Icon from '@/components/Icon';
 import { parseGitHubRepo } from '@/lib/github';
+import { buildGitHubIssueBody, buildGitHubLabels } from '@/lib/github-issue-body';
+import { prettifyContent, getEventType, getEventTypeBadge, getEventTitle } from '@/lib/event-display';
 import usePersistedState from '@/hooks/usePersistedState';
 import { statusLabel, levelColors, relativeTime, TIME_RANGES, SORT_OPTIONS, downloadIssues } from '@/lib/ui';
 import styles from '@/styles/Dashboard.module.css';
@@ -111,102 +113,6 @@ export default function Dashboard() {
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-
-  // Prettify function to format JSON or text (loosely)
-  const prettifyContent = (content) => {
-    if (!content) return content;
-    
-    const trimmed = content.trim();
-    
-    // Helper function to find balanced JSON structures
-    const findBalancedJson = (str, startChar, endChar) => {
-      let depth = 0;
-      let start = -1;
-      for (let i = 0; i < str.length; i++) {
-        if (str[i] === startChar) {
-          if (depth === 0) start = i;
-          depth++;
-        } else if (str[i] === endChar) {
-          depth--;
-          if (depth === 0 && start !== -1) {
-            return str.substring(start, i + 1);
-          }
-        }
-      }
-      return null;
-    };
-    
-    // Try to parse as direct JSON
-    try {
-      const parsed = JSON.parse(trimmed);
-      return JSON.stringify(parsed, null, 2);
-    } catch (e) {
-      // Try to find JSON objects/arrays embedded in the content
-      const jsonObject = findBalancedJson(trimmed, '{', '}');
-      const jsonArray = findBalancedJson(trimmed, '[', ']');
-      
-      // Try object first
-      if (jsonObject) {
-        try {
-          const parsed = JSON.parse(jsonObject);
-          const formatted = JSON.stringify(parsed, null, 2);
-          return trimmed.replace(jsonObject, formatted);
-        } catch (e2) {
-          // Try unescaping common escape sequences
-          try {
-            const unescaped = jsonObject
-              .replace(/\\"/g, '"')
-              .replace(/\\n/g, '\n')
-              .replace(/\\t/g, '\t')
-              .replace(/\\r/g, '\r');
-            const parsed = JSON.parse(unescaped);
-            const formatted = JSON.stringify(parsed, null, 2);
-            return trimmed.replace(jsonObject, formatted);
-          } catch (e3) {
-            // Continue to try array or other methods
-          }
-        }
-      }
-      
-      // Try array
-      if (jsonArray) {
-        try {
-          const parsed = JSON.parse(jsonArray);
-          const formatted = JSON.stringify(parsed, null, 2);
-          return trimmed.replace(jsonArray, formatted);
-        } catch (e2) {
-          // Continue to other methods
-        }
-      }
-      
-      // Try parsing as a JSON string (double-encoded, e.g., "{\"key\":\"value\"}")
-      if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
-        try {
-          // First unescape the outer quotes
-          const unescaped = trimmed.slice(1, -1)
-            .replace(/\\"/g, '"')
-            .replace(/\\n/g, '\n')
-            .replace(/\\t/g, '\t')
-            .replace(/\\r/g, '\r')
-            .replace(/\\\\/g, '\\');
-          const parsed = JSON.parse(unescaped);
-          return JSON.stringify(parsed, null, 2);
-        } catch (e2) {
-          // Continue to text formatting
-        }
-      }
-      
-      // If not JSON, format as text with better line breaks
-      // Replace common escape sequences and format
-      return content
-        .replace(/\\n/g, '\n')
-        .replace(/\\t/g, '\t')
-        .replace(/\\r/g, '\r')
-        .replace(/\\"/g, '"')
-        .replace(/\\'/g, "'")
-        .replace(/\\\\/g, '\\');
-    }
-  };
 
   const checkAuth = async () => {
     try {
@@ -673,148 +579,9 @@ export default function Dashboard() {
       return;
     }
     
-    // Generate enhanced issue body
-    let body = `## 🚨 Error Report\n\n`;
-    body += `This issue was manually created from the error dashboard.\n\n`;
-    if (issue?.fingerprint) {
-      body += `**Error Fingerprint:** \`${issue.fingerprint}\`\n`;
-    }
-    if (issue?.count) {
-      body += `**Occurrences:** ${issue.count} time${issue.count !== 1 ? 's' : ''}\n`;
-    }
-    body += `\n`;
-    
-    // Error summary
-    if (data.exception?.values?.[0]) {
-      const exc = data.exception.values[0];
-      body += `### Exception Details\n\n`;
-      body += `**Type:** \`${exc.type}\`\n`;
-      body += `**Message:** ${exc.value}\n`;
-      if (data.culprit) body += `**Culprit:** \`${data.culprit}\`\n`;
-      body += `\n`;
-      
-      // Stack trace with better formatting
-      if (exc.stacktrace?.frames) {
-        body += `### 📍 Stack Trace\n\n`;
-        body += `\`\`\`${data.platform || 'text'}\n`;
-        exc.stacktrace.frames.slice().reverse().forEach((frame, idx) => {
-          const fn = frame.function || frame.module || 'anonymous';
-          const file = frame.filename || frame.abs_path || 'unknown';
-          const line = frame.lineno || '?';
-          const col = frame.colno ? `:${frame.colno}` : '';
-          body += `${idx + 1}. ${fn}\n   at ${file}:${line}${col}\n`;
-          
-          // Add context lines if available
-          if (frame.context_line) {
-            body += `   > ${frame.context_line.trim()}\n`;
-          }
-        });
-        body += `\`\`\`\n\n`;
-      }
-    } else if (data.message) {
-      body += `**Message:** ${data.message}\n\n`;
-    }
-    
-    // Occurrence information
-    if (issue) {
-      body += `### 📊 Occurrence Information\n\n`;
-      body += `- **Times Occurred:** ${issue.count} time${issue.count !== 1 ? 's' : ''}\n`;
-      body += `- **First Seen:** ${new Date(issue.firstSeen).toLocaleString()}\n`;
-      body += `- **Last Seen:** ${new Date(issue.lastSeen).toLocaleString()}\n`;
-      body += `- **Severity Level:** ${issue.level.toUpperCase()}\n`;
-      body += `- **Status:** ${issue.status}\n\n`;
-    }
-    
-    // Environment & Context
-    body += `### 🔧 Environment\n\n`;
-    if (data.environment) body += `- **Environment:** ${data.environment}\n`;
-    if (data.platform) body += `- **Platform:** ${data.platform}\n`;
-    if (data.release) body += `- **Release:** ${data.release}\n`;
-    if (data.server_name) body += `- **Server:** ${data.server_name}\n`;
-    if (data.sdk) body += `- **SDK:** ${data.sdk.name} ${data.sdk.version}\n`;
-    body += `\n`;
-    
-    // User context
-    if (data.user) {
-      body += `### 👤 User Context\n\n`;
-      if (data.user.id) body += `- **User ID:** ${data.user.id}\n`;
-      if (data.user.username) body += `- **Username:** ${data.user.username}\n`;
-      if (data.user.email) body += `- **Email:** ${data.user.email}\n`;
-      if (data.user.ip_address) body += `- **IP Address:** ${data.user.ip_address}\n`;
-      body += `\n`;
-    }
-    
-    // Tags
-    if (data.tags && Object.keys(data.tags).length > 0) {
-      body += `### 🏷️ Tags\n\n`;
-      Object.entries(data.tags).forEach(([key, value]) => {
-        body += `- **${key}:** ${value}\n`;
-      });
-      body += `\n`;
-    }
-    
-    // Breadcrumbs (last 10)
-    const breadcrumbs = Array.isArray(data.breadcrumbs) ? data.breadcrumbs : data.breadcrumbs?.values;
-    if (breadcrumbs && breadcrumbs.length > 0) {
-      body += `### 🍞 Breadcrumbs (Last 10)\n\n`;
-      breadcrumbs.slice(-10).forEach((crumb, idx) => {
-        // Handle different timestamp formats
-        let time = '';
-        if (crumb.timestamp) {
-          if (typeof crumb.timestamp === 'number' && crumb.timestamp > 1000000000000) {
-            time = new Date(crumb.timestamp).toLocaleTimeString();
-          } else if (typeof crumb.timestamp === 'number' && crumb.timestamp > 1000000000) {
-            time = new Date(crumb.timestamp * 1000).toLocaleTimeString();
-          } else {
-            time = crumb.timestamp;
-          }
-        }
-        body += `${idx + 1}. **[${crumb.category || crumb.level || 'default'}]** ${crumb.message || crumb.type} `;
-        if (time) body += `_(${time})_`;
-        body += `\n`;
-      });
-      body += `\n`;
-    }
-    
-    // Extra context
-    if (data.contexts && Object.keys(data.contexts).length > 0) {
-      body += `### 📦 Additional Context\n\n`;
-      Object.entries(data.contexts).forEach(([key, value]) => {
-        if (key !== 'trace' && typeof value === 'object') {
-          body += `**${key}:**\n\`\`\`json\n${JSON.stringify(value, null, 2)}\n\`\`\`\n\n`;
-        }
-      });
-    }
-    
-    // Request info
-    if (data.request) {
-      body += `### 🌐 Request Information\n\n`;
-      if (data.request.url) body += `- **URL:** ${data.request.url}\n`;
-      if (data.request.method) body += `- **Method:** ${data.request.method}\n`;
-      if (data.request.headers?.['User-Agent']) body += `- **User Agent:** ${data.request.headers['User-Agent']}\n`;
-      body += `\n`;
-    }
-    
-    // Footer with links
-    body += `---\n\n`;
-    body += `📅 **Event ID:** \`${event.id}\`\n`;
-    body += `⏰ **Timestamp:** ${new Date(event.createdAt).toLocaleString()}\n`;
-    body += `📁 **Project:** ${event.project?.name || 'Unknown Project'}\n`;
-    
-    // Add link to dashboard if available
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-    if (issue) {
-      body += `🔗 **[View in Dashboard](${baseUrl}/dashboard?issue=${issue.id})**\n`;
-    }
-    
-    // Generate labels
-    const labels = [];
-    if (data.level) labels.push(data.level);
-    if (data.platform) labels.push(data.platform);
-    if (data.environment) labels.push(data.environment);
-    labels.push('sentry');
-    labels.push('automated');
-    
+    const body = buildGitHubIssueBody({ event, issue, data });
+    const labels = buildGitHubLabels(data);
+
     // Check if project has GitHub configuration
     if (event.project?.githubRepo) {
       try {
@@ -1069,61 +836,6 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Error fetching issue event:', error);
     }
-  };
-
-  const getEventType = (event) => {
-    // Support both event and issue data structures
-    const data = event.data || event;
-    
-    // Check if it's a message event (has message but no exception)
-    if (data.message && !data.exception) return 'message';
-    
-    // Otherwise check by level
-    if (data.level === 'error' || event.level === 'error' || data.exception) return 'error';
-    if (data.level === 'warning' || event.level === 'warning') return 'warning';
-    if (data.level === 'info' || event.level === 'info') return 'info';
-    return 'event';
-  };
-
-  // Get event type badge info (for CSP, minidump, etc.)
-  const getEventTypeBadge = (issue) => {
-    // Check if issue has CSP-specific fields
-    if (issue.violatedDirective || issue.blockedUri) {
-      return { icon: '🛡️', label: 'CSP', color: '#f97316' }; // Orange
-    }
-    // Check events array for event type if available
-    if (issue.events && issue.events.length > 0) {
-      const latestEvent = issue.events[0];
-      if (latestEvent.eventType === 'MINIDUMP') {
-        return { icon: '💥', label: 'Crash', color: '#9333ea' }; // Purple
-      }
-      if (latestEvent.eventType === 'TRANSACTION') {
-        return { icon: '⚡', label: 'Perf', color: '#3b82f6' }; // Blue
-      }
-      if (latestEvent.eventType === 'MESSAGE') {
-        return { icon: '💬', label: 'Message', color: '#10b981' }; // Green
-      }
-      if (latestEvent.eventType === 'CSP') {
-        return { icon: '🛡️', label: 'CSP', color: '#f97316' }; // Orange
-      }
-    }
-    // Default for regular errors
-    return null;
-  };
-
-  const getEventTitle = (event) => {
-    // If it's an issue object (has title field)
-    if (event.title) {
-      return event.title;
-    }
-    // Otherwise it's an event object
-    const data = event.data || {};
-    if (data.exception?.values?.[0]?.value) {
-      return data.exception.values[0].value;
-    }
-    if (data.message) return data.message;
-    if (data.transaction) return data.transaction;
-    return 'Unknown Event';
   };
 
   const formatDate = relativeTime;
