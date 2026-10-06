@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useMountEffect from '@/hooks/useMountEffect';
 import Icon from '@/components/Icon';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -29,10 +30,6 @@ export default function AdminPage() {
   const [isCleaning, setIsCleaning] = useState(false);
   const [userSelectionSearch, setUserSelectionSearch] = useState('');
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
   const showNotification = (message, type = 'info') => {
     const id = Date.now() + Math.random();
     const notification = { id, message, type };
@@ -57,6 +54,8 @@ export default function AdminPage() {
       router.push('/login');
     }
   };
+
+  useMountEffect(checkAuth);
 
   const fetchData = async () => {
     try {

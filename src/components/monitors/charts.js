@@ -155,7 +155,6 @@ const WEEKS = 53;
 export function Heatmap({ projectId, monitorId, selected, onSelect, refreshKey, daysData = null }) {
   const [fetched, setFetched] = useState(null);
   const days = daysData || fetched;
-  const setDays = setFetched;
   const [err, setErr] = useState('');
 
   useEffect(() => {
@@ -167,7 +166,7 @@ export function Heatmap({ projectId, monitorId, selected, onSelect, refreshKey, 
       .then(({ ok, j }) => {
         if (!live) return;
         if (!ok) throw new Error(j.error || 'Could not load history');
-        setDays(Object.fromEntries(j.days.map((d) => [d.date, d])));
+        setFetched(Object.fromEntries(j.days.map((d) => [d.date, d])));
       })
       .catch((e) => live && setErr(e.message));
     return () => { live = false; };

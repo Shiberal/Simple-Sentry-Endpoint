@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import useMountEffect from '@/hooks/useMountEffect';
 import Icon from '@/components/Icon';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -18,10 +19,6 @@ export default function ProfilePage() {
     name: ''
   });
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
   const checkAuth = async () => {
     try {
       const response = await fetch('/api/auth/me');
@@ -36,6 +33,8 @@ export default function ProfilePage() {
       router.push('/login');
     }
   };
+
+  useMountEffect(checkAuth);
 
   const fetchProfile = async () => {
     try {
