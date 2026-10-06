@@ -1,22 +1,13 @@
-import { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
+import { createContext, useContext, useEffect } from 'react';
 import useLocalStorageValue from '@/hooks/useLocalStorageValue';
+import useMediaQuery from '@/hooks/useMediaQuery';
 
 const ThemeContext = createContext();
-
-const DARK_QUERY = '(prefers-color-scheme: dark)';
-
-function subscribeSystemTheme(callback) {
-  const mediaQuery = window.matchMedia(DARK_QUERY);
-  mediaQuery.addEventListener('change', callback);
-  return () => mediaQuery.removeEventListener('change', callback);
-}
-
-const systemIsDark = () => window.matchMedia(DARK_QUERY).matches;
 
 export function ThemeProvider({ children }) {
   const [storedTheme, setStoredTheme] = useLocalStorageValue('theme');
   const theme = storedTheme || 'system';
-  const prefersDark = useSyncExternalStore(subscribeSystemTheme, systemIsDark, () => false);
+  const prefersDark = useMediaQuery('(prefers-color-scheme: dark)');
   const resolvedTheme = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
 
   useEffect(() => {
