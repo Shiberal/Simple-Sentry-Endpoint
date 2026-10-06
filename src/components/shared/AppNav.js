@@ -28,7 +28,7 @@ function NavLink({ href, icon, title, tooltip, label, active }) {
 export default function AppNav({ active, isAdmin, onLogout, children }) {
   return (
     <nav className={shell.navSidebar} aria-label="Primary">
-      {LINKS.map((l) => <NavLink key={l.key} {...l} active={active === l.key} />)}
+      {LINKS.map(({ key, ...link }) => <NavLink key={key} {...link} active={active === key} />)}
 
       <div className={shell.navDivider}></div>
 

@@ -483,7 +483,8 @@ export default function Dashboard() {
                 <IssueList
                   loading={loading}
                   hasProjects={projects.length > 0}
-                    filteredIssues={filteredIssues}
+                  issues={issues}
+                  filteredIssues={filteredIssues}
                   issuesTotal={issuesTotal}
                   loadingMore={loadingMore}
                   hasActiveFilters={hasActiveFilters}
