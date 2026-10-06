@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -7,7 +7,7 @@ import MonitorDialog from '@/components/monitors/MonitorDialog';
 import styles from '@/styles/Dashboard.module.css';
 import {
   ActivityOverview, CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, PRESETS, REFRESH_MS, RANGE_OPTIONS,
-  StatsPanel, monitorApi, ago, fmtDuration, pct, rateTone, until, projectLabel, scopeOf } from '@/components/monitors/shared';
+  StatsPanel, monitorApi, ago, fmtDuration, pct, rateTone, until, projectLabel, scopeOf, Sparkline } from '@/components/monitors/shared';
 
 import m from '@/styles/Monitors.module.css';
 
@@ -28,6 +28,17 @@ export default function MonitorsPage() {
   const [sort, setSort] = useState('status');
   const [busy, setBusy] = useState(null); // monitor id, or 'all'
   const [error, setError] = useState('');
+
+  const summaryRef = useRef(null);
+  const [compact, setCompact] = useState(false); // summary tiles scrolled out of view
+  const hasSummary = !!data.summary;
+  useEffect(() => {
+    const el = summaryRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(([entry]) => setCompact(!entry.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasSummary]);
 
   const [showNew, setShowNew] = useState(false);
   const [editing, setEditing] = useState(null); // monitor being edited, or null when creating
@@ -304,6 +315,21 @@ export default function MonitorsPage() {
           </header>
 
           <main className={m.page}>
+            {summary && (
+              <div className={m.stickyWrap}>
+                <div className={`${m.stickyBar} ${compact ? m.stickyOn : ''}`} aria-hidden={!compact}>
+                  {tiles.filter((t) => t.key !== 'paused').map((t) => (
+                    <button key={t.key} type="button" tabIndex={compact ? 0 : -1} onClick={() => setFilter(filter === t.key ? 'all' : t.key)} className={`${m.pill} ${m[`tone_${t.tone}`]} ${filter === t.key && t.key !== 'all' ? m.pillActive : ''}`}>
+                      <strong>{t.value}</strong> {t.label}
+                    </button>
+                  ))}
+                  <span className={m.pill}><strong className={rateTone(summary.stats?.windows?.['24h']?.uptime)}>{pct(summary.stats?.windows?.['24h']?.uptime)}</strong> 24h</span>
+                  <span className={m.pill}><strong>{fmtDuration(summary.stats?.windows?.['24h']?.avgMs)}</strong> avg</span>
+                  {!!summary.stats?.incidentsOpen && <span className={`${m.pill} ${m.textBad}`}><strong>{summary.stats.incidentsOpen}</strong> open incidents</span>}
+                  <Sparkline series={summary.stats?.daily} />
+                </div>
+              </div>
+            )}
             {error ? <div className={m.error} role="alert">{error}</div> : null}
 
             {scheduler?.hasPingMonitors && scheduler.state !== 'running' && (
@@ -341,7 +367,7 @@ export default function MonitorsPage() {
             )}
 
             {summary && (
-              <section className={m.summary} aria-label="Summary">
+              <section className={m.summary} aria-label="Summary" ref={summaryRef}>
                 {tiles.map((t) => (
                   <button
                     key={t.key}

@@ -13,6 +13,21 @@
   margin: 0 auto;
 }
 
+.page > * { flex-shrink: 0; } /* let the page scroll instead of squeezing sections */
+
+/* Compact summary that sticks to the top once the tiles have scrolled away */
+.stickyWrap { position: sticky; top: 0; z-index: 20; height: 0; margin-bottom: calc(-1 * var(--space-4)); }
+.stickyBar { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2); padding: 6px var(--space-3); background-color: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); opacity: 0; transform: translateY(-8px); pointer-events: none; transition: opacity 0.15s, transform 0.15s; }
+.stickyOn { opacity: 1; transform: none; pointer-events: auto; }
+.pill { display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 10px; font-size: var(--font-sm); color: var(--text-secondary); background: none; border: 1px solid transparent; border-radius: 999px; }
+button.pill { cursor: pointer; }
+button.pill:hover, .pillActive { border-color: var(--border-primary); background-color: var(--bg-tertiary); }
+.pill strong { font-family: var(--font-mono); color: var(--text-primary); }
+.pill.tone_bad strong { color: var(--error); }
+.pill.tone_warn strong { color: var(--warning); }
+.pill.tone_ok strong { color: var(--success); }
+.spark { margin-left: auto; color: var(--text-tertiary); }
+
 .code,
 .mono {
   font-family: var(--font-mono);

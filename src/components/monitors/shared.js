@@ -374,6 +374,20 @@ export const monitorApi = {
   remove: (mon) => send(`/api/projects/${scopeOf(mon)}/monitors?monitorId=${mon.id}`, { method: 'DELETE' })
 };
 
+/** Tiny uptime trend for compact headers. */
+export function Sparkline({ series, width = 120, height = 22 }) {
+  const pts = (series || []).map((d, i) => ({ i, v: d.uptime })).filter((p) => p.v != null);
+  if (pts.length < 2) return null;
+  const lo = Math.min(90, ...pts.map((p) => p.v));
+  const n = series.length - 1 || 1;
+  const d = pts.map((p) => `${((p.i / n) * width).toFixed(1)},${(height - ((p.v - lo) / (100 - lo || 1)) * (height - 2) - 1).toFixed(1)}`).join(' ');
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className={m.spark} role="img" aria-label="Uptime trend">
+      <polyline points={d} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /** 0 = no runs, 1 = all ok, 2 = under 5% failed, 3 = under 25%, 4 = 25%+ */
