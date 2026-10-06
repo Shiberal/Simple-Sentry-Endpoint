@@ -7,6 +7,7 @@ import MonitorDialog from '@/components/monitors/MonitorDialog';
 import {
   CHART_MODES, ChartPanel, CheckInHistory, HEALTH, Heatmap, History, MonitorSidebar, projectLabel, scopeOf, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
 } from '@/components/monitors/shared';
+import AppNav from '@/components/shared/AppNav';
 import shell from '@/styles/AppShell.module.css';
 import m from '@/styles/Monitors.module.css';
 
@@ -160,14 +161,7 @@ export default function MonitorDetailPage() {
     <>
       <Head><title>{monitor ? `${monitor.name || monitor.slug} - Monitors` : 'Monitor'} - Sentry Monitor</title></Head>
       <div className={shell.container}>
-        <nav className={shell.navSidebar} aria-label="Primary">
-          <Link href="/projects" style={{ textDecoration: 'none' }}><div className={shell.navItem} title="Projects"><Icon name="folder" size={18} /><div className={shell.navItemTooltip}>Projects</div></div></Link>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}><div className={shell.navItem} title="Global Dashboard"><Icon name="dashboard" size={18} /><div className={shell.navItemTooltip}>Global Dashboard</div></div></Link>
-          <Link href="/performance" style={{ textDecoration: 'none' }}><div className={shell.navItem} title="Performance"><Icon name="activity" size={18} /><div className={shell.navItemTooltip}>Performance</div></div></Link>
-          <Link href="/monitors" style={{ textDecoration: 'none' }}><div className={`${shell.navItem} ${shell.navItemActive}`} title="Monitors"><Icon name="clock" size={18} /><div className={shell.navItemTooltip}>Monitors</div></div></Link>
-          <div className={shell.navDivider}></div>
-          <Link href="/profile" style={{ textDecoration: 'none' }}><div className={shell.navItem} title="Profile"><Icon name="user" size={18} /><div className={shell.navItemTooltip}>Your Profile</div></div></Link>
-        </nav>
+        <AppNav active="monitors" />
         <div className={shell.main}>
           <header className={shell.header}>
             <div className={shell.headerContent}>

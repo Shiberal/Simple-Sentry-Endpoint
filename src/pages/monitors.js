@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
+import AppNav from '@/components/shared/AppNav';
 import shell from '@/styles/AppShell.module.css';
 import {
   ActivityOverview, CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, REFRESH_MS, RANGE_OPTIONS,
@@ -202,34 +203,7 @@ export default function MonitorsPage() {
         <title>Monitors - Sentry Monitor</title>
       </Head>
       <div className={shell.container}>
-        <nav className={shell.navSidebar} aria-label="Primary">
-          <Link href="/projects" style={{ textDecoration: 'none' }}>
-            <div className={shell.navItem} title="Projects">
-              <Icon name="folder" size={18} />
-              <div className={shell.navItemTooltip}>Projects</div>
-            </div>
-          </Link>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <div className={shell.navItem} title="Global Dashboard">
-              <Icon name="dashboard" size={18} />
-              <div className={shell.navItemTooltip}>Global Dashboard</div>
-            </div>
-          </Link>
-          <Link href="/performance" style={{ textDecoration: 'none' }}>
-            <div className={shell.navItem} title="Performance">
-              <Icon name="activity" size={18} />
-              <div className={shell.navItemTooltip}>Performance</div>
-            </div>
-          </Link>
-          <Link href="/monitors" style={{ textDecoration: 'none' }}>
-            <div className={`${shell.navItem} ${shell.navItemActive}`} title="Cron monitors">
-              <Icon name="clock" size={18} />
-              <div className={shell.navItemTooltip}>Monitors</div>
-            </div>
-          </Link>
-
-          <div className={shell.navDivider}></div>
-
+        <AppNav active="monitors" isAdmin={user.isAdmin}>
           <button
             type="button"
             className={`${shell.navProjectItem} ${pid === 'all' ? shell.navProjectItemActive : ''}`}
@@ -260,25 +234,7 @@ export default function MonitorsPage() {
               <div className={shell.navItemTooltip}>{project.name}</div>
             </button>
           ))}
-
-          <div className={shell.navDivider}></div>
-
-          {user.isAdmin && (
-            <Link href="/admin" style={{ textDecoration: 'none' }}>
-              <div className={shell.navItem} title="Admin">
-                <Icon name="settings" size={18} />
-                <div className={shell.navItemTooltip}>Admin Settings</div>
-              </div>
-            </Link>
-          )}
-
-          <Link href="/profile" style={{ textDecoration: 'none' }}>
-            <div className={shell.navItem} title="Profile">
-              <Icon name="user" size={18} />
-              <div className={shell.navItemTooltip}>Your Profile</div>
-            </div>
-          </Link>
-        </nav>
+        </AppNav>
         <div className={shell.main}>
           <header className={shell.header}>
             <div className={shell.headerContent}>

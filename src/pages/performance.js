@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon from '@/components/Icon';
 import { useRouter } from 'next/router';
-import Link from 'next/link';
 import Head from 'next/head';
 import {
   LineChart,
@@ -17,6 +16,7 @@ import {
 import PerformanceOverview from '@/components/performance/PerformanceOverview';
 import PerformancePageSkeleton from '@/components/performance/PerformancePageSkeleton';
 import { getTransactionSourceContext, formatBytes, formatDuration, formatPingDuration } from '@/lib/performance-format';
+import AppNav from '@/components/shared/AppNav';
 import shell from '@/styles/AppShell.module.css';
 
 const DETAILED_LIVE_REFRESH_INTERVAL_MS = 1000;
@@ -941,46 +941,7 @@ export default function PerformancePage() {
   return (
     <div className={shell.container}>
       {/* Left Navigation Sidebar */}
-      <nav className={shell.navSidebar}>
-        <Link href="/projects" style={{ textDecoration: 'none' }}>
-          <div
-            className={`${shell.navItem} ${router.pathname === '/projects' ? shell.navItemActive : ''}`}
-            title="Projects"
-          >
-            <Icon name="folder" size={18} />
-            <div className={shell.navItemTooltip}>Projects</div>
-          </div>
-        </Link>
-        <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-          <div 
-            className={`${shell.navItem} ${router.pathname === '/dashboard' ? shell.navItemActive : ''}`}
-            title="Global Dashboard"
-          >
-            <Icon name="dashboard" size={18} />
-            <div className={shell.navItemTooltip}>Global Dashboard</div>
-          </div>
-        </Link>
-        <Link href="/performance" style={{ textDecoration: 'none' }}>
-          <div 
-            className={`${shell.navItem} ${router.pathname === '/performance' ? shell.navItemActive : ''}`}
-            title="Performance"
-          >
-            <Icon name="activity" size={18} />
-            <div className={shell.navItemTooltip}>Performance</div>
-          </div>
-        </Link>
-        <Link href="/monitors" style={{ textDecoration: 'none' }}>
-          <div 
-            className={`${shell.navItem} ${router.pathname === '/monitors' ? shell.navItemActive : ''}`}
-            title="Cron monitors"
-          >
-            <Icon name="clock" size={18} />
-            <div className={shell.navItemTooltip}>Monitors</div>
-          </div>
-        </Link>
-
-        <div className={shell.navDivider}></div>
-
+      <AppNav active="performance">
         {/* Project Selector (Discord-like) */}
         {projects.map(project => (
           <div 
@@ -993,19 +954,7 @@ export default function PerformancePage() {
             <div className={shell.navItemTooltip}>{project.name}</div>
           </div>
         ))}
-
-        <div className={shell.navDivider}></div>
-
-        <Link href="/profile" style={{ textDecoration: 'none' }}>
-          <div 
-            className={`${shell.navItem} ${router.pathname === '/profile' ? shell.navItemActive : ''}`}
-            title="Profile"
-          >
-            <Icon name="user" size={18} />
-            <div className={shell.navItemTooltip}>Your Profile</div>
-          </div>
-        </Link>
-      </nav>
+      </AppNav>
 
       <div className={shell.main}>
         <header className={shell.header}>

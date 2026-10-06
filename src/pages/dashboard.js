@@ -11,6 +11,7 @@ import { getEventTypeBadge, getEventTitle } from '@/lib/event-display';
 import usePersistedState from '@/hooks/usePersistedState';
 import { statusLabel, levelColors, relativeTime, TIME_RANGES, SORT_OPTIONS, downloadIssues } from '@/lib/ui';
 import EventDetail from '@/components/dashboard/EventDetail';
+import AppNav from '@/components/shared/AppNav';
 import shell from '@/styles/AppShell.module.css';
 import styles from '@/styles/Dashboard.module.css';
 
@@ -1122,47 +1123,7 @@ export default function Dashboard() {
       
       <div className={shell.container}>
         {/* Left Navigation Sidebar */}
-        <nav className={shell.navSidebar} aria-label="Primary">
-          <Link href="/projects" style={{ textDecoration: 'none' }} aria-label="Projects">
-            <div
-              className={`${shell.navItem} ${router.pathname === '/projects' ? shell.navItemActive : ''}`}
-              title="Projects"
-            >
-              <Icon name="folder" size={18} />
-              <div className={shell.navItemTooltip}>Projects</div>
-            </div>
-          </Link>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }} aria-label="Global Dashboard">
-
-            <div 
-              className={`${shell.navItem} ${router.pathname === '/dashboard' && !selectedProject ? shell.navItemActive : ''}`}
-              title="Global Dashboard"
-            >
-              <Icon name="dashboard" size={18} />
-              <div className={shell.navItemTooltip}>Global Dashboard</div>
-            </div>
-          </Link>
-          <Link href="/performance" style={{ textDecoration: 'none' }} aria-label="Performance">
-            <div 
-              className={`${shell.navItem} ${router.pathname === '/performance' ? shell.navItemActive : ''}`}
-              title="Performance"
-            >
-              <Icon name="activity" size={18} />
-              <div className={shell.navItemTooltip}>Performance</div>
-            </div>
-          </Link>
-          <Link href="/monitors" style={{ textDecoration: 'none' }}>
-            <div 
-              className={`${shell.navItem} ${router.pathname === '/monitors' ? shell.navItemActive : ''}`}
-              title="Cron monitors"
-            >
-              <Icon name="clock" size={18} />
-              <div className={shell.navItemTooltip}>Monitors</div>
-            </div>
-          </Link>
-          
-          <div className={shell.navDivider}></div>
-
+        <AppNav active={selectedProject ? undefined : 'dashboard'} isAdmin={user.isAdmin} onLogout={handleLogout}>
           {/* Project Selector (Discord-like) */}
           <div 
             className={`${shell.navProjectItem} ${selectedProject === null ? shell.navProjectItemActive : ''}`}
@@ -1208,41 +1169,7 @@ export default function Dashboard() {
             <Icon name="plus" size={18} />
             <div className={shell.navItemTooltip}>Create New Project</div>
           </button>
-
-          <div className={shell.navDivider}></div>
-
-          {user.isAdmin && (
-            <Link href="/admin" style={{ textDecoration: 'none' }} aria-label="Admin settings">
-              <div 
-                className={`${shell.navItem} ${router.pathname === '/admin' ? shell.navItemActive : ''}`}
-                title="Admin"
-              >
-                <Icon name="settings" size={18} />
-                <div className={shell.navItemTooltip}>Admin Settings</div>
-              </div>
-            </Link>
-          )}
-          
-          <Link href="/profile" style={{ textDecoration: 'none' }} aria-label="Your profile">
-            <div 
-              className={`${shell.navItem} ${router.pathname === '/profile' ? shell.navItemActive : ''}`}
-              title="Profile"
-            >
-              <Icon name="user" size={18} />
-              <div className={shell.navItemTooltip}>Your Profile</div>
-            </div>
-          </Link>
-          
-          <button 
-            className={shell.navItem}
-            onClick={handleLogout}
-            aria-label="Log out"
-            title="Logout"
-          >
-            <Icon name="logout" size={18} />
-            <div className={shell.navItemTooltip}>Logout</div>
-          </button>
-        </nav>
+        </AppNav>
 
         <div className={shell.main}>
           <header className={shell.header}>
