@@ -41,19 +41,20 @@ function IncidentStrip({ incidents, selected, onSelect, now }) {
 
 function IncidentDetail({ monitor, incident, now }) {
   const [rows, setRows] = useState(null);
+  const monitorId = monitor.id;
+  const scope = scopeOf(monitor);
   useEffect(() => {
-    setRows(null);
     const q = new URLSearchParams({
-      monitorId: String(monitor.id),
+      monitorId: String(monitorId),
       limit: '100',
       from: new Date(incident.startedAt).toISOString(),
       to: new Date(incident.endedAt || Date.now()).toISOString()
     });
-    fetch(`/api/projects/${scopeOf(monitor)}/monitors/checkins?${q}`)
+    fetch(`/api/projects/${scope}/monitors/checkins?${q}`)
       .then((r) => r.json())
       .then((j) => setRows(j.checkIns || []))
       .catch(() => setRows([]));
-  }, [monitor.id, monitor.projectId, incident.startedAt, incident.endedAt]);
+  }, [monitorId, scope, incident.startedAt, incident.endedAt]);
 
   const failures = (rows || []).filter((c) => c.status === 'error');
   const reasons = {};
@@ -258,7 +259,7 @@ export default function MonitorDetailPage() {
                   {incidents.length === 0 ? <p className={m.faint}>No incidents in the last 30 days.</p> : (
                     <>
                       <IncidentStrip incidents={incidents} selected={selectedIncident} onSelect={setSelectedIncident} now={now} />
-                      {selected && <IncidentDetail monitor={monitor} incident={selected} now={now} />}
+                      {selected && <IncidentDetail key={`${monitor.id}-${selected.startedAt}-${selected.endedAt}`} monitor={monitor} incident={selected} now={now} />}
                       <ul className={m.incidentRows}>
                         {(showAllIncidents ? incidents : incidents.slice(0, 6)).map((i) => {
                           const key = String(i.startedAt);

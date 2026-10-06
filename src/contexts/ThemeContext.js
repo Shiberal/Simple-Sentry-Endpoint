@@ -1,50 +1,29 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useSyncExternalStore } from 'react';
+import useLocalStorageValue from '@/hooks/useLocalStorageValue';
 
 const ThemeContext = createContext();
 
+const DARK_QUERY = '(prefers-color-scheme: dark)';
+
+function subscribeSystemTheme(callback) {
+  const mediaQuery = window.matchMedia(DARK_QUERY);
+  mediaQuery.addEventListener('change', callback);
+  return () => mediaQuery.removeEventListener('change', callback);
+}
+
+const systemIsDark = () => window.matchMedia(DARK_QUERY).matches;
+
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState('system');
-  const [resolvedTheme, setResolvedTheme] = useState('light');
+  const [storedTheme, setStoredTheme] = useLocalStorageValue('theme');
+  const theme = storedTheme || 'system';
+  const prefersDark = useSyncExternalStore(subscribeSystemTheme, systemIsDark, () => false);
+  const resolvedTheme = theme === 'system' ? (prefersDark ? 'dark' : 'light') : theme;
 
   useEffect(() => {
-    // Load saved theme preference
-    const savedTheme = localStorage.getItem('theme') || 'system';
-    setTheme(savedTheme);
-  }, []);
-
-  useEffect(() => {
-    // Determine the resolved theme based on current setting
-    const updateResolvedTheme = () => {
-      if (theme === 'system') {
-        const systemPreference = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        setResolvedTheme(systemPreference);
-      } else {
-        setResolvedTheme(theme);
-      }
-    };
-
-    updateResolvedTheme();
-
-    // Listen for system theme changes when in system mode
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handler = (e) => {
-        setResolvedTheme(e.matches ? 'dark' : 'light');
-      };
-      mediaQuery.addEventListener('change', handler);
-      return () => mediaQuery.removeEventListener('change', handler);
-    }
-  }, [theme]);
-
-  useEffect(() => {
-    // Apply theme to document
     document.documentElement.setAttribute('data-theme', resolvedTheme);
   }, [resolvedTheme]);
 
-  const setAndSaveTheme = (newTheme) => {
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-  };
+  const setAndSaveTheme = (newTheme) => setStoredTheme(newTheme);
 
   return (
     <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme: setAndSaveTheme }}>

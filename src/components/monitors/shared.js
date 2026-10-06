@@ -554,7 +554,7 @@ export function ActivityStrip({ slices }) {
 }
 
 /** All-projects activity: 24h strip plus the yearly grid, across every monitor. */
-export function ActivityOverview({ projectId = null, refreshKey, monitors = [] }) {
+export function ActivityOverview({ projectId = null, refreshKey, monitors = [], now }) {
   const [data, setData] = useState(null);
   const [day, setDay] = useState(null);
 
@@ -569,7 +569,7 @@ export function ActivityOverview({ projectId = null, refreshKey, monitors = [] }
   if (!data || !data.slices.length) return null;
   return (
     <>
-    {monitors.length > 0 && <SiteGlance monitors={monitors} slicesById={data.perMonitor || {}} />}
+    {monitors.length > 0 && <SiteGlance monitors={monitors} slicesById={data.perMonitor || {}} now={now} />}
     <section className={m.overview} aria-label="Activity">
       <h2 className={m.detailTitle}>Last 24 hours</h2>
       <ActivityStrip slices={data.slices} />
@@ -583,8 +583,7 @@ export function ActivityOverview({ projectId = null, refreshKey, monitors = [] }
 const hostOfUrl = (u) => { try { return new URL(u).host; } catch { return null; } };
 
 /** One card per monitored site: status, 24h success, last run and the last 24 hours in 5-minute slices. */
-export function SiteGlance({ monitors, slicesById }) {
-  const now = Date.now();
+export function SiteGlance({ monitors, slicesById, now }) {
   return (
     <section aria-label="Sites at a glance" className={m.glanceGrid}>
       {monitors.map((x) => {
