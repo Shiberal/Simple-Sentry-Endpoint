@@ -2,10 +2,7 @@ import { promisify } from 'util';
 import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import { createTracker } from '@/lib/server-performance';
-import {
-  ingestPreparedEnvelopePayload,
-  ingestKind
-} from '@/lib/sentry-ingest';
+import { ingestPreparedEnvelopePayload } from '@/lib/sentry-ingest';
 import { extractSentryKey } from '@/lib/sentry-ingest-auth';
 
 const gunzipAsync = promisify(gunzip);

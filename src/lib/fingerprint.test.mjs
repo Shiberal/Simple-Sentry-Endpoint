@@ -1,4 +1,4 @@
-import { generateFingerprint, normalizeMessage, normalizeFilename } from './fingerprint.js';
+import { generateFingerprint, normalizeFilename } from './fingerprint.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 const ev = (msg, file='https://cdn.x.io/main.4f9a2c1b.js?v=3', extra={}) => ({ exception:{values:[{type:'TypeError',value:msg,stacktrace:{frames:[{filename:'lib.js',function:'a',in_app:false},{filename:file,function:'load',in_app:true,lineno:10}]}}]}, ...extra });

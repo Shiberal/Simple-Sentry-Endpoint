@@ -12,20 +12,6 @@ function getUserFromCookie(req) {
   }
 }
 
-async function isProjectOwner(userId, projectId) {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    include: {
-      projectOwners: {
-        select: { id: true }
-      }
-    }
-  });
-  
-  if (!project) return false;
-  return project.projectOwners.some(owner => owner.id === userId);
-}
-
 export default async function handler(req, res) {
   const { method, query } = req;
   const { id } = query;

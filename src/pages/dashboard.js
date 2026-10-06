@@ -49,7 +49,6 @@ export default function Dashboard() {
   const [filterOrigin, setFilterOrigin] = useState('all'); // host events came from
   const [origins, setOrigins] = useState([]);
   const [filterEventType, setFilterEventType] = usePersistedState('sm.filterType', 'all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
-  const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingEvent, setDeletingEvent] = useState(null);
   const [deletingIssue, setDeletingIssue] = useState(null);
@@ -66,9 +65,6 @@ export default function Dashboard() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [githubIssueData, setGithubIssueData] = useState({ title: '', body: '' });
-  const [comments, setComments] = useState([]);
-  const [newComment, setNewComment] = useState('');
-  const [analyticsData, setAnalyticsData] = useState(null);
   const [isDeduplicating, setIsDeduplicating] = useState(false);
   const [issueEventIndices, setIssueEventIndices] = useState({}); // Track current event index per issue
   const [notifications, setNotifications] = useState([]); // Notification system
@@ -328,45 +324,11 @@ export default function Dashboard() {
     }
   };
 
-  const fetchAnalytics = async () => {
-    try {
-      const projectParam = selectedProject ? `projectId=${selectedProject}&` : '';
-      const [trendsRes, topIssuesRes, breakdownRes] = await Promise.all([
-        fetch(`/api/analytics/trends?${projectParam}days=7`),
-        fetch(`/api/analytics/top-issues?${projectParam}limit=10`),
-        fetch(`/api/analytics/breakdown?${projectParam}`)
-      ]);
-
-      const [trends, topIssues, breakdown] = await Promise.all([
-        trendsRes.json(),
-        topIssuesRes.json(),
-        breakdownRes.json()
-      ]);
-
-      setAnalyticsData({
-        trends: trends.success ? trends.trends : [],
-        topIssues: topIssues.success ? topIssues.topIssues : [],
-        breakdown: breakdown.success ? breakdown.breakdown : null
-      });
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      setAnalyticsData({
-        trends: [],
-        topIssues: [],
-        breakdown: null
-      });
-    }
-  };
-
 
   // Initial load once the user is known (later changes go through filtersKey below)
   useEffect(() => {
     if (user) fetchData();
   }, [user]);
-
-  useEffect(() => {
-    if (user) fetchAnalytics();
-  }, [selectedProject, user, filterLevel, activeTab]);
 
   // Debounce the search box before hitting the API
   useEffect(() => {
@@ -943,57 +905,6 @@ export default function Dashboard() {
     setShowGitHubModal(true);
   };
 
-  // Issue workflow handlers
-  const handleStatusChange = async (issueId, newStatus) => {
-    try {
-      const response = await fetch(`/api/issues/${issueId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (response.ok) {
-        // Update selected issue if it's the one being updated
-        if (selectedIssue?.id === issueId) {
-          const data = await response.json();
-          setSelectedIssue(data.issue);
-        }
-        // Refresh issues list
-        fetchData();
-      } else {
-        showNotification('Failed to update status', 'error');
-      }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      showNotification('Error updating status', 'error');
-    }
-  };
-
-  const handleAssignIssue = async (issueId, userId) => {
-    try {
-      const response = await fetch(`/api/issues/${issueId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignedToId: userId })
-      });
-
-      if (response.ok) {
-        // Update selected issue if it's the one being updated
-        if (selectedIssue?.id === issueId) {
-          const data = await response.json();
-          setSelectedIssue(data.issue);
-        }
-        // Refresh issues list
-        fetchData();
-      } else {
-        showNotification('Failed to assign issue', 'error');
-      }
-    } catch (error) {
-      console.error('Error assigning issue:', error);
-      showNotification('Error assigning issue', 'error');
-    }
-  };
-
   const handleResolveIssue = async (issue, { allowUndo = true } = {}) => {
     if (!issue) return;
 
@@ -1112,53 +1023,6 @@ export default function Dashboard() {
       setIssues(prev => prev.map(iss => iss.id === issue.id ? { ...iss, status: issue.status } : iss));
       console.error('Error ignoring issue:', error);
       showNotification('Error updating issue status', 'error');
-    }
-  };
-
-  const handleAddComment = async (issueId) => {
-    if (!newComment.trim()) return;
-
-    try {
-      const response = await fetch(`/api/issues/${issueId}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: newComment })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setComments([...comments, data.comment]);
-        setNewComment('');
-        
-        // Refresh issue details to get updated comment count
-        if (selectedIssue?.id === issueId) {
-          const issueRes = await fetch(`/api/issues/${issueId}`);
-          const issueData = await issueRes.json();
-          if (issueData.success) {
-            setSelectedIssue(issueData.issue);
-            setComments(issueData.issue.comments || []);
-          }
-        }
-      } else {
-        showNotification('Failed to add comment', 'error');
-      }
-    } catch (error) {
-      console.error('Error adding comment:', error);
-      showNotification('Error adding comment', 'error');
-    }
-  };
-
-  const loadIssueDetails = async (issueId) => {
-    try {
-      const response = await fetch(`/api/issues/${issueId}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setSelectedIssue(data.issue);
-        setComments(data.issue.comments || []);
-      }
-    } catch (error) {
-      console.error('Error loading issue details:', error);
     }
   };
 
@@ -2404,8 +2268,6 @@ export default function Dashboard() {
 
                 // Get memory from contexts
                 const appMemory = data.contexts?.app?.app_memory;
-                const freeMemory = data.contexts?.device?.free_memory;
-                const totalMemory = data.contexts?.device?.memory_size;
 
                 const renderMetricCard = (label, value, color = '#3b82f6') => (
                   <div style={{

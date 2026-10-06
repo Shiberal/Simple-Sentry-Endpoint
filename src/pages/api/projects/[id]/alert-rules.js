@@ -1,5 +1,4 @@
 import prisma from '@/lib/prisma';
-import { sendTestAlert } from '@/lib/email';
 
 export default async function handler(req, res) {
   const { method } = req;

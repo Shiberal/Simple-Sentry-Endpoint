@@ -19,15 +19,6 @@ export default async function handler(req, res) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - parseInt(days));
 
-    // Count events to be deleted
-    const eventCount = await prisma.event.count({
-      where: {
-        createdAt: {
-          lt: cutoffDate
-        }
-      }
-    });
-
     // Delete old events
     const result = await prisma.event.deleteMany({
       where: {

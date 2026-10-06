@@ -7,8 +7,6 @@ export default async function handler(req, res) {
     status,
     level,
     search,
-    environment,
-    platform,
     dateFrom,
     dateTo,
     page = 1,

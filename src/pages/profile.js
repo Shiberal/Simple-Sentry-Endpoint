@@ -3,7 +3,6 @@ import Icon from '@/components/Icon';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import ThemeToggle from '@/components/ThemeToggle';
 import AuthCardSkeleton from '@/components/AuthCardSkeleton';
 import styles from '@/styles/Auth.module.css';
 
@@ -90,11 +89,6 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleLogout = () => {
-    document.cookie = 'session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    router.push('/login');
   };
 
   if (loading) {

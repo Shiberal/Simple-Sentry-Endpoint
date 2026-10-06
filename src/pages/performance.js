@@ -50,7 +50,6 @@ export default function PerformancePage() {
       setSidebarCollapsed(true);
     }
   }, []);
-  const [projectsCollapsed, setProjectsCollapsed] = useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = useState('all'); // Filter by endpoint/transaction name
   const [pageUrlFilter, setPageUrlFilter] = useState('');
   const [originFilter, setOriginFilter] = useState('all'); // host events came from

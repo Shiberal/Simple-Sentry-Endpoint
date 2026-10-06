@@ -1,12 +1,8 @@
-import { promisify } from 'util';
-import { gunzip } from 'zlib';
 import prisma from '@/lib/prisma';
 import { upsertIssueForEvent } from '@/lib/issues';
 import crypto from 'crypto';
 import { sendErrorNotification } from '@/lib/telegram';
 import { createTracker, withPerformance } from '@/lib/server-performance';
-
-const gunzipAsync = promisify(gunzip);
 
 // Disable Next.js body parser to handle raw buffer and multipart
 export const config = {

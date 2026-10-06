@@ -29,7 +29,6 @@ async function getRawBody(req) {
 function generateCSPFingerprint(cspReport) {
   const directive = cspReport['violated-directive'] || cspReport['effective-directive'] || 'unknown';
   const blockedUri = cspReport['blocked-uri'] || 'unknown';
-  const sourceFile = cspReport['source-file'] || cspReport['document-uri'] || '';
   
   // Create fingerprint from directive + blocked URI (ignore source file for better grouping)
   const fingerprintString = `csp:${directive}:${blockedUri}`;

@@ -6,7 +6,6 @@ import {
   extractMemoryMetrics,
   extractCpuUsage,
   extractEventLoopLag,
-  extractSpans,
   extractTransactionInfo
 } from '@/lib/sentry-transaction';
 

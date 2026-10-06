@@ -6,7 +6,7 @@ import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
 import styles from '@/styles/Dashboard.module.css';
 import {
-  ActivityOverview, CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, PRESETS, REFRESH_MS, RANGE_OPTIONS,
+  ActivityOverview, CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, REFRESH_MS, RANGE_OPTIONS,
   StatsPanel, monitorApi, ago, fmtDuration, pct, rateTone, until, projectLabel, scopeOf, Sparkline } from '@/components/monitors/shared';
 
 import m from '@/styles/Monitors.module.css';
