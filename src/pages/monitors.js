@@ -402,7 +402,7 @@ export default function MonitorsPage() {
 
             {pid === 'all' && monitors.length > 0 && <ActivityOverview refreshKey={String(summary?.runs24h)} monitors={monitors} />}
 
-            {pid !== 'all' && monitors.length > 0 && summary?.stats && (
+            {monitors.length > 0 && summary?.stats && (
               <section className={m.overview} aria-label="Project overview">
                 <div className={m.overviewHead}>
                   <h2 className={m.detailTitle}>All monitors</h2>
@@ -412,7 +412,7 @@ export default function MonitorsPage() {
                     ))}
                   </div>
                 </div>
-                <ChartPanel series={summary.stats.daily} range={range} height={170} modes={[CHART_MODES[0], CHART_MODES[2]]} />
+                <ChartPanel series={summary.stats.daily} range={range} height={pid === 'all' ? 100 : 170} modes={[CHART_MODES[0], CHART_MODES[2]]} />
               </section>
             )}
 
