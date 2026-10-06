@@ -1,4 +1,4 @@
-import styles from '@/styles/Dashboard.module.css';
+import shell from '@/styles/AppShell.module.css';
 import sk from '@/styles/Skeleton.module.css';
 
 /**
@@ -7,17 +7,17 @@ import sk from '@/styles/Skeleton.module.css';
 export default function PerformancePageSkeleton() {
   return (
     <div
-      className={styles.container}
+      className={shell.container}
       role="status"
       aria-busy="true"
       aria-label="Loading performance data"
     >
       <span className={sk.visuallyHidden}>Loading performance data</span>
-      <nav className={styles.navSidebar}>
+      <nav className={shell.navSidebar}>
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className={styles.navItem}
+            className={shell.navItem}
             style={{
               pointerEvents: 'none',
               display: 'flex',
@@ -28,11 +28,11 @@ export default function PerformancePageSkeleton() {
             <span className={`${sk.bone} ${sk.boneNavItem}`} />
           </div>
         ))}
-        <div className={styles.navDivider} />
+        <div className={shell.navDivider} />
         {[1, 2].map((i) => (
           <div
             key={`p-${i}`}
-            className={styles.navProjectItem}
+            className={shell.navProjectItem}
             style={{
               pointerEvents: 'none',
               display: 'flex',
@@ -45,9 +45,9 @@ export default function PerformancePageSkeleton() {
         ))}
       </nav>
 
-      <div className={styles.main}>
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
+      <div className={shell.main}>
+        <header className={shell.header}>
+          <div className={shell.headerContent}>
             <span className={`${sk.bone} ${sk.boneLineLg}`} style={{ width: 260, height: 22, borderRadius: 8 }} />
             <div style={{ display: 'flex', gap: 8 }}>
               <span className={`${sk.bone}`} style={{ width: 88, height: 32, borderRadius: 8 }} />
@@ -57,8 +57,8 @@ export default function PerformancePageSkeleton() {
         </header>
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
-          <aside className={styles.sidebar} style={{ minWidth: 200 }}>
-            <div className={styles.sidebarSection} style={{ padding: 'var(--space-3)' }}>
+          <aside className={shell.sidebar} style={{ minWidth: 200 }}>
+            <div className={shell.sidebarSection} style={{ padding: 'var(--space-3)' }}>
               <span className={`${sk.bone} ${sk.boneLine}`} style={{ width: '80%', marginBottom: 16 }} />
               <span className={`${sk.bone}`} style={{ width: '100%', height: 40, borderRadius: 8, marginBottom: 12 }} />
               {[1, 2, 3, 4].map((i) => (

@@ -7,7 +7,7 @@ import MonitorDialog from '@/components/monitors/MonitorDialog';
 import {
   CHART_MODES, ChartPanel, CheckInHistory, HEALTH, Heatmap, History, MonitorSidebar, projectLabel, scopeOf, RANGE_OPTIONS, REFRESH_MS, ago, fmtDuration, monitorApi, pct, rateTone, until
 } from '@/components/monitors/shared';
-import styles from '@/styles/Dashboard.module.css';
+import shell from '@/styles/AppShell.module.css';
 import m from '@/styles/Monitors.module.css';
 
 function IncidentStrip({ incidents, selected, onSelect, now }) {
@@ -140,10 +140,10 @@ export default function MonitorDetailPage() {
     try { await fn(); await load(); } catch (e) { setError(e.message); } finally { setBusy(false); }
   };
 
-  if (!user) return <div className={styles.container}>Loading…</div>;
+  if (!user) return <div className={shell.container}>Loading…</div>;
   if (notFound) {
     return (
-      <div className={styles.container}>
+      <div className={shell.container}>
         <main className={m.page}><div className={m.empty}><h2 className={m.emptyTitle}>Monitor not found</h2><Link href="/monitors" className={m.editButton}>Back to monitors</Link></div></main>
       </div>
     );
@@ -159,37 +159,37 @@ export default function MonitorDetailPage() {
   return (
     <>
       <Head><title>{monitor ? `${monitor.name || monitor.slug} - Monitors` : 'Monitor'} - Sentry Monitor</title></Head>
-      <div className={styles.container}>
-        <nav className={styles.navSidebar} aria-label="Primary">
-          <Link href="/projects" style={{ textDecoration: 'none' }}><div className={styles.navItem} title="Projects"><Icon name="folder" size={18} /><div className={styles.navItemTooltip}>Projects</div></div></Link>
-          <Link href="/dashboard" style={{ textDecoration: 'none' }}><div className={styles.navItem} title="Global Dashboard"><Icon name="dashboard" size={18} /><div className={styles.navItemTooltip}>Global Dashboard</div></div></Link>
-          <Link href="/performance" style={{ textDecoration: 'none' }}><div className={styles.navItem} title="Performance"><Icon name="activity" size={18} /><div className={styles.navItemTooltip}>Performance</div></div></Link>
-          <Link href="/monitors" style={{ textDecoration: 'none' }}><div className={`${styles.navItem} ${styles.navItemActive}`} title="Monitors"><Icon name="clock" size={18} /><div className={styles.navItemTooltip}>Monitors</div></div></Link>
-          <div className={styles.navDivider}></div>
-          <Link href="/profile" style={{ textDecoration: 'none' }}><div className={styles.navItem} title="Profile"><Icon name="user" size={18} /><div className={styles.navItemTooltip}>Your Profile</div></div></Link>
+      <div className={shell.container}>
+        <nav className={shell.navSidebar} aria-label="Primary">
+          <Link href="/projects" style={{ textDecoration: 'none' }}><div className={shell.navItem} title="Projects"><Icon name="folder" size={18} /><div className={shell.navItemTooltip}>Projects</div></div></Link>
+          <Link href="/dashboard" style={{ textDecoration: 'none' }}><div className={shell.navItem} title="Global Dashboard"><Icon name="dashboard" size={18} /><div className={shell.navItemTooltip}>Global Dashboard</div></div></Link>
+          <Link href="/performance" style={{ textDecoration: 'none' }}><div className={shell.navItem} title="Performance"><Icon name="activity" size={18} /><div className={shell.navItemTooltip}>Performance</div></div></Link>
+          <Link href="/monitors" style={{ textDecoration: 'none' }}><div className={`${shell.navItem} ${shell.navItemActive}`} title="Monitors"><Icon name="clock" size={18} /><div className={shell.navItemTooltip}>Monitors</div></div></Link>
+          <div className={shell.navDivider}></div>
+          <Link href="/profile" style={{ textDecoration: 'none' }}><div className={shell.navItem} title="Profile"><Icon name="user" size={18} /><div className={shell.navItemTooltip}>Your Profile</div></div></Link>
         </nav>
-        <div className={styles.main}>
-          <header className={styles.header}>
-            <div className={styles.headerContent}>
-              <h1 className={styles.logo}>
+        <div className={shell.main}>
+          <header className={shell.header}>
+            <div className={shell.headerContent}>
+              <h1 className={shell.logo}>
                 <Link href="/monitors" className={m.crumb}>Monitors</Link>
                 <span className={m.crumbSep}>/</span>
                 {monitor ? (monitor.name || monitor.slug) : '…'}
               </h1>
               {monitor && (
-                <div className={styles.headerActions}>
+                <div className={shell.headerActions}>
                   {monitor.pingUrls.length > 0 && !paused && (
-                    <button type="button" className={styles.headerButton} disabled={busy} onClick={() => act(() => monitorApi.run(monitor))}>
+                    <button type="button" className={shell.headerButton} disabled={busy} onClick={() => act(() => monitorApi.run(monitor))}>
                       <Icon name="play" size={14} /> <span className={m.headerLabel}>Run now</span>
                     </button>
                   )}
-                  <button type="button" className={styles.headerButton} disabled={busy} onClick={() => act(() => monitorApi.setPaused(monitor, !paused))}>
+                  <button type="button" className={shell.headerButton} disabled={busy} onClick={() => act(() => monitorApi.setPaused(monitor, !paused))}>
                     <Icon name={paused ? 'play' : 'pause'} size={14} /> <span className={m.headerLabel}>{paused ? 'Resume' : 'Pause'}</span>
                   </button>
-                  <button type="button" className={styles.headerButton} onClick={() => setEditing(true)}>Edit</button>
+                  <button type="button" className={shell.headerButton} onClick={() => setEditing(true)}>Edit</button>
                   <button
                     type="button"
-                    className={styles.headerButton}
+                    className={shell.headerButton}
                     onClick={async () => {
                       if (!window.confirm(`Delete monitor "${monitor.slug}"? Its check-in history is deleted with it.`)) return;
                       try { await monitorApi.remove(monitor); router.push('/monitors'); } catch (e) { setError(e.message); }

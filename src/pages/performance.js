@@ -15,9 +15,9 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import PerformanceOverview from '@/components/performance/PerformanceOverview';
-import PerformancePageSkeleton from '@/components/PerformancePageSkeleton';
+import PerformancePageSkeleton from '@/components/performance/PerformancePageSkeleton';
 import { getTransactionSourceContext, formatBytes, formatDuration, formatPingDuration } from '@/lib/performance-format';
-import styles from '@/styles/Dashboard.module.css';
+import shell from '@/styles/AppShell.module.css';
 
 const DETAILED_LIVE_REFRESH_INTERVAL_MS = 1000;
 const TIMESERIES_LIVE_REFRESH_INTERVAL_MS = 5000;
@@ -939,85 +939,85 @@ export default function PerformancePage() {
   }
 
   return (
-    <div className={styles.container}>
+    <div className={shell.container}>
       {/* Left Navigation Sidebar */}
-      <nav className={styles.navSidebar}>
+      <nav className={shell.navSidebar}>
         <Link href="/projects" style={{ textDecoration: 'none' }}>
           <div
-            className={`${styles.navItem} ${router.pathname === '/projects' ? styles.navItemActive : ''}`}
+            className={`${shell.navItem} ${router.pathname === '/projects' ? shell.navItemActive : ''}`}
             title="Projects"
           >
             <Icon name="folder" size={18} />
-            <div className={styles.navItemTooltip}>Projects</div>
+            <div className={shell.navItemTooltip}>Projects</div>
           </div>
         </Link>
         <Link href="/dashboard" style={{ textDecoration: 'none' }}>
           <div 
-            className={`${styles.navItem} ${router.pathname === '/dashboard' ? styles.navItemActive : ''}`}
+            className={`${shell.navItem} ${router.pathname === '/dashboard' ? shell.navItemActive : ''}`}
             title="Global Dashboard"
           >
             <Icon name="dashboard" size={18} />
-            <div className={styles.navItemTooltip}>Global Dashboard</div>
+            <div className={shell.navItemTooltip}>Global Dashboard</div>
           </div>
         </Link>
         <Link href="/performance" style={{ textDecoration: 'none' }}>
           <div 
-            className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
+            className={`${shell.navItem} ${router.pathname === '/performance' ? shell.navItemActive : ''}`}
             title="Performance"
           >
             <Icon name="activity" size={18} />
-            <div className={styles.navItemTooltip}>Performance</div>
+            <div className={shell.navItemTooltip}>Performance</div>
           </div>
         </Link>
         <Link href="/monitors" style={{ textDecoration: 'none' }}>
           <div 
-            className={`${styles.navItem} ${router.pathname === '/monitors' ? styles.navItemActive : ''}`}
+            className={`${shell.navItem} ${router.pathname === '/monitors' ? shell.navItemActive : ''}`}
             title="Cron monitors"
           >
             <Icon name="clock" size={18} />
-            <div className={styles.navItemTooltip}>Monitors</div>
+            <div className={shell.navItemTooltip}>Monitors</div>
           </div>
         </Link>
 
-        <div className={styles.navDivider}></div>
+        <div className={shell.navDivider}></div>
 
         {/* Project Selector (Discord-like) */}
         {projects.map(project => (
           <div 
             key={project.id}
-            className={`${styles.navProjectItem} ${selectedProject === project.id ? styles.navProjectItemActive : ''}`}
+            className={`${shell.navProjectItem} ${selectedProject === project.id ? shell.navProjectItemActive : ''}`}
             onClick={() => setSelectedProject(project.id)}
             title={project.name}
           >
             {project.name.substring(0, 2).toUpperCase()}
-            <div className={styles.navItemTooltip}>{project.name}</div>
+            <div className={shell.navItemTooltip}>{project.name}</div>
           </div>
         ))}
 
-        <div className={styles.navDivider}></div>
+        <div className={shell.navDivider}></div>
 
         <Link href="/profile" style={{ textDecoration: 'none' }}>
           <div 
-            className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
+            className={`${shell.navItem} ${router.pathname === '/profile' ? shell.navItemActive : ''}`}
             title="Profile"
           >
             <Icon name="user" size={18} />
-            <div className={styles.navItemTooltip}>Your Profile</div>
+            <div className={shell.navItemTooltip}>Your Profile</div>
           </div>
         </Link>
       </nav>
 
-      <div className={styles.main}>
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <h1 className={styles.logo}>
-              <span className={styles.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
+      <div className={shell.main}>
+        <header className={shell.header}>
+          <div className={shell.headerContent}>
+            <h1 className={shell.logo}>
+              <span className={shell.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
               Performance Analytics
             </h1>
-            <div className={styles.headerActions}>
+            <div className={shell.headerActions}>
               <button
                 onClick={() => setAutoRefresh(!autoRefresh)}
-                className={styles.headerButton}
+                className={shell.headerButton}
                 title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
               >
                 {autoRefresh ? '●' : '○'} {autoRefresh ? 'Live' : 'Paused'}
@@ -1027,7 +1027,7 @@ export default function PerformancePage() {
                   if (viewMode === 'timeseries') fetchTimeSeries();
                   else fetchTransactions();
                 }}
-                className={styles.headerButton}
+                className={shell.headerButton}
                 title="Refresh data"
               >
                 <Icon name="refresh" size={14} /> Refresh
@@ -1038,10 +1038,10 @@ export default function PerformancePage() {
 
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
           {!sidebarCollapsed && (
-          <aside className={styles.sidebar}>
-            <div className={styles.sidebarSection}>
-              <div className={styles.sidebarHeader}>
-                <h3 className={styles.sidebarTitle}>Current Project</h3>
+          <aside className={shell.sidebar}>
+            <div className={shell.sidebarSection}>
+              <div className={shell.sidebarHeader}>
+                <h3 className={shell.sidebarTitle}>Current Project</h3>
               </div>
               <div style={{ padding: 'var(--space-2) var(--space-4)' }}>
                 <div style={{ 
@@ -1062,11 +1062,11 @@ export default function PerformancePage() {
             </div>
 
             {/* Filters Section */}
-            <div className={styles.sidebarSection} style={{ marginTop: 'var(--space-2)' }}>
-              <div className={styles.sidebarHeader}>
-                <h3 className={styles.sidebarTitle}>Filters</h3>
+            <div className={shell.sidebarSection} style={{ marginTop: 'var(--space-2)' }}>
+              <div className={shell.sidebarHeader}>
+                <h3 className={shell.sidebarTitle}>Filters</h3>
               </div>
-              <div className={styles.projectsList}>
+              <div className={shell.projectsList}>
                 <div style={{ padding: 'var(--space-2)' }}>
                   <label style={{ 
                     fontSize: 'var(--font-xs)', 
@@ -1079,7 +1079,7 @@ export default function PerformancePage() {
                   <select
                     value={selectedEndpoint}
                     onChange={(e) => setSelectedEndpoint(e.target.value)}
-                    className={styles.filterSelect}
+                    className={shell.filterSelect}
                     style={{ width: '100%', marginBottom: 'var(--space-3)' }}
                   >
                     <option value="all">All Endpoints</option>
@@ -1096,7 +1096,7 @@ export default function PerformancePage() {
                       <select
                         value={originFilter}
                         onChange={(e) => setOriginFilter(e.target.value)}
-                        className={styles.filterSelect}
+                        className={shell.filterSelect}
                         style={{ width: '100%', marginBottom: 'var(--space-3)' }}
                         aria-label="Source host"
                       >
@@ -1142,7 +1142,7 @@ export default function PerformancePage() {
                   <select
                     value={selectedMetric}
                     onChange={(e) => setSelectedMetric(e.target.value)}
-                    className={styles.filterSelect}
+                    className={shell.filterSelect}
                     style={{ width: '100%' }}
                   >
                     <option value="duration">Duration</option>
@@ -1155,10 +1155,10 @@ export default function PerformancePage() {
           </aside>
           )}
 
-        <div className={styles.contentWrapper} style={{ position: 'relative' }}>
+        <div className={shell.contentWrapper} style={{ position: 'relative' }}>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={styles.sidebarToggle}
+            className={shell.sidebarToggle}
             aria-label={sidebarCollapsed ? 'Show filters' : 'Hide filters'}
             title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
           >

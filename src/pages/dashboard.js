@@ -3,7 +3,7 @@ import Head from "next/head";
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
-import IssueListSkeleton from '@/components/IssueListSkeleton';
+import IssueListSkeleton from '@/components/dashboard/IssueListSkeleton';
 import Icon from '@/components/Icon';
 import { parseGitHubRepo } from '@/lib/github';
 import { buildGitHubIssueBody, buildGitHubLabels } from '@/lib/github-issue-body';
@@ -11,6 +11,7 @@ import { getEventTypeBadge, getEventTitle } from '@/lib/event-display';
 import usePersistedState from '@/hooks/usePersistedState';
 import { statusLabel, levelColors, relativeTime, TIME_RANGES, SORT_OPTIONS, downloadIssues } from '@/lib/ui';
 import EventDetail from '@/components/dashboard/EventDetail';
+import shell from '@/styles/AppShell.module.css';
 import styles from '@/styles/Dashboard.module.css';
 
 export default function Dashboard() {
@@ -1119,52 +1120,52 @@ export default function Dashboard() {
         <title>{`${unresolvedCount > 0 ? `(${unresolvedCount}) ` : ''}Dashboard - Sentry Monitor`}</title>
       </Head>
       
-      <div className={styles.container}>
+      <div className={shell.container}>
         {/* Left Navigation Sidebar */}
-        <nav className={styles.navSidebar} aria-label="Primary">
+        <nav className={shell.navSidebar} aria-label="Primary">
           <Link href="/projects" style={{ textDecoration: 'none' }} aria-label="Projects">
             <div
-              className={`${styles.navItem} ${router.pathname === '/projects' ? styles.navItemActive : ''}`}
+              className={`${shell.navItem} ${router.pathname === '/projects' ? shell.navItemActive : ''}`}
               title="Projects"
             >
               <Icon name="folder" size={18} />
-              <div className={styles.navItemTooltip}>Projects</div>
+              <div className={shell.navItemTooltip}>Projects</div>
             </div>
           </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }} aria-label="Global Dashboard">
 
             <div 
-              className={`${styles.navItem} ${router.pathname === '/dashboard' && !selectedProject ? styles.navItemActive : ''}`}
+              className={`${shell.navItem} ${router.pathname === '/dashboard' && !selectedProject ? shell.navItemActive : ''}`}
               title="Global Dashboard"
             >
               <Icon name="dashboard" size={18} />
-              <div className={styles.navItemTooltip}>Global Dashboard</div>
+              <div className={shell.navItemTooltip}>Global Dashboard</div>
             </div>
           </Link>
           <Link href="/performance" style={{ textDecoration: 'none' }} aria-label="Performance">
             <div 
-              className={`${styles.navItem} ${router.pathname === '/performance' ? styles.navItemActive : ''}`}
+              className={`${shell.navItem} ${router.pathname === '/performance' ? shell.navItemActive : ''}`}
               title="Performance"
             >
               <Icon name="activity" size={18} />
-              <div className={styles.navItemTooltip}>Performance</div>
+              <div className={shell.navItemTooltip}>Performance</div>
             </div>
           </Link>
           <Link href="/monitors" style={{ textDecoration: 'none' }}>
             <div 
-              className={`${styles.navItem} ${router.pathname === '/monitors' ? styles.navItemActive : ''}`}
+              className={`${shell.navItem} ${router.pathname === '/monitors' ? shell.navItemActive : ''}`}
               title="Cron monitors"
             >
               <Icon name="clock" size={18} />
-              <div className={styles.navItemTooltip}>Monitors</div>
+              <div className={shell.navItemTooltip}>Monitors</div>
             </div>
           </Link>
           
-          <div className={styles.navDivider}></div>
+          <div className={shell.navDivider}></div>
 
           {/* Project Selector (Discord-like) */}
           <div 
-            className={`${styles.navProjectItem} ${selectedProject === null ? styles.navProjectItemActive : ''}`}
+            className={`${shell.navProjectItem} ${selectedProject === null ? shell.navProjectItemActive : ''}`}
             onClick={() => setSelectedProject(null)}
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(null); } }}
             role="button"
@@ -1174,13 +1175,13 @@ export default function Dashboard() {
             title="All Projects"
           >
             ALL
-            <div className={styles.navItemTooltip}>All Projects</div>
+            <div className={shell.navItemTooltip}>All Projects</div>
           </div>
 
           {projects.map(project => (
             <div 
               key={project.id}
-              className={`${styles.navProjectItem} ${selectedProject === project.id ? styles.navProjectItemActive : ''}`}
+              className={`${shell.navProjectItem} ${selectedProject === project.id ? shell.navProjectItemActive : ''}`}
               onClick={() => setSelectedProject(project.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedProject(project.id); } }}
               role="button"
@@ -1191,76 +1192,76 @@ export default function Dashboard() {
             >
               {project.name.substring(0, 2).toUpperCase()}
               {project._count.issues > 0 && (
-                <span className={styles.projectBadge}>{project._count.issues}</span>
+                <span className={shell.projectBadge}>{project._count.issues}</span>
               )}
-              <div className={styles.navItemTooltip}>{project.name}</div>
+              <div className={shell.navItemTooltip}>{project.name}</div>
             </div>
           ))}
 
           <button 
-            className={styles.navProjectItem}
+            className={shell.navProjectItem}
             onClick={() => setShowNewProjectModal(true)}
             aria-label="Create new project"
             title="Create New Project"
             style={{ color: 'var(--text-secondary)' }}
           >
             <Icon name="plus" size={18} />
-            <div className={styles.navItemTooltip}>Create New Project</div>
+            <div className={shell.navItemTooltip}>Create New Project</div>
           </button>
 
-          <div className={styles.navDivider}></div>
+          <div className={shell.navDivider}></div>
 
           {user.isAdmin && (
             <Link href="/admin" style={{ textDecoration: 'none' }} aria-label="Admin settings">
               <div 
-                className={`${styles.navItem} ${router.pathname === '/admin' ? styles.navItemActive : ''}`}
+                className={`${shell.navItem} ${router.pathname === '/admin' ? shell.navItemActive : ''}`}
                 title="Admin"
               >
                 <Icon name="settings" size={18} />
-                <div className={styles.navItemTooltip}>Admin Settings</div>
+                <div className={shell.navItemTooltip}>Admin Settings</div>
               </div>
             </Link>
           )}
           
           <Link href="/profile" style={{ textDecoration: 'none' }} aria-label="Your profile">
             <div 
-              className={`${styles.navItem} ${router.pathname === '/profile' ? styles.navItemActive : ''}`}
+              className={`${shell.navItem} ${router.pathname === '/profile' ? shell.navItemActive : ''}`}
               title="Profile"
             >
               <Icon name="user" size={18} />
-              <div className={styles.navItemTooltip}>Your Profile</div>
+              <div className={shell.navItemTooltip}>Your Profile</div>
             </div>
           </Link>
           
           <button 
-            className={styles.navItem}
+            className={shell.navItem}
             onClick={handleLogout}
             aria-label="Log out"
             title="Logout"
           >
             <Icon name="logout" size={18} />
-            <div className={styles.navItemTooltip}>Logout</div>
+            <div className={shell.navItemTooltip}>Logout</div>
           </button>
         </nav>
 
-        <div className={styles.main}>
-          <header className={styles.header}>
-            <div className={styles.headerContent}>
-              <h1 className={styles.logo}>
-                <span className={styles.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
+        <div className={shell.main}>
+          <header className={shell.header}>
+            <div className={shell.headerContent}>
+              <h1 className={shell.logo}>
+                <span className={shell.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
                 Sentry Monitor
               </h1>
-              <div className={styles.headerActions}>
+              <div className={shell.headerActions}>
                 <button 
                   onClick={() => setAutoRefresh(!autoRefresh)}
-                  className={styles.headerButton}
+                  className={shell.headerButton}
                   title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
                 >
                   <span className={autoRefresh ? styles.liveDot : undefined}>{autoRefresh ? '●' : '○'}</span> {autoRefresh ? 'Live' : 'Paused'}
                 </button>
                 <button 
                   onClick={handleDeduplicate}
-                  className={styles.headerButton}
+                  className={shell.headerButton}
                   disabled={isDeduplicating}
                   title="Find duplicate issues"
                   aria-label="Find duplicate issues"
@@ -1269,25 +1270,25 @@ export default function Dashboard() {
                 </button>
                 <button 
                   onClick={() => fetchData()} 
-                  className={styles.headerButton}
+                  className={shell.headerButton}
                   title={lastUpdated ? `Refresh data (updated ${lastUpdated.toLocaleTimeString()})` : 'Refresh data'}
                   aria-label="Refresh data"
                   disabled={refreshing}
                 >
-                  <span className={refreshing ? styles.spinning : styles.iconWrap}><Icon name="refresh" size={16} /></span>
+                  <span className={refreshing ? shell.spinning : shell.iconWrap}><Icon name="refresh" size={16} /></span>
                 </button>
                 <ThemeToggle />
-                <span className={styles.userEmail}>{user.email}</span>
+                <span className={shell.userEmail}>{user.email}</span>
               </div>
             </div>
           </header>
 
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
             {!sidebarCollapsed && (
-              <aside className={styles.sidebar}>
-                <div className={styles.sidebarSection}>
-                  <div className={styles.sidebarHeader}>
-                    <h3 className={styles.sidebarTitle}>Current View</h3>
+              <aside className={shell.sidebar}>
+                <div className={shell.sidebarSection}>
+                  <div className={shell.sidebarHeader}>
+                    <h3 className={shell.sidebarTitle}>Current View</h3>
                   </div>
                   <div style={{ padding: 'var(--space-2) var(--space-4)' }}>
                     <div style={{ 
@@ -1318,11 +1319,11 @@ export default function Dashboard() {
                   )}
                 </div>
 
-                <div className={styles.sidebarSection}>
-                  <div className={styles.sidebarHeader}>
-                    <h3 className={styles.sidebarTitle}>Issues</h3>
+                <div className={shell.sidebarSection}>
+                  <div className={shell.sidebarHeader}>
+                    <h3 className={shell.sidebarTitle}>Issues</h3>
                   </div>
-                  <div className={styles.projectsList}>
+                  <div className={shell.projectsList}>
                     <button
                       onClick={() => setFilterStatus('all')}
                       className={`${styles.projectItem} ${filterStatus === 'all' ? styles.projectItemActive : ''}`}
@@ -1350,11 +1351,11 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className={styles.sidebarSection}>
-                  <div className={styles.sidebarHeader}>
-                    <h3 className={styles.sidebarTitle}>Level</h3>
+                <div className={shell.sidebarSection}>
+                  <div className={shell.sidebarHeader}>
+                    <h3 className={shell.sidebarTitle}>Level</h3>
                   </div>
-                  <div className={styles.projectsList}>
+                  <div className={shell.projectsList}>
                     <button
                       onClick={() => setFilterLevel('all')}
                       className={`${styles.projectItem} ${filterLevel === 'all' ? styles.projectItemActive : ''}`}
@@ -1385,15 +1386,15 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className={styles.sidebarSection}>
-                  <div className={styles.sidebarHeader}>
-                    <h3 className={styles.sidebarTitle}>Tools</h3>
+                <div className={shell.sidebarSection}>
+                  <div className={shell.sidebarHeader}>
+                    <h3 className={shell.sidebarTitle}>Tools</h3>
                   </div>
-                  <div className={styles.projectsList}>
+                  <div className={shell.projectsList}>
                     <label className={styles.sidebarField}>
                       <span>Refresh every</span>
                       <select
-                        className={styles.filterSelect}
+                        className={shell.filterSelect}
                         value={refreshInterval}
                         onChange={(e) => setRefreshInterval(parseInt(e.target.value))}
                       >
@@ -1420,11 +1421,11 @@ export default function Dashboard() {
               </aside>
             )}
 
-            <div className={styles.contentWrapper}>
+            <div className={`${shell.contentWrapper} ${styles.contentWrapper}`}>
             {/* Sidebar toggle button */}
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className={styles.sidebarToggle}
+              className={`${shell.sidebarToggle} ${styles.sidebarToggle}`}
               aria-label={sidebarCollapsed ? 'Show filters' : 'Hide filters'}
               title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
             >
@@ -1501,24 +1502,24 @@ export default function Dashboard() {
                   className={styles.searchInput}
                 />
                 <div className={styles.filterToolbar} style={{ marginTop: 'var(--space-2)' }}>
-                  <select className={styles.filterSelect} value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort issues">
+                  <select className={`${shell.filterSelect} ${styles.filterSelect}`} value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort issues">
                     {Object.entries(SORT_OPTIONS).map(([value, label]) => (
                       <option key={value} value={value}>Sort: {label}</option>
                     ))}
                   </select>
-                  <select className={styles.filterSelect} value={timeRange} onChange={(e) => setTimeRange(e.target.value)} aria-label="Time range">
+                  <select className={`${shell.filterSelect} ${styles.filterSelect}`} value={timeRange} onChange={(e) => setTimeRange(e.target.value)} aria-label="Time range">
                     {Object.entries(TIME_RANGES).map(([value, r]) => (
                       <option key={value} value={value}>{r.label}</option>
                     ))}
                   </select>
                   {(origins.length > 1 || filterOrigin !== 'all') && (
-                    <select className={styles.filterSelect} value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)} aria-label="Source host">
+                    <select className={`${shell.filterSelect} ${styles.filterSelect}`} value={filterOrigin} onChange={(e) => setFilterOrigin(e.target.value)} aria-label="Source host">
                       <option value="all">All sources</option>
                       {origins.map((o) => <option key={o.origin} value={o.origin}>From {o.origin} ({o.count})</option>)}
                       {filterOrigin !== 'all' && !origins.some((o) => o.origin === filterOrigin) && <option value={filterOrigin}>From {filterOrigin}</option>}
                     </select>
                   )}
-                  <select className={styles.filterSelect} value={filterEventType} onChange={(e) => setFilterEventType(e.target.value)} aria-label="Event type">
+                  <select className={`${shell.filterSelect} ${styles.filterSelect}`} value={filterEventType} onChange={(e) => setFilterEventType(e.target.value)} aria-label="Event type">
                     <option value="all">All types</option>
                     <option value="ERROR">Errors</option>
                     <option value="CSP">CSP</option>
@@ -1548,10 +1549,10 @@ export default function Dashboard() {
                 <IssueListSkeleton rows={9} />
 
               ) : projects.length === 0 ? (
-                <div className={styles.empty}>
-                  <div className={styles.emptyIcon}><Icon name="plus" size={36} strokeWidth={1.25} /></div>
-                  <h3 className={styles.emptyTitle}>Get Started</h3>
-                  <p className={styles.emptyText}>
+                <div className={shell.empty}>
+                  <div className={shell.emptyIcon}><Icon name="plus" size={36} strokeWidth={1.25} /></div>
+                  <h3 className={shell.emptyTitle}>Get Started</h3>
+                  <p className={shell.emptyText}>
                     Create your first project to start monitoring errors.
                   </p>
                   <button 
@@ -1562,12 +1563,12 @@ export default function Dashboard() {
                   </button>
                 </div>
               ) : filteredIssues.length === 0 ? (
-                <div className={styles.empty}>
-                  <div className={styles.emptyIcon}><Icon name="inbox" size={36} strokeWidth={1.25} /></div>
-                  <h3 className={styles.emptyTitle}>
+                <div className={shell.empty}>
+                  <div className={shell.emptyIcon}><Icon name="inbox" size={36} strokeWidth={1.25} /></div>
+                  <h3 className={shell.emptyTitle}>
                     {issues.length === 0 ? 'No issues yet' : 'No matching issues'}
                   </h3>
-                  <p className={styles.emptyText}>
+                  <p className={shell.emptyText}>
                     {issues.length === 0 
                       ? 'Send your first error to see it appear here.'
                       : 'Try adjusting your search or filter criteria.'

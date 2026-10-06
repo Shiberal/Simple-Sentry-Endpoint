@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import ThemeToggle from '@/components/ThemeToggle';
 import Icon from '@/components/Icon';
-import styles from '@/styles/Dashboard.module.css';
+import shell from '@/styles/AppShell.module.css';
+import projStyles from '@/styles/Projects.module.css';
 
 const STATUS_RANK = {
   critical: 0,
@@ -121,7 +122,7 @@ export default function ProjectsPage() {
   }, [summaries]);
 
   if (loading && !user) {
-    return <div className={styles.container}>Loading...</div>;
+    return <div className={shell.container}>Loading...</div>;
   }
 
   if (!user) return null;
@@ -132,34 +133,34 @@ export default function ProjectsPage() {
         <title>Projects - Sentry Monitor</title>
       </Head>
 
-      <div className={styles.container}>
-        <nav className={styles.navSidebar}>
+      <div className={shell.container}>
+        <nav className={shell.navSidebar}>
           <Link href="/projects" style={{ textDecoration: 'none' }}>
-            <div className={`${styles.navItem} ${styles.navItemActive}`} title="Projects">
+            <div className={`${shell.navItem} ${shell.navItemActive}`} title="Projects">
               <Icon name="folder" size={18} />
-              <div className={styles.navItemTooltip}>Projects</div>
+              <div className={shell.navItemTooltip}>Projects</div>
             </div>
           </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <div className={styles.navItem} title="Global Dashboard">
+            <div className={shell.navItem} title="Global Dashboard">
               <Icon name="dashboard" size={18} />
-              <div className={styles.navItemTooltip}>Global Dashboard</div>
+              <div className={shell.navItemTooltip}>Global Dashboard</div>
             </div>
           </Link>
           <Link href="/performance" style={{ textDecoration: 'none' }}>
-            <div className={styles.navItem} title="Performance">
+            <div className={shell.navItem} title="Performance">
               <Icon name="activity" size={18} />
-              <div className={styles.navItemTooltip}>Performance</div>
+              <div className={shell.navItemTooltip}>Performance</div>
             </div>
           </Link>
           <Link href="/monitors" style={{ textDecoration: 'none' }}>
-            <div className={styles.navItem} title="Cron monitors">
+            <div className={shell.navItem} title="Cron monitors">
               <Icon name="clock" size={18} />
-              <div className={styles.navItemTooltip}>Monitors</div>
+              <div className={shell.navItemTooltip}>Monitors</div>
             </div>
           </Link>
 
-          <div className={styles.navDivider}></div>
+          <div className={shell.navDivider}></div>
 
           {projects.map((project) => (
             <Link
@@ -167,50 +168,50 @@ export default function ProjectsPage() {
               href={`/project/${project.id}`}
               style={{ textDecoration: 'none' }}
             >
-              <div className={styles.navProjectItem} title={project.name}>
+              <div className={shell.navProjectItem} title={project.name}>
                 {project.name.substring(0, 2).toUpperCase()}
                 {project._count?.issues > 0 && (
-                  <span className={styles.projectBadge}>{project._count.issues}</span>
+                  <span className={shell.projectBadge}>{project._count.issues}</span>
                 )}
-                <div className={styles.navItemTooltip}>{project.name}</div>
+                <div className={shell.navItemTooltip}>{project.name}</div>
               </div>
             </Link>
           ))}
 
-          <div className={styles.navDivider}></div>
+          <div className={shell.navDivider}></div>
 
           {user.isAdmin && (
             <Link href="/admin" style={{ textDecoration: 'none' }}>
-              <div className={styles.navItem} title="Admin">
+              <div className={shell.navItem} title="Admin">
                 <Icon name="settings" size={18} />
-                <div className={styles.navItemTooltip}>Admin Settings</div>
+                <div className={shell.navItemTooltip}>Admin Settings</div>
               </div>
             </Link>
           )}
 
           <Link href="/profile" style={{ textDecoration: 'none' }}>
-            <div className={styles.navItem} title="Profile">
+            <div className={shell.navItem} title="Profile">
               <Icon name="user" size={18} />
-              <div className={styles.navItemTooltip}>Your Profile</div>
+              <div className={shell.navItemTooltip}>Your Profile</div>
             </div>
           </Link>
         </nav>
 
-        <div className={styles.main}>
-          <header className={styles.header}>
-            <div className={styles.headerContent}>
-              <h1 className={styles.logo}>
-                <span className={styles.logoIcon}><Icon name="folder" size={16} strokeWidth={2} /></span>
+        <div className={shell.main}>
+          <header className={shell.header}>
+            <div className={shell.headerContent}>
+              <h1 className={shell.logo}>
+                <span className={shell.logoIcon}><Icon name="folder" size={16} strokeWidth={2} /></span>
                 Projects
               </h1>
-              <div className={styles.headerActions}>
-                <span className={styles.projectsTimestamp}>
+              <div className={shell.headerActions}>
+                <span className={projStyles.projectsTimestamp}>
                   24h health{generatedAt ? `, updated ${formatDate(generatedAt)}` : ''}
                 </span>
                 <button
                   type="button"
                   onClick={() => setAutoRefresh((value) => !value)}
-                  className={styles.headerButton}
+                  className={shell.headerButton}
                   title={autoRefresh ? 'Pause auto-refresh' : 'Resume auto-refresh'}
                 >
                   {autoRefresh ? 'Live' : 'Paused'}
@@ -218,51 +219,51 @@ export default function ProjectsPage() {
                 <button
                   type="button"
                   onClick={() => fetchSummaries({ background: true })}
-                  className={styles.headerButton}
+                  className={shell.headerButton}
                   disabled={refreshing}
                   title="Refresh project analytics"
                 >
                   {refreshing ? 'Refreshing...' : 'Refresh'}
                 </button>
                 <ThemeToggle />
-                <span className={styles.userEmail}>{user.email}</span>
+                <span className={shell.userEmail}>{user.email}</span>
               </div>
             </div>
           </header>
 
-          <main className={styles.projectsAnalyticsPage}>
-            <section className={styles.projectsAnalyticsHero}>
+          <main className={projStyles.projectsAnalyticsPage}>
+            <section className={projStyles.projectsAnalyticsHero}>
               <div>
-                <p className={styles.projectsEyebrow}>Last 24 hours</p>
-                <h2 className={styles.projectsHeroTitle}>Projects analytics</h2>
-                <p className={styles.projectsHeroText}>
+                <p className={projStyles.projectsEyebrow}>Last 24 hours</p>
+                <h2 className={projStyles.projectsHeroTitle}>Projects analytics</h2>
+                <p className={projStyles.projectsHeroText}>
                   Track response performance, ping health, and errors for every project in one place.
                 </p>
               </div>
-              <div className={styles.projectsHeroSummary}>
+              <div className={projStyles.projectsHeroSummary}>
                 <div>
-                  <span className={styles.projectsHeroNumber}>{sortedSummaries.length}</span>
-                  <span className={styles.projectsHeroLabel}>Projects</span>
+                  <span className={projStyles.projectsHeroNumber}>{sortedSummaries.length}</span>
+                  <span className={projStyles.projectsHeroLabel}>Projects</span>
                 </div>
                 <div>
-                  <span className={styles.projectsHeroNumber}>
+                  <span className={projStyles.projectsHeroNumber}>
                     {sortedSummaries.filter((project) => project.status === 'critical').length}
                   </span>
-                  <span className={styles.projectsHeroLabel}>Need attention</span>
+                  <span className={projStyles.projectsHeroLabel}>Need attention</span>
                 </div>
               </div>
             </section>
 
             {error ? (
-              <div className={styles.projectsError}>{error}</div>
+              <div className={projStyles.projectsError}>{error}</div>
             ) : null}
 
             {loading ? (
-              <div className={styles.projectsGrid}>
+              <div className={projStyles.projectsGrid}>
                 {[0, 1, 2].map((item) => (
-                  <div key={item} className={styles.projectAnalyticsCard}>
-                    <div className={styles.projectsSkeletonLine}></div>
-                    <div className={styles.projectsSkeletonGrid}>
+                  <div key={item} className={projStyles.projectAnalyticsCard}>
+                    <div className={projStyles.projectsSkeletonLine}></div>
+                    <div className={projStyles.projectsSkeletonGrid}>
                       <span></span>
                       <span></span>
                       <span></span>
@@ -271,61 +272,61 @@ export default function ProjectsPage() {
                 ))}
               </div>
             ) : sortedSummaries.length === 0 ? (
-              <div className={styles.empty}>
-                <div className={styles.emptyIcon}><Icon name="folder" size={36} strokeWidth={1.25} /></div>
-                <h3 className={styles.emptyTitle}>No projects yet</h3>
-                <p className={styles.emptyText}>Create a project to start collecting analytics.</p>
+              <div className={shell.empty}>
+                <div className={shell.emptyIcon}><Icon name="folder" size={36} strokeWidth={1.25} /></div>
+                <h3 className={shell.emptyTitle}>No projects yet</h3>
+                <p className={shell.emptyText}>Create a project to start collecting analytics.</p>
               </div>
             ) : (
-              <div className={styles.projectsGrid}>
+              <div className={projStyles.projectsGrid}>
                 {sortedSummaries.map((project) => (
                   <article
                     key={project.id}
-                    className={`${styles.projectAnalyticsCard} ${styles[`projectStatus${project.status}`]}`}
+                    className={`${projStyles.projectAnalyticsCard} ${projStyles[`projectStatus${project.status}`]}`}
                   >
-                    <div className={styles.projectAnalyticsHeader}>
+                    <div className={projStyles.projectAnalyticsHeader}>
                       <div>
-                        <h3 className={styles.projectAnalyticsTitle}>{project.name}</h3>
-                        <p className={styles.projectAnalyticsKey}>{project.key}</p>
+                        <h3 className={projStyles.projectAnalyticsTitle}>{project.name}</h3>
+                        <p className={projStyles.projectAnalyticsKey}>{project.key}</p>
                       </div>
-                      <span className={`${styles.projectStatusPill} ${styles[`projectStatusPill${project.status}`]}`}>
+                      <span className={`${projStyles.projectStatusPill} ${projStyles[`projectStatusPill${project.status}`]}`}>
                         {STATUS_LABELS[project.status] || project.status}
                       </span>
                     </div>
 
-                    <div className={styles.projectMetricsGrid}>
-                      <div className={styles.projectMetric}>
-                        <span className={styles.projectMetricLabel}>Response avg</span>
-                        <strong className={styles.projectMetricValue}>
+                    <div className={projStyles.projectMetricsGrid}>
+                      <div className={projStyles.projectMetric}>
+                        <span className={projStyles.projectMetricLabel}>Response avg</span>
+                        <strong className={projStyles.projectMetricValue}>
                           {formatMetric(project.response.avgMs, formatDuration)}
                         </strong>
-                        <span className={styles.projectMetricMeta}>
+                        <span className={projStyles.projectMetricMeta}>
                           p95 {formatMetric(project.response.p95Ms, formatDuration)} | {project.response.transactionCount} tx
                         </span>
                       </div>
 
-                      <div className={styles.projectMetric}>
-                        <span className={styles.projectMetricLabel}>Ping uptime</span>
-                        <strong className={styles.projectMetricValue}>
+                      <div className={projStyles.projectMetric}>
+                        <span className={projStyles.projectMetricLabel}>Ping uptime</span>
+                        <strong className={projStyles.projectMetricValue}>
                           {formatMetric(project.ping.uptimePercent, formatPercent)}
                         </strong>
-                        <span className={styles.projectMetricMeta}>
+                        <span className={projStyles.projectMetricMeta}>
                           {project.ping.failedCheckIns} failed | {project.ping.checkInCount} checks
                         </span>
                       </div>
 
-                      <div className={styles.projectMetric}>
-                        <span className={styles.projectMetricLabel}>Errors</span>
-                        <strong className={styles.projectMetricValue}>
+                      <div className={projStyles.projectMetric}>
+                        <span className={projStyles.projectMetricLabel}>Errors</span>
+                        <strong className={projStyles.projectMetricValue}>
                           {project.errors.activeIssues}
                         </strong>
-                        <span className={styles.projectMetricMeta}>
+                        <span className={projStyles.projectMetricMeta}>
                           {project.errors.recentErrorEvents} events | {project.errors.recentIssues} new issues
                         </span>
                       </div>
                     </div>
 
-                    <div className={styles.projectAnalyticsDetails}>
+                    <div className={projStyles.projectAnalyticsDetails}>
                       <span>
                         Latest ping: {project.ping.latestStatus || 'No ping data'} at {formatDate(project.ping.latestAt)}
                       </span>
@@ -334,7 +335,7 @@ export default function ProjectsPage() {
                       </span>
                     </div>
 
-                    <div className={styles.projectAnalyticsLinks}>
+                    <div className={projStyles.projectAnalyticsLinks}>
                       <Link href={`/dashboard?projectId=${project.id}`}>Issues</Link>
                       <Link href={`/performance?projectId=${project.id}`}>Performance</Link>
                       <Link href={`/monitors?projectId=${project.id}`}>Monitors</Link>

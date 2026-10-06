@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import MonitorDialog from '@/components/monitors/MonitorDialog';
-import styles from '@/styles/Dashboard.module.css';
+import shell from '@/styles/AppShell.module.css';
 import {
   ActivityOverview, CHART_MODES, ChartPanel, CheckInHistory, HEALTH, History, REFRESH_MS, RANGE_OPTIONS,
   StatsPanel, monitorApi, ago, fmtDuration, pct, rateTone, until, projectLabel, scopeOf, Sparkline } from '@/components/monitors/shared';
@@ -183,7 +183,7 @@ export default function MonitorsPage() {
   }, [monitors, filter, envFilter, search, sort, range]);
   const hasPingMonitors = monitors.some((mon) => mon.pingUrls.length > 0);
 
-  if (loading) return <div className={styles.container}>Loading…</div>;
+  if (loading) return <div className={shell.container}>Loading…</div>;
   if (!user) return null;
 
   const tiles = summary
@@ -201,94 +201,94 @@ export default function MonitorsPage() {
       <Head>
         <title>Monitors - Sentry Monitor</title>
       </Head>
-      <div className={styles.container}>
-        <nav className={styles.navSidebar} aria-label="Primary">
+      <div className={shell.container}>
+        <nav className={shell.navSidebar} aria-label="Primary">
           <Link href="/projects" style={{ textDecoration: 'none' }}>
-            <div className={styles.navItem} title="Projects">
+            <div className={shell.navItem} title="Projects">
               <Icon name="folder" size={18} />
-              <div className={styles.navItemTooltip}>Projects</div>
+              <div className={shell.navItemTooltip}>Projects</div>
             </div>
           </Link>
           <Link href="/dashboard" style={{ textDecoration: 'none' }}>
-            <div className={styles.navItem} title="Global Dashboard">
+            <div className={shell.navItem} title="Global Dashboard">
               <Icon name="dashboard" size={18} />
-              <div className={styles.navItemTooltip}>Global Dashboard</div>
+              <div className={shell.navItemTooltip}>Global Dashboard</div>
             </div>
           </Link>
           <Link href="/performance" style={{ textDecoration: 'none' }}>
-            <div className={styles.navItem} title="Performance">
+            <div className={shell.navItem} title="Performance">
               <Icon name="activity" size={18} />
-              <div className={styles.navItemTooltip}>Performance</div>
+              <div className={shell.navItemTooltip}>Performance</div>
             </div>
           </Link>
           <Link href="/monitors" style={{ textDecoration: 'none' }}>
-            <div className={`${styles.navItem} ${styles.navItemActive}`} title="Cron monitors">
+            <div className={`${shell.navItem} ${shell.navItemActive}`} title="Cron monitors">
               <Icon name="clock" size={18} />
-              <div className={styles.navItemTooltip}>Monitors</div>
+              <div className={shell.navItemTooltip}>Monitors</div>
             </div>
           </Link>
 
-          <div className={styles.navDivider}></div>
+          <div className={shell.navDivider}></div>
 
           <button
             type="button"
-            className={`${styles.navProjectItem} ${pid === 'all' ? styles.navProjectItemActive : ''}`}
+            className={`${shell.navProjectItem} ${pid === 'all' ? shell.navProjectItemActive : ''}`}
             onClick={() => setPid('all')}
             title="All projects"
           >
             ALL
-            <div className={styles.navItemTooltip}>All projects</div>
+            <div className={shell.navItemTooltip}>All projects</div>
           </button>
           <button
             type="button"
-            className={`${styles.navProjectItem} ${pid === 'standalone' ? styles.navProjectItemActive : ''}`}
+            className={`${shell.navProjectItem} ${pid === 'standalone' ? shell.navProjectItemActive : ''}`}
             onClick={() => setPid('standalone')}
             title="Standalone monitors (no project)"
           >
             --
-            <div className={styles.navItemTooltip}>Standalone (no project)</div>
+            <div className={shell.navItemTooltip}>Standalone (no project)</div>
           </button>
           {projects.map((project) => (
             <button
               key={project.id}
               type="button"
-              className={`${styles.navProjectItem} ${pid === project.id ? styles.navProjectItemActive : ''}`}
+              className={`${shell.navProjectItem} ${pid === project.id ? shell.navProjectItemActive : ''}`}
               onClick={() => setPid(project.id)}
               title={project.name}
             >
               {project.name.substring(0, 2).toUpperCase()}
-              <div className={styles.navItemTooltip}>{project.name}</div>
+              <div className={shell.navItemTooltip}>{project.name}</div>
             </button>
           ))}
 
-          <div className={styles.navDivider}></div>
+          <div className={shell.navDivider}></div>
 
           {user.isAdmin && (
             <Link href="/admin" style={{ textDecoration: 'none' }}>
-              <div className={styles.navItem} title="Admin">
+              <div className={shell.navItem} title="Admin">
                 <Icon name="settings" size={18} />
-                <div className={styles.navItemTooltip}>Admin Settings</div>
+                <div className={shell.navItemTooltip}>Admin Settings</div>
               </div>
             </Link>
           )}
 
           <Link href="/profile" style={{ textDecoration: 'none' }}>
-            <div className={styles.navItem} title="Profile">
+            <div className={shell.navItem} title="Profile">
               <Icon name="user" size={18} />
-              <div className={styles.navItemTooltip}>Your Profile</div>
+              <div className={shell.navItemTooltip}>Your Profile</div>
             </div>
           </Link>
         </nav>
-        <div className={styles.main}>
-          <header className={styles.header}>
-            <div className={styles.headerContent}>
-              <h1 className={styles.logo}>
-                <span className={styles.logoIcon}><Icon name="clock" size={16} strokeWidth={2} /></span>
+        <div className={shell.main}>
+          <header className={shell.header}>
+            <div className={shell.headerContent}>
+              <h1 className={shell.logo}>
+                <span className={shell.logoIcon}><Icon name="clock" size={16} strokeWidth={2} /></span>
                 Monitors
               </h1>
-              <div className={styles.headerActions}>
+              <div className={shell.headerActions}>
                 <select
-                  className={styles.filterSelect}
+                  className={shell.filterSelect}
                   value={pid || ''}
                   onChange={(e) => setPid(e.target.value === 'all' || e.target.value === 'standalone' ? e.target.value : parseInt(e.target.value, 10))}
                   aria-label="Project"
@@ -299,11 +299,11 @@ export default function MonitorsPage() {
                     <option key={project.id} value={project.id}>{project.name}</option>
                   ))}
                 </select>
-                <button type="button" onClick={() => loadMonitors(pid)} className={styles.headerButton} aria-label="Refresh" title="Refresh">
-                  <span className={loadingMonitors ? styles.spinning : styles.iconWrap}><Icon name="refresh" size={16} /></span>
+                <button type="button" onClick={() => loadMonitors(pid)} className={shell.headerButton} aria-label="Refresh" title="Refresh">
+                  <span className={loadingMonitors ? shell.spinning : shell.iconWrap}><Icon name="refresh" size={16} /></span>
                 </button>
                 {hasPingMonitors && (
-                  <button type="button" onClick={() => runNow(null)} disabled={busy === 'all'} className={styles.headerButton}>
+                  <button type="button" onClick={() => runNow(null)} disabled={busy === 'all'} className={shell.headerButton}>
                     <Icon name="play" size={14} /> <span className={m.headerLabel}>{busy === 'all' ? 'Running…' : 'Run all pings'}</span>
                   </button>
                 )}
@@ -497,7 +497,7 @@ export default function MonitorsPage() {
                         <div className={m.rowActions}>
                           {mon.pingUrls.length > 0 && !paused && (
                             <button type="button" className={m.iconButton} onClick={() => runNow(mon.id)} disabled={busy === mon.id} aria-label={`Run ${mon.slug} now`} title="Run pings now">
-                              <span className={busy === mon.id ? styles.spinning : styles.iconWrap}><Icon name="play" size={14} /></span>
+                              <span className={busy === mon.id ? shell.spinning : shell.iconWrap}><Icon name="play" size={14} /></span>
                             </button>
                           )}
                           <button type="button" className={m.iconButton} onClick={() => togglePause(mon)} disabled={busy === mon.id} aria-label={paused ? `Resume ${mon.slug}` : `Pause ${mon.slug}`} title={paused ? 'Resume' : 'Pause'}>
