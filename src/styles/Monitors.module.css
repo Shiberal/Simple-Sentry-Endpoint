@@ -868,8 +868,8 @@ a.editButton { display: inline-block; text-decoration: none; }
 
 @media (max-width: 900px) { .sideList { display: none; } }
 
-.activityStrip { display: flex; align-items: flex-end; gap: 1px; height: 44px; }
-.activityStrip .bar, .activityStrip .barEmpty { min-height: 0; min-width: 1px; }
+.activityStrip { display: flex; align-items: flex-end; gap: 1px; height: 44px; min-width: 0; overflow: hidden; }
+.activityStrip .bar, .activityStrip .barEmpty { min-height: 0; min-width: 0; }
 
 .activityGap { margin-top: var(--space-5); }
 .glanceGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: var(--space-3); }
