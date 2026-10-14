@@ -744,71 +744,205 @@
 .stackTraceContainer {
   display: flex;
   flex-direction: column;
+  gap: var(--space-5);
+}
+
+.stackException {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
 }
 
-.stackFrameWrapper {
+.stackExceptionHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.stackExceptionValue {
+  margin-top: var(--space-1);
+  font-size: var(--font-sm);
+  color: var(--error-text);
+  line-height: var(--leading-normal);
+  word-break: break-word;
+}
+
+.stackToolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.stackCount {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.stackFilterOn {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+}
+
+.stackFrameList {
   display: flex;
   flex-direction: column;
-}
-
-.stackFrameTreeLine {
-  display: flex;
-  align-items: center;
-  height: var(--space-6);
-}
-
-.treeConnector {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-
-.treeBranch {
-  color: var(--text-tertiary);
-  font-size: var(--font-sm);
-  font-family: var(--font-mono);
-  font-weight: bold;
-}
-
-.treeArrow {
-  color: var(--accent-primary);
-  font-size: var(--font-xs);
+  gap: var(--space-2);
 }
 
 .stackFrame {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  padding: var(--space-3);
-  transition: all var(--transition-fast);
-  margin-bottom: var(--space-2);
+  overflow: hidden;
 }
 
-.stackFrameLast {
-  background-color: var(--error-bg);
+.stackFrameCrash {
   border-color: var(--error);
+}
+
+.stackFrameInApp {
+  border-left: 3px solid var(--accent-primary);
+}
+
+.stackFrameLibrary {
+  border-left: 3px solid var(--border-primary);
+  opacity: 0.92;
+}
+
+.stackFrameExpanded {
+  opacity: 1;
 }
 
 .stackFrameHeader {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-2);
-  gap: var(--space-4);
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  margin: 0;
+  padding: var(--space-3);
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.stackFrameHeader:hover {
+  background-color: var(--bg-hover);
+}
+
+.stackFrameIndex {
+  flex-shrink: 0;
+  min-width: 1.5rem;
+  margin-top: 2px;
+  font-size: var(--font-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.stackFrameMeta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .stackFrameFunction {
-  font-size: var(--font-base);
+  font-size: var(--font-sm);
   font-weight: var(--weight-semibold);
-  color: var(--accent-primary);
+  color: var(--text-primary);
   font-family: var(--font-mono);
+  word-break: break-word;
+}
+
+.stackFrameCrash .stackFrameFunction {
+  color: var(--error);
 }
 
 .stackFrameFile {
   font-size: var(--font-xs);
   color: var(--text-secondary);
   font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stackFrameBadges {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.stackBadgeCrash,
+.stackBadgeApp,
+.stackBadgeLib {
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  line-height: 1.2;
+}
+
+.stackBadgeCrash {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.stackBadgeApp {
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+}
+
+.stackBadgeLib {
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+}
+
+.stackFrameBody {
+  padding: 0 var(--space-3) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stackFramePath {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  word-break: break-all;
+}
+
+.stackFrameEmpty {
+  margin: 0;
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+}
+
+.stackFrameVars {
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+}
+
+.stackFrameVars summary {
+  cursor: pointer;
+  user-select: none;
+  margin-bottom: var(--space-2);
+}
+
+.stackFrameVars .codeBlock {
+  max-height: 240px;
+  overflow: auto;
 }
 
 .stackFrameCode {
@@ -2056,6 +2190,16 @@
   .stackFrameCode {
     overflow-x: auto;
     max-width: 100%;
+  }
+
+  .stackFrameHeader {
+    min-height: 44px;
+    padding: var(--space-3);
+  }
+
+  .stackFrameFile {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .modal {
