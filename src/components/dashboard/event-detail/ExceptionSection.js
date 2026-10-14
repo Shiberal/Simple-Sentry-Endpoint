@@ -136,15 +136,17 @@ export default function ExceptionSection({
                   </div>
                 )}
                 <div className={styles.codeSnippet}>
-                  {lines.map((line, idx) => (
-                    <div 
-                      key={idx} 
-                      className={`${styles.snippetLine} ${line.isError ? styles.snippetLineError : ''}`}
-                    >
-                      <span className={styles.snippetLineNumber}>{line.number}</span>
-                      <span className={styles.snippetLineContent}>{line.content}</span>
-                    </div>
-                  ))}
+                  <div className={styles.codeSnippetScroll}>
+                    {lines.map((line, idx) => (
+                      <div
+                        key={idx}
+                        className={`${styles.snippetLine} ${line.isError ? styles.snippetLineError : ''}`}
+                      >
+                        <span className={styles.snippetLineNumber}>{line.number}</span>
+                        <span className={styles.snippetLineContent}>{line.content}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             );

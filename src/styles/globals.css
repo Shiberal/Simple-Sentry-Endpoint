@@ -140,8 +140,17 @@ time,
 /* Touch-friendly defaults */
 @media (hover: none) and (pointer: coarse) {
   button,
-  select {
+  select,
+  a,
+  [role="button"] {
     touch-action: manipulation;
+    -webkit-user-drag: none;
+  }
+
+  /* Stop nested scrollers from stealing horizontal pans from the page */
+  pre {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   ::-webkit-scrollbar {

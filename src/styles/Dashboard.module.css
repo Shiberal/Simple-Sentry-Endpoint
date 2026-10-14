@@ -617,10 +617,14 @@
   padding: var(--space-2);
   font-size: var(--font-xs);
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
   color: var(--text-primary);
   line-height: var(--leading-normal);
   margin: 0;
   font-family: var(--font-mono);
+  max-width: 100%;
 }
 
 .rawHeaderWithCopy {
@@ -656,21 +660,32 @@
 
 
 
-/* Code Snippet */
+/* Code Snippet — one horizontal scroller for the whole block (not per line) */
 .codeSnippet {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.codeSnippetScroll {
+  display: block;
+  width: max-content;
+  min-width: 100%;
 }
 
 .snippetLine {
   display: flex;
   align-items: stretch;
   min-height: 20px;
+  min-width: 100%;
   background-color: var(--bg-primary);
   border-bottom: 1px solid var(--border-primary);
 }
@@ -693,6 +708,9 @@
   border-right: 1px solid var(--border-primary);
   user-select: none;
   flex-shrink: 0;
+  position: sticky;
+  left: 0;
+  z-index: 1;
 }
 
 .snippetLineError .snippetLineNumber {
@@ -704,8 +722,8 @@
 .snippetLineContent {
   padding: 2px 12px;
   white-space: pre;
-  overflow-x: auto;
-  flex: 1;
+  overflow: visible;
+  flex: 0 0 auto;
   color: var(--text-primary);
 }
 
@@ -952,11 +970,171 @@
   font-size: var(--font-xs);
   color: var(--text-primary);
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
   margin: 0;
+  font-family: var(--font-mono);
+  max-width: 100%;
+}
+
+/* Breadcrumbs timeline */
+.crumbTitleRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.crumbTitleRow .detailSectionTitle {
+  margin-bottom: 0;
+}
+
+.crumbCount {
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.crumbTimeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.crumbItem {
+  display: grid;
+  grid-template-columns: 20px 1fr;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.crumbRail {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.crumbDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--border-primary);
+  border: 2px solid var(--bg-primary);
+  box-shadow: 0 0 0 1px var(--border-primary);
+  flex-shrink: 0;
+  margin-top: 6px;
+  z-index: 1;
+}
+
+.crumbLine {
+  flex: 1;
+  width: 2px;
+  background: var(--border-secondary);
+  min-height: 12px;
+  margin: 2px 0 0;
+}
+
+.crumbKind_error .crumbDot { background: var(--error); box-shadow: 0 0 0 1px var(--error); }
+.crumbKind_http .crumbDot { background: var(--info); box-shadow: 0 0 0 1px var(--info); }
+.crumbKind_nav .crumbDot { background: var(--accent-primary); box-shadow: 0 0 0 1px var(--accent-primary); }
+.crumbKind_ui .crumbDot { background: var(--warning); box-shadow: 0 0 0 1px var(--warning); }
+.crumbKind_console .crumbDot { background: var(--text-secondary); }
+.crumbKind_db .crumbDot { background: var(--success); box-shadow: 0 0 0 1px var(--success); }
+
+.crumbBody {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3) var(--space-4);
+  margin-bottom: var(--space-1);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+}
+
+.crumbItemLast .crumbBody {
+  border-color: var(--error);
+}
+
+.crumbHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.crumbType {
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--info);
+  background-color: var(--info-bg);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+}
+
+.crumbKind_error .crumbType { color: var(--error); background: var(--error-bg); }
+.crumbKind_http .crumbType { color: var(--info); background: var(--info-bg); }
+.crumbKind_nav .crumbType { color: var(--accent-primary); background: var(--accent-bg, var(--bg-tertiary)); }
+.crumbKind_ui .crumbType { color: var(--warning); background: var(--warning-bg); }
+.crumbKind_console .crumbType { color: var(--text-secondary); background: var(--bg-tertiary); }
+.crumbKind_db .crumbType { color: var(--success); background: var(--success-bg); }
+
+.crumbLevel {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.crumbTime {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.crumbDelta {
+  color: var(--text-secondary);
   font-family: var(--font-mono);
 }
 
-/* Breadcrumbs */
+.crumbMessage {
+  margin: 0;
+  font-size: var(--font-sm);
+  color: var(--text-primary);
+  line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.crumbDataToggle {
+  margin-top: var(--space-2);
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  background: transparent;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-xs);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-drag: none;
+}
+
+.crumbDataToggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Legacy class names kept for any remaining references */
 .breadcrumbsContainer {
   display: flex;
   flex-direction: column;
@@ -1006,8 +1184,12 @@
   font-size: var(--font-xs);
   color: var(--text-primary);
   overflow-x: auto;
-  margin: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x pan-y;
+  margin: var(--space-2) 0 0;
   font-family: var(--font-mono);
+  max-width: 100%;
 }
 
 /* Modals */
@@ -2060,6 +2242,30 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+  }
+
+  .contentDetailOpen .codeSnippet,
+  .contentDetailOpen .breadcrumbData,
+  .contentDetailOpen .codeBlock {
+    touch-action: pan-x pan-y;
+  }
+
+  .eventCard,
+  .stackFrameHeader,
+  .tab,
+  .backButton,
+  .moreButton {
+    -webkit-user-drag: none;
+    touch-action: manipulation;
+  }
+
+  .tabsContainer {
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
   }
 

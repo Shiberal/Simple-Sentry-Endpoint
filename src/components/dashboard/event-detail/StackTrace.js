@@ -88,15 +88,17 @@ function FrameRow({ frame, index, expanded, onToggle, isCrash }) {
           )}
           {hasContext ? (
             <div className={styles.codeSnippet}>
-              {context.map((line) => (
-                <div
-                  key={`${line.number}-${line.isError ? 'e' : 'n'}`}
-                  className={`${styles.snippetLine} ${line.isError ? styles.snippetLineError : ''}`}
-                >
-                  <span className={styles.snippetLineNumber}>{line.number ?? '·'}</span>
-                  <span className={styles.snippetLineContent}>{line.content ?? ''}</span>
-                </div>
-              ))}
+              <div className={styles.codeSnippetScroll}>
+                {context.map((line) => (
+                  <div
+                    key={`${line.number}-${line.isError ? 'e' : 'n'}`}
+                    className={`${styles.snippetLine} ${line.isError ? styles.snippetLineError : ''}`}
+                  >
+                    <span className={styles.snippetLineNumber}>{line.number ?? '·'}</span>
+                    <span className={styles.snippetLineContent}>{line.content ?? ''}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
             <p className={styles.stackFrameEmpty}>No source context for this frame.</p>
