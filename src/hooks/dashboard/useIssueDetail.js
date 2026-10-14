@@ -100,9 +100,9 @@ export default function useIssueDetail({ router, user, showNotification }) {
   const navigateToPreviousEvent = (issue, e) => stepEvent(issue, e, -1);
   const navigateToNextEvent = (issue, e) => stepEvent(issue, e, 1);
 
-  // Deep link on first load; keep ?issue= in sync; browser back clears selection
+  // Deep link on first load; keep ?issue= in sync; browser back closes detail
   useEffect(() => {
-    if (!router.isReady || !user) return;
+    if (!router.isReady || !user) return undefined;
 
     const issueParam = router.query.issue;
 
@@ -121,38 +121,43 @@ export default function useIssueDetail({ router, user, showNotification }) {
           return () => { cancelled = true; };
         }
       }
-      return;
+      return undefined;
     }
 
     if (skipUrlClearRef.current) {
       skipUrlClearRef.current = false;
-      return;
-    }
-
-    // Browser back / forward removed ?issue= while detail is open
-    if (!issueParam && selectedEvent && !selectedEvent._loading) {
-      queueMicrotask(() => {
-        setSelectedEvent(null);
-        setDetailLoading(false);
-        openedViaPushRef.current = false;
-      });
-      return;
+      return undefined;
     }
 
     const openId = selectedEvent?.issue?.id && !selectedEvent._loading
       ? String(selectedEvent.issue.id)
       : null;
 
-    if (!openId) return;
-    if (issueParam === openId) return;
+    // Already in sync
+    if ((issueParam || null) === (openId || null)) return undefined;
 
-    const query = { ...router.query, issue: openId };
-    if (!issueParam) {
-      openedViaPushRef.current = true;
-      router.push({ pathname: router.pathname, query }, undefined, { shallow: true });
-    } else {
-      router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+    // Selection open, URL not yet — push (or replace when switching issues)
+    if (openId) {
+      const query = { ...router.query, issue: openId };
+      if (!issueParam) {
+        openedViaPushRef.current = true;
+        router.push({ pathname: router.pathname, query }, undefined, { shallow: true });
+      } else {
+        router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+      }
+      return undefined;
     }
+
+    // URL lost ?issue= (browser back) while we still had a selection — only if we had pushed
+    if (!issueParam && selectedEvent && openedViaPushRef.current) {
+      openedViaPushRef.current = false;
+      queueMicrotask(() => {
+        setSelectedEvent(null);
+        setDetailLoading(false);
+      });
+    }
+
+    return undefined;
   }, [router, user, selectedEvent, fetchIssue, showFirstEvent, showNotification]);
 
   const activeItemId = selectedEvent
