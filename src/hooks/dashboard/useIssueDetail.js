@@ -2,15 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * The open issue/event in the detail panel: opening, cycling through an issue's events,
- * the ?issue= deep link and the phone back-button behaviour.
+ * the ?issue= deep link and phone back behaviour (URL history only — no extra pushState).
  */
-export default function useIssueDetail({ router, user }) {
+export default function useIssueDetail({ router, user, showNotification }) {
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [issueEventIndices, setIssueEventIndices] = useState({}); // current event index per issue
-  const detailPushedRef = useRef(false);
   const deepLinkHandledRef = useRef(false);
-  const deepLinkPendingRef = useRef(false);
+  const skipUrlClearRef = useRef(false);
+  const openedViaPushRef = useRef(false);
 
   const fetchIssue = useCallback(async (id) => {
     try {
@@ -28,7 +29,9 @@ export default function useIssueDetail({ router, user }) {
     if (issue?.events?.length > 0) {
       setSelectedEvent({ ...issue.events[0], issue: summary.title ? summary : issue });
       setActiveTab('overview');
+      return true;
     }
+    return false;
   }, []);
 
   // Open an issue (or standalone event) in the detail panel
@@ -36,15 +39,38 @@ export default function useIssueDetail({ router, user }) {
     if (item._isStandaloneEvent) {
       setSelectedEvent(item._event);
       setActiveTab('overview');
+      setDetailLoading(false);
       return;
     }
-    showFirstEvent(item, await fetchIssue(item.id));
-  }, [fetchIssue, showFirstEvent]);
+    setDetailLoading(true);
+    setSelectedEvent({ id: `loading-${item.id}`, issue: item, data: {}, _loading: true });
+    setActiveTab('overview');
+    const issue = await fetchIssue(item.id);
+    if (!showFirstEvent(item, issue)) {
+      setSelectedEvent(null);
+      setDetailLoading(false);
+      showNotification?.('Could not open this issue', 'error');
+      return;
+    }
+    setDetailLoading(false);
+  }, [fetchIssue, showFirstEvent, showNotification]);
 
-  const closeDetail = () => {
+  const closeDetail = useCallback(() => {
     setSelectedEvent(null);
     setActiveTab('overview');
-  };
+    setDetailLoading(false);
+    if (router.query.issue) {
+      if (openedViaPushRef.current) {
+        openedViaPushRef.current = false;
+        skipUrlClearRef.current = true;
+        router.back();
+      } else {
+        const query = { ...router.query };
+        delete query.issue;
+        router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+      }
+    }
+  }, [router]);
 
   const showEventAtIndex = async (issue, index) => {
     try {
@@ -74,58 +100,67 @@ export default function useIssueDetail({ router, user }) {
   const navigateToPreviousEvent = (issue, e) => stepEvent(issue, e, -1);
   const navigateToNextEvent = (issue, e) => stepEvent(issue, e, 1);
 
-  // Deep link: /dashboard?issue=123 opens that issue, and the URL follows the open issue
+  // Deep link on first load; keep ?issue= in sync; browser back clears selection
   useEffect(() => {
     if (!router.isReady || !user) return;
+
     const issueParam = router.query.issue;
+
     if (!deepLinkHandledRef.current) {
       deepLinkHandledRef.current = true;
       if (issueParam) {
-        deepLinkPendingRef.current = true;
-        const id = parseInt(issueParam);
-        fetchIssue(id).then((issue) => showFirstEvent({ id }, issue)).finally(() => { deepLinkPendingRef.current = false; });
-        return;
+        const id = parseInt(issueParam, 10);
+        if (!isNaN(id)) {
+          let cancelled = false;
+          fetchIssue(id).then((issue) => {
+            if (cancelled) return;
+            if (!showFirstEvent({ id }, issue)) {
+              showNotification?.('Could not open this issue', 'error');
+            }
+          });
+          return () => { cancelled = true; };
+        }
       }
+      return;
     }
-    if (deepLinkPendingRef.current) return;
-    const openId = selectedEvent?.issue?.id ? String(selectedEvent.issue.id) : null;
-    if ((issueParam || null) === openId) return;
-    const query = { ...router.query };
-    if (openId) query.issue = openId; else delete query.issue;
-    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
-  }, [router, user, selectedEvent, fetchIssue, showFirstEvent]);
 
-  // Phone back button closes the detail view instead of leaving the dashboard
-  const detailOpen = !!selectedEvent;
-  useEffect(() => {
-    const isPhone = window.matchMedia('(max-width: 768px)').matches;
-    if (!isPhone) return;
-    if (detailOpen && !detailPushedRef.current) {
-      window.history.pushState({ smDetail: true }, '');
-      detailPushedRef.current = true;
-    } else if (!detailOpen && detailPushedRef.current) {
-      detailPushedRef.current = false;
-      if (window.history.state?.smDetail) window.history.back();
+    if (skipUrlClearRef.current) {
+      skipUrlClearRef.current = false;
+      return;
     }
-  }, [detailOpen]);
 
-  useEffect(() => {
-    const onPop = () => {
-      if (detailPushedRef.current) {
-        detailPushedRef.current = false;
+    // Browser back / forward removed ?issue= while detail is open
+    if (!issueParam && selectedEvent && !selectedEvent._loading) {
+      queueMicrotask(() => {
         setSelectedEvent(null);
-      }
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
+        setDetailLoading(false);
+        openedViaPushRef.current = false;
+      });
+      return;
+    }
+
+    const openId = selectedEvent?.issue?.id && !selectedEvent._loading
+      ? String(selectedEvent.issue.id)
+      : null;
+
+    if (!openId) return;
+    if (issueParam === openId) return;
+
+    const query = { ...router.query, issue: openId };
+    if (!issueParam) {
+      openedViaPushRef.current = true;
+      router.push({ pathname: router.pathname, query }, undefined, { shallow: true });
+    } else {
+      router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+    }
+  }, [router, user, selectedEvent, fetchIssue, showFirstEvent, showNotification]);
 
   const activeItemId = selectedEvent
     ? (selectedEvent.issue ? selectedEvent.issue.id : `event-${selectedEvent.id}`)
     : null;
 
   return {
-    selectedEvent, setSelectedEvent, activeTab, setActiveTab, activeItemId, issueEventIndices,
+    selectedEvent, setSelectedEvent, detailLoading, activeTab, setActiveTab, activeItemId, issueEventIndices,
     openItem, closeDetail, navigateToPreviousEvent, navigateToNextEvent,
   };
 }

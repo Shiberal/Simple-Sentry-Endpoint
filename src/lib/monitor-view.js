@@ -8,15 +8,19 @@ import { isHeartbeatAlive } from './worker-heartbeat.js';
 /**
  * Load monitors matching `where` and shape them for the UI: health, schedule text, recent check-ins,
  * stats (windows, streak, incidents, bucketed series for `range`) and a summary across them.
+ *
+ * `compact: true` trims per-monitor payload for list boards (shorter history, no checkIns / daily /
+ * incident details). Summary still includes the rolled-up daily series for overview charts.
  */
-export async function loadMonitorViews(where, { range = '30d', now = new Date() } = {}) {
+export async function loadMonitorViews(where, { range = '30d', now = new Date(), compact = false } = {}) {
+  const historyTake = compact ? 30 : 60;
   const monitors = await prisma.cronMonitor.findMany({
     where,
     include: {
       project: { select: { id: true, name: true, key: true } },
       checkIns: {
         orderBy: { createdAt: 'desc' },
-        take: 60,
+        take: historyTake,
         select: { id: true, status: true, durationMs: true, environment: true, data: true, createdAt: true }
       }
     }
@@ -44,11 +48,17 @@ export async function loadMonitorViews(where, { range = '30d', now = new Date() 
 
     const full = statsById.get(m.id);
     const w24 = full.windows['24h'];
+    const historyLimit = compact ? 12 : historyTake;
+    const history = [...recent].slice(0, historyLimit).reverse().map((c) => ({
+      status: c.status, durationMs: c.durationMs, at: c.createdAt
+    }));
 
     return {
       ...m,
-      checkIns: recent.slice(0, 8).map((c) => ({ ...c, source: c.data?.source || 'sdk', results: c.data?.results || null, data: undefined })),
-      history: [...recent].reverse().map((c) => ({ status: c.status, durationMs: c.durationMs, at: c.createdAt })),
+      checkIns: compact
+        ? []
+        : recent.slice(0, 8).map((c) => ({ ...c, source: c.data?.source || 'sdk', results: c.data?.results || null, data: undefined })),
+      history,
       health: health.health,
       healthReason: health.reason,
       // Ping monitors without a cron schedule still run, on the default interval
@@ -71,8 +81,10 @@ export async function loadMonitorViews(where, { range = '30d', now = new Date() 
         streak: full.streak,
         lastSuccessAt: full.lastSuccessAt,
         lastFailureAt: full.lastFailureAt,
-        incidents: full.incidents,
-        daily: full.daily
+        incidents: compact
+          ? { count30d: full.incidents.count30d, ongoing: full.incidents.ongoing, mttrMs: full.incidents.mttrMs, longestMs: full.incidents.longestMs, recent: [] }
+          : full.incidents,
+        daily: compact ? [] : full.daily
       }
     };
   });
@@ -81,11 +93,11 @@ export async function loadMonitorViews(where, { range = '30d', now = new Date() 
 
   const summary = { total: enriched.length, ok: 0, failing: 0, missed: 0, running: 0, paused: 0, pending: 0, unknown: 0 };
   enriched.forEach((m) => { summary[m.health] += 1; });
-  const rollup = summarizeProjectStats(enriched.map((m) => m.stats));
+  // Roll up from full stats so compact list responses still get overview charts
+  const rollup = summarizeProjectStats([...statsById.values()]);
   summary.uptime24h = rollup.windows['24h'].uptime;
   summary.runs24h = rollup.windows['24h'].runs;
   summary.stats = rollup;
-
 
   return { monitors: enriched, summary };
 }

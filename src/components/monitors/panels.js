@@ -1,5 +1,5 @@
-import { Fragment, useCallback, useEffect, useState } from 'react';
-import { ago, fmtDuration, pct, rateTone, span } from './helpers';
+import { Fragment, memo, useCallback, useEffect, useState } from 'react';
+import { ago, fmtDuration, pct, rateTone } from './helpers';
 import { ChartPanel } from './charts';
 import m from '@/styles/Monitors.module.css';
 
@@ -39,7 +39,7 @@ export function StatsPanel({ stats, now, range }) {
           ? 'None in 30 days'
           : <>{inc.count30d} in 30 days{inc.mttrMs != null && <> · avg recovery {fmtDuration(inc.mttrMs)}</>}{inc.longestMs != null && <> · longest {fmtDuration(inc.longestMs)}</>}</>}
       </p>
-      {inc.recent.length > 0 && (
+      {inc.recent?.length > 0 && (
         <ul className={m.incidentList}>
           {inc.recent.slice(0, 5).map((i) => (
             <li key={String(i.startedAt)} title={new Date(i.startedAt).toLocaleString()}>
@@ -48,7 +48,7 @@ export function StatsPanel({ stats, now, range }) {
           ))}
         </ul>
       )}
-      <ChartPanel series={stats.daily} range={range} />
+      {stats.daily?.length > 0 && <ChartPanel series={stats.daily} range={range} />}
       <p className={m.faint}>Rates count runs that reported; missed runs show as health, not here.</p>
     </div>
   );
@@ -147,8 +147,8 @@ export function CheckInHistory({ projectId, monitorId, now, refreshKey, day = nu
 }
 
 
-/** Last 30 runs as a strip of bars: colour = outcome, height = duration relative to the slowest. */
-export function History({ history: all, slots = 30 }) {
+/** Last N runs as a strip of bars: colour = outcome, height = duration relative to the slowest. */
+export const History = memo(function History({ history: all, slots = 30 }) {
   const SLOTS = slots;
   const history = all.slice(-SLOTS);
   const slowest = Math.max(1, ...history.map((h) => h.durationMs || 0));
@@ -170,4 +170,4 @@ export function History({ history: all, slots = 30 }) {
       })}
     </div>
   );
-}
+});

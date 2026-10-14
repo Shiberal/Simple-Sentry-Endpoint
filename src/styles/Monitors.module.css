@@ -324,6 +324,7 @@ button.pill:hover, .pillActive { border-color: var(--border-primary); background
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
+  text-decoration: none;
   transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
@@ -683,8 +684,15 @@ button.pill:hover, .pillActive { border-color: var(--border-primary); background
   }
 
   .iconButton {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .history {
+    display: none;
   }
 
   .dialog {

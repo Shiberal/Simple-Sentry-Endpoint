@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Icon from '@/components/Icon';
+import useMediaQuery from '@/hooks/useMediaQuery';
 import { getEventTitle } from '@/lib/event-display';
 import styles from '@/styles/Dashboard.module.css';
 import OverviewTab from './event-detail/OverviewTab';
@@ -12,6 +13,7 @@ export default function EventDetail({
   closeDetail,
   copyIssueLink,
   copyToClipboard,
+  detailLoading,
   handleCreateGitHubIssue,
   handleIgnoreIssue,
   handleResolveIssue,
@@ -26,6 +28,18 @@ export default function EventDetail({
   const [prettifiedMessage, setPrettifiedMessage] = useState(false);
   const [copiedError, setCopiedError] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const isPhone = useMediaQuery('(max-width: 768px)');
+
+  useEffect(() => {
+    if (!menuOpen) return undefined;
+    const onDoc = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+    };
+    document.addEventListener('pointerdown', onDoc);
+    return () => document.removeEventListener('pointerdown', onDoc);
+  }, [menuOpen]);
 
   if (!selectedEvent) {
     return (
@@ -45,78 +59,138 @@ export default function EventDetail({
     );
   }
 
-  const data = selectedEvent.data;
-  
+  if (selectedEvent._loading || detailLoading) {
+    return (
+      <div className={styles.detailPanel}>
+        <div className={styles.detailHeader}>
+          {isPhone && (
+            <button type="button" onClick={closeDetail} className={styles.backButton} aria-label="Back to issues">
+              <Icon name="chevronLeft" size={18} strokeWidth={2} />
+              <span>Issues</span>
+            </button>
+          )}
+          <h3 className={styles.detailTitle}>{selectedEvent.issue?.title || 'Loading…'}</h3>
+        </div>
+        <div className={styles.detailContent}>
+          <p className={styles.emptyDetailText}>Loading issue details…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const data = selectedEvent.data || {};
+
+  const actionButtons = (
+    <>
+      {selectedEvent.issue && (
+        <>
+          <button
+            type="button"
+            onClick={() => { handleResolveIssue(selectedEvent.issue); setMenuOpen(false); }}
+            className={styles.resolveButton}
+            title={selectedEvent.issue.status === 'RESOLVED' ? 'Reopen issue' : 'Resolve issue'}
+            data-on={selectedEvent.issue.status === 'RESOLVED' ? 'success' : undefined}
+          >
+            {selectedEvent.issue.status === 'RESOLVED' ? <><Icon name="checkCircle" size={14} /> Resolved</> : <><Icon name="circle" size={14} /> Resolve</>}
+          </button>
+          <button
+            type="button"
+            onClick={() => { handleIgnoreIssue(selectedEvent.issue); setMenuOpen(false); }}
+            className={styles.ignoreButton}
+            title={selectedEvent.issue.status === 'IGNORED' ? 'Unignore issue' : "Ignore issue - won't appear in main view or auto-report to GitHub"}
+            data-on={selectedEvent.issue.status === 'IGNORED' ? 'muted' : undefined}
+          >
+            <><Icon name="eyeOff" size={14} /> {selectedEvent.issue.status === 'IGNORED' ? 'Ignored' : 'Ignore'}</>
+          </button>
+        </>
+      )}
+      <button
+        type="button"
+        onClick={() => { handleCreateGitHubIssue(selectedEvent); setMenuOpen(false); }}
+        className={styles.githubButton}
+        title={selectedEvent.issue?.githubIssueUrl ? 'Open existing GitHub issue' : 'Create GitHub issue'}
+        data-on={selectedEvent.issue?.githubIssueUrl ? 'success' : undefined}
+      >
+        <Icon name="github" size={15} />
+        {isPhone && <span>GitHub</span>}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          if (selectedEvent.issue) {
+            setDeletingIssue(selectedEvent.issue);
+          } else {
+            setDeletingEvent(selectedEvent);
+          }
+          setShowDeleteConfirm(true);
+          setMenuOpen(false);
+        }}
+        className={styles.deleteButton}
+        title={selectedEvent.issue ? 'Delete this issue' : 'Delete this event'}
+      >
+        <Icon name="trash" size={15} />
+        {isPhone && <span>Delete</span>}
+      </button>
+      {selectedEvent.issue && (
+        <button
+          type="button"
+          onClick={() => { copyIssueLink(); setMenuOpen(false); }}
+          className={styles.closeButton}
+          title="Copy link to this issue"
+          aria-label="Copy link to this issue"
+        >
+          <Icon name="link" size={15} />
+          {isPhone && <span>Copy link</span>}
+        </button>
+      )}
+    </>
+  );
+
   return (
     <div className={styles.detailPanel}>
       <div className={styles.detailHeader}>
-        <h3 className={styles.detailTitle}>{getEventTitle(selectedEvent)}</h3>
-        <div className={styles.detailHeaderActions}>
-          {selectedEvent.issue && (
-            <>
-              <button 
-                onClick={() => handleResolveIssue(selectedEvent.issue)}
-                className={styles.resolveButton}
-                title={selectedEvent.issue.status === 'RESOLVED' ? "Reopen issue" : "Resolve issue"}
-                data-on={selectedEvent.issue.status === 'RESOLVED' ? 'success' : undefined}
-              >
-                {selectedEvent.issue.status === 'RESOLVED' ? <><Icon name="checkCircle" size={14} /> Resolved</> : <><Icon name="circle" size={14} /> Resolve</>}
-              </button>
-              <button 
-                onClick={() => handleIgnoreIssue(selectedEvent.issue)}
-                className={styles.ignoreButton}
-                title={selectedEvent.issue.status === 'IGNORED' ? "Unignore issue" : "Ignore issue - won't appear in main view or auto-report to GitHub"}
-                data-on={selectedEvent.issue.status === 'IGNORED' ? 'muted' : undefined}
-              >
-                <><Icon name="eyeOff" size={14} /> {selectedEvent.issue.status === 'IGNORED' ? 'Ignored' : 'Ignore'}</>
-              </button>
-            </>
-          )}
-          <button 
-            onClick={() => handleCreateGitHubIssue(selectedEvent)}
-            className={styles.githubButton}
-            title={selectedEvent.issue?.githubIssueUrl ? "Open existing GitHub issue" : "Create GitHub issue"}
-            data-on={selectedEvent.issue?.githubIssueUrl ? 'success' : undefined}
-          >
-            <Icon name="github" size={15} />
-          </button>
-          <button 
-            onClick={() => {
-              if (selectedEvent.issue) {
-                setDeletingIssue(selectedEvent.issue);
-              } else {
-                setDeletingEvent(selectedEvent);
-              }
-              setShowDeleteConfirm(true);
-            }}
-            className={styles.deleteButton}
-            title={selectedEvent.issue ? "Delete this issue" : "Delete this event"}
-          >
-            <Icon name="trash" size={15} />
-          </button>
-          {selectedEvent.issue && (
-            <button
-              onClick={copyIssueLink}
-              className={styles.closeButton}
-              title="Copy link to this issue"
-              aria-label="Copy link to this issue"
-            >
-              <Icon name="link" size={15} />
+        {isPhone ? (
+          <>
+            <button type="button" onClick={closeDetail} className={styles.backButton} aria-label="Back to issues">
+              <Icon name="chevronLeft" size={18} strokeWidth={2} />
+              <span>Issues</span>
             </button>
-          )}
-          <button 
-            onClick={closeDetail}
-            className={styles.closeButton}
-            aria-label="Close detail (Esc)"
-            title="Close (Esc)"
-          >
-            <Icon name="x" size={15} />
-          </button>
-        </div>
+            <h3 className={styles.detailTitle}>{getEventTitle(selectedEvent)}</h3>
+            <div className={styles.detailHeaderActions} ref={menuRef}>
+              <button
+                type="button"
+                className={styles.moreButton}
+                aria-label="Issue actions"
+                aria-expanded={menuOpen}
+                onClick={() => setMenuOpen((o) => !o)}
+              >
+                <Icon name="moreHorizontal" size={18} />
+              </button>
+              {menuOpen && <div className={styles.detailActionMenu} role="menu">{actionButtons}</div>}
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 className={styles.detailTitle}>{getEventTitle(selectedEvent)}</h3>
+            <div className={styles.detailHeaderActions}>
+              {actionButtons}
+              <button
+                type="button"
+                onClick={closeDetail}
+                className={styles.closeButton}
+                aria-label="Close detail (Esc)"
+                title="Close (Esc)"
+              >
+                <Icon name="x" size={15} />
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className={styles.tabsContainer}>
         <button
+          type="button"
           onClick={() => setActiveTab('overview')}
           className={`${styles.tab} ${activeTab === 'overview' ? styles.tabActive : ''}`}
         >
@@ -124,6 +198,7 @@ export default function EventDetail({
         </button>
         {data.exception?.values?.[0]?.stacktrace?.frames && (
           <button
+            type="button"
             onClick={() => setActiveTab('stacktrace')}
             className={`${styles.tab} ${activeTab === 'stacktrace' ? styles.tabActive : ''}`}
           >
@@ -132,6 +207,7 @@ export default function EventDetail({
         )}
         {((data.breadcrumbs?.values?.length > 0) || (Array.isArray(data.breadcrumbs) && data.breadcrumbs.length > 0)) && (
           <button
+            type="button"
             onClick={() => setActiveTab('breadcrumbs')}
             className={`${styles.tab} ${activeTab === 'breadcrumbs' ? styles.tabActive : ''}`}
           >
@@ -140,6 +216,7 @@ export default function EventDetail({
         )}
         {(data.request || data.contexts) && (
           <button
+            type="button"
             onClick={() => setActiveTab('context')}
             className={`${styles.tab} ${activeTab === 'context' ? styles.tabActive : ''}`}
           >
@@ -148,6 +225,7 @@ export default function EventDetail({
         )}
         {(data.type === 'transaction' || selectedEvent.eventType === 'TRANSACTION') && (
           <button
+            type="button"
             onClick={() => setActiveTab('performance')}
             className={`${styles.tab} ${activeTab === 'performance' ? styles.tabActive : ''}`}
           >
@@ -155,13 +233,14 @@ export default function EventDetail({
           </button>
         )}
         <button
+          type="button"
           onClick={() => setActiveTab('raw')}
           className={`${styles.tab} ${activeTab === 'raw' ? styles.tabActive : ''}`}
         >
           Raw JSON
         </button>
       </div>
-            <div className={styles.detailContent}>
+      <div className={styles.detailContent}>
         {activeTab === 'overview' && (
           <OverviewTab
             selectedEvent={selectedEvent}
@@ -216,7 +295,8 @@ export default function EventDetail({
           <div className={styles.detailSection}>
             <div className={styles.rawHeaderWithCopy}>
               <h4 className={styles.detailSectionTitle}>Raw Event Data</h4>
-              <button 
+              <button
+                type="button"
                 onClick={() => copyToClipboard(JSON.stringify(data, null, 2))}
                 className={styles.copyButton}
               >

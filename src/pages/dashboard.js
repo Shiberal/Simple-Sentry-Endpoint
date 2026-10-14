@@ -91,9 +91,9 @@ export default function Dashboard() {
   });
 
   const {
-    selectedEvent, setSelectedEvent, activeTab, setActiveTab, activeItemId, issueEventIndices,
+    selectedEvent, setSelectedEvent, detailLoading, activeTab, setActiveTab, activeItemId, issueEventIndices,
     openItem, closeDetail, navigateToPreviousEvent, navigateToNextEvent,
-  } = useIssueDetail({ router, user });
+  } = useIssueDetail({ router, user, showNotification });
 
   const exitSelectionMode = () => {
     setIsSelectionMode(false);
@@ -328,7 +328,7 @@ export default function Dashboard() {
         <title>{`${unresolvedCount > 0 ? `(${unresolvedCount}) ` : ''}Dashboard - Sentry Monitor`}</title>
       </Head>
 
-      <div className={shell.container}>
+      <div className={`${shell.container} ${selectedEvent && isPhone ? shell.detailMode : ''}`}>
         <AppNav active={selectedProject ? undefined : 'dashboard'} isAdmin={user.isAdmin} onLogout={handleLogout}>
           {/* Project Selector (Discord-like) */}
           <div
@@ -418,20 +418,30 @@ export default function Dashboard() {
 
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
             {!sidebarCollapsed && (
-              <FilterSidebar
-                selectedProject={selectedProject}
-                projects={projects}
-                filterStatus={filterStatus}
-                setFilterStatus={setFilterStatus}
-                filterLevel={filterLevel}
-                setFilterLevel={setFilterLevel}
-                refreshInterval={refreshInterval}
-                setRefreshInterval={setRefreshInterval}
-                desktopAlerts={desktopAlerts}
-                onToggleDesktopAlerts={toggleDesktopAlerts}
-                onExport={handleExport}
-                onShowShortcuts={() => setShowShortcuts(true)}
-              />
+              <>
+                {isPhone && (
+                  <button
+                    type="button"
+                    className={shell.sidebarBackdrop}
+                    aria-label="Close filters"
+                    onClick={() => setSidebarChoice(true)}
+                  />
+                )}
+                <FilterSidebar
+                  selectedProject={selectedProject}
+                  projects={projects}
+                  filterStatus={filterStatus}
+                  setFilterStatus={setFilterStatus}
+                  filterLevel={filterLevel}
+                  setFilterLevel={setFilterLevel}
+                  refreshInterval={refreshInterval}
+                  setRefreshInterval={setRefreshInterval}
+                  desktopAlerts={desktopAlerts}
+                  onToggleDesktopAlerts={toggleDesktopAlerts}
+                  onExport={handleExport}
+                  onShowShortcuts={() => setShowShortcuts(true)}
+                />
+              </>
             )}
 
             <div className={`${shell.contentWrapper} ${styles.contentWrapper}`}>
@@ -506,11 +516,12 @@ export default function Dashboard() {
               </div>
 
               <EventDetail
-                key={selectedEvent?.id ?? 'none'}
+                key={selectedEvent?._loading ? 'loading' : (selectedEvent?.id ?? 'none')}
                 activeTab={activeTab}
                 closeDetail={closeDetail}
                 copyIssueLink={copyIssueLink}
                 copyToClipboard={copyToClipboard}
+                detailLoading={detailLoading}
                 handleCreateGitHubIssue={handleCreateGitHubIssue}
                 handleIgnoreIssue={handleIgnoreIssue}
                 handleResolveIssue={handleResolveIssue}

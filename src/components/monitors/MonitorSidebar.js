@@ -1,24 +1,29 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { REFRESH_MS, projectLabel, scopeOf, span } from './helpers';
+import useMediaQuery from '@/hooks/useMediaQuery';
+import { REFRESH_MS, projectLabel, scopeOf } from './helpers';
 import { History } from './panels';
 import m from '@/styles/Monitors.module.css';
 
 /** Left rail on the monitor page: every monitor with its 24h success badge and a mini run strip, searchable. */
 export function MonitorSidebar({ activeId, scope = null }) {
+  const hidden = useMediaQuery('(max-width: 900px)');
   const [monitors, setMonitors] = useState(null);
   const [q, setQ] = useState('');
 
   useEffect(() => {
+    if (hidden) return undefined;
     let live = true;
     const load = () => {
       if (document.hidden) return;
-      fetch('/api/monitors').then((r) => r.json()).then((j) => live && j.monitors && setMonitors(j.monitors)).catch(() => {});
+      fetch('/api/monitors?compact=1').then((r) => r.json()).then((j) => live && j.monitors && setMonitors(j.monitors)).catch(() => {});
     };
     load();
     const t = setInterval(load, REFRESH_MS);
     return () => { live = false; clearInterval(t); };
-  }, []);
+  }, [hidden]);
+
+  if (hidden) return null;
 
   const term = q.trim().toLowerCase();
   const shown = (monitors || []).filter((x) => (scope == null || scopeOf(x) === scope) && (!term || `${x.name || ''} ${x.slug} ${projectLabel(x)}`.toLowerCase().includes(term)));

@@ -7,21 +7,66 @@ import MonitorDialog from '@/components/monitors/MonitorDialog';
 import AppNav from '@/components/shared/AppNav';
 import shell from '@/styles/AppShell.module.css';
 import { ActivityOverview } from '@/components/monitors/ActivityOverview';
-import { CHART_MODES, HEALTH, REFRESH_MS, RANGE_OPTIONS, monitorApi, ago, fmtDuration, pct, rateTone, until, projectLabel, scopeOf } from '@/components/monitors/helpers';
+import RelativeTime from '@/components/monitors/RelativeTime';
+import useMediaQuery from '@/hooks/useMediaQuery';
+import { CHART_MODES, HEALTH, REFRESH_MS, PHONE_REFRESH_MS, RANGE_OPTIONS, monitorApi, fmtDuration, pct, rateTone, projectLabel, scopeOf } from '@/components/monitors/helpers';
 import { ChartPanel, Sparkline } from '@/components/monitors/charts';
 import { CheckInHistory, History, StatsPanel } from '@/components/monitors/panels';
 
 import m from '@/styles/Monitors.module.css';
 
+/** Desktop expand panel: list is compact, so fetch full stats when a row opens. */
+function ExpandedMonitorDetails({ mon, range, onEdit, onDelete }) {
+  const [now] = useState(() => Date.now());
+  const needsFetch = !mon.stats?.daily?.length;
+  const [fetched, setFetched] = useState(null);
+  useEffect(() => {
+    if (!needsFetch) return undefined;
+    let live = true;
+    fetch(`/api/monitors/${mon.id}?range=${range}`)
+      .then((r) => r.json())
+      .then((j) => live && j.monitor && setFetched(j.monitor))
+      .catch(() => {});
+    return () => { live = false; };
+  }, [mon.id, range, needsFetch]);
+  const detail = (needsFetch ? fetched : mon) || mon;
+  const statsReady = needsFetch ? fetched?.stats : mon.stats;
+  return (
+    <div className={m.details}>
+      <div className={m.detailGrid}>
+        <div>
+          <h3 className={m.detailTitle}>Configuration</h3>
+          <p className={m.detailLine}><span>Schedule</span> {detail.scheduleText ? <>{detail.scheduleText}{detail.schedule && detail.scheduleText !== detail.schedule && <code className={m.code}>{detail.schedule}</code>}</> : 'None (SDK check-ins only)'}</p>
+          <p className={m.detailLine}><span>Status</span> {detail.healthReason}</p>
+          {detail.pingUrls?.length > 0 && (
+            <div className={m.detailLine}><span>Ping URLs</span>
+              <ul className={m.urlList}>{detail.pingUrls.map((u) => <li key={u} className={m.mono}>{u}</li>)}</ul>
+            </div>
+          )}
+          <div className={m.detailActions}>
+            <Link href={`/monitors/${mon.id}`} className={m.editButton}>Open monitor</Link>
+            <button type="button" className={m.editButton} onClick={onEdit}>Edit monitor</button>
+            <button type="button" className={m.dangerLink} onClick={onDelete}>
+              <Icon name="trash" size={13} /> Delete
+            </button>
+          </div>
+        </div>
+        {statsReady ? <StatsPanel stats={statsReady} now={now} range={range} /> : <p className={m.faint}>Loading stats…</p>}
+        <CheckInHistory projectId={scopeOf(mon)} monitorId={mon.id} now={now} refreshKey={String(mon.lastRunAt)} />
+      </div>
+    </div>
+  );
+}
+
 export default function MonitorsPage() {
   const router = useRouter();
+  const isPhone = useMediaQuery('(max-width: 768px)');
   const [user, setUser] = useState(null);
   const [projects, setProjects] = useState([]);
   const [pid, setPid] = useState(null);
   const [data, setData] = useState({ monitors: [], summary: null, scheduler: null });
   const [loading, setLoading] = useState(true);
   const [loadingMonitors, setLoadingMonitors] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
   const [filter, setFilter] = useState('all');
   const [expanded, setExpanded] = useState(null);
   const [range, setRange] = useState('30d');
@@ -49,14 +94,14 @@ export default function MonitorsPage() {
     if (!projectId) return;
     if (!quiet) setLoadingMonitors(true);
     try {
-      const res = await fetch(projectId === 'all' ? `/api/monitors?range=${range}` : `/api/projects/${projectId}/monitors?range=${range}`);
+      const q = `range=${range}&compact=1`;
+      const res = await fetch(projectId === 'all' ? `/api/monitors?${q}` : `/api/projects/${projectId}/monitors?${q}`);
       const j = await res.json();
       if (!res.ok) {
         if (!quiet) setError(j.error || 'Could not load monitors');
         return;
       }
       setData({ monitors: j.monitors || [], summary: j.summary, scheduler: j.scheduler });
-      setNow(Date.now());
     } finally {
       setLoadingMonitors(false);
     }
@@ -98,22 +143,17 @@ export default function MonitorsPage() {
   // Keep the board live: refresh while the tab is visible, and catch up when it returns
   useEffect(() => {
     if (!pid) return undefined;
+    const interval = isPhone ? PHONE_REFRESH_MS : REFRESH_MS;
     const tick = () => {
       if (!document.hidden) loadMonitors(pid, { quiet: true });
     };
-    const id = setInterval(tick, REFRESH_MS);
+    const id = setInterval(tick, interval);
     document.addEventListener('visibilitychange', tick);
     return () => {
       clearInterval(id);
       document.removeEventListener('visibilitychange', tick);
     };
-  }, [pid, loadMonitors]);
-
-  // Relative times ("3m ago") advance between refreshes
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 30000);
-    return () => clearInterval(id);
-  }, []);
+  }, [pid, loadMonitors, isPhone]);
 
   const closeDialog = () => {
     setShowNew(false);
@@ -295,7 +335,7 @@ export default function MonitorsPage() {
                 <div>
                   <strong>
                     {scheduler.state === 'stopped'
-                      ? `The ping worker stopped reporting ${ago(scheduler.workers[0]?.lastTickAt, now)}.`
+                      ? <>The ping worker stopped reporting <RelativeTime date={scheduler.workers[0]?.lastTickAt} />.</>
                       : 'No ping worker has reported in.'}
                   </strong>{' '}
                   Monitors with ping URLs only run while a scheduler is running
@@ -314,7 +354,7 @@ export default function MonitorsPage() {
                   const w = scheduler.workers.find((x) => x.alive);
                   return (
                     <span>
-                      Scheduler running ({w.kind === 'in-process' ? 'in the web server' : w.kind === 'cron' ? 'external cron' : 'ping worker'}) · last check {ago(w.lastTickAt, now)} · {w.ticks} check{w.ticks === 1 ? '' : 's'} since {new Date(w.startedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      Scheduler running ({w.kind === 'in-process' ? 'in the web server' : w.kind === 'cron' ? 'external cron' : 'ping worker'}) · last check <RelativeTime date={w.lastTickAt} /> · {w.ticks} check{w.ticks === 1 ? '' : 's'} since {new Date(w.startedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       {w.lastError && <span className={m.textBad}> · last error: {w.lastError}</span>}
                       {scheduler.overduePingMonitors > 0 && <span className={m.textWarn}> · {scheduler.overduePingMonitors} monitor{scheduler.overduePingMonitors === 1 ? '' : 's'} overdue, check the worker logs</span>}
                     </span>
@@ -357,9 +397,9 @@ export default function MonitorsPage() {
               </section>
             )}
 
-            {pid === 'all' && monitors.length > 0 && <ActivityOverview refreshKey={String(summary?.runs24h)} monitors={monitors} now={now} />}
+            {pid === 'all' && monitors.length > 0 && <ActivityOverview refreshKey={String(summary?.runs24h)} monitors={monitors} />}
 
-            {monitors.length > 0 && summary?.stats && (
+            {monitors.length > 0 && summary?.stats && !isPhone && (
               <section className={m.overview} aria-label="Project overview">
                 <div className={m.overviewHead}>
                   <h2 className={m.detailTitle}>All monitors</h2>
@@ -428,16 +468,16 @@ export default function MonitorsPage() {
                           </div>
                         </div>
 
-                        <History history={mon.history} />
+                        {!isPhone && <History history={mon.history} />}
 
                         <dl className={m.facts}>
                           <div title={mon.lastRunAt ? new Date(mon.lastRunAt).toLocaleString() : ''}>
                             <dt>Last run</dt>
-                            <dd>{ago(mon.lastRunAt, now)}{mon.lastDurationMs != null && <span className={m.faint}> · {fmtDuration(mon.lastDurationMs)}</span>}</dd>
+                            <dd><RelativeTime date={mon.lastRunAt} />{mon.lastDurationMs != null && <span className={m.faint}> · {fmtDuration(mon.lastDurationMs)}</span>}</dd>
                           </div>
                           <div title={mon.nextRunAt ? new Date(mon.nextRunAt).toLocaleString() : ''}>
                             <dt>Next</dt>
-                            <dd>{paused ? 'paused' : until(mon.nextRunAt, now)}</dd>
+                            <dd>{paused ? 'paused' : <RelativeTime date={mon.nextRunAt} mode="until" />}</dd>
                           </div>
                           <div>
                             <dt>Success 24h</dt>
@@ -460,36 +500,25 @@ export default function MonitorsPage() {
                           <button type="button" className={m.iconButton} onClick={() => togglePause(mon)} disabled={busy === mon.id} aria-label={paused ? `Resume ${mon.slug}` : `Pause ${mon.slug}`} title={paused ? 'Resume' : 'Pause'}>
                             <Icon name={paused ? 'play' : 'pause'} size={14} />
                           </button>
-                          <button type="button" className={`${m.iconButton} ${open ? m.iconButtonOpen : ''}`} onClick={() => setExpanded(open ? null : mon.id)} aria-expanded={open} aria-label={`Details for ${mon.slug}`} title="Details">
-                            <Icon name="chevronDown" size={14} strokeWidth={2} />
-                          </button>
+                          {isPhone ? (
+                            <Link href={`/monitors/${mon.id}`} className={m.iconButton} aria-label={`Open ${mon.slug}`} title="Open">
+                              <Icon name="chevronRight" size={14} strokeWidth={2} />
+                            </Link>
+                          ) : (
+                            <button type="button" className={`${m.iconButton} ${open ? m.iconButtonOpen : ''}`} onClick={() => setExpanded(open ? null : mon.id)} aria-expanded={open} aria-label={`Details for ${mon.slug}`} title="Details">
+                              <Icon name="chevronDown" size={14} strokeWidth={2} />
+                            </button>
+                          )}
                         </div>
                       </div>
 
-                      {open && (
-                        <div className={m.details}>
-                          <div className={m.detailGrid}>
-                            <div>
-                              <h3 className={m.detailTitle}>Configuration</h3>
-                              <p className={m.detailLine}><span>Schedule</span> {mon.scheduleText ? <>{mon.scheduleText}{mon.schedule && mon.scheduleText !== mon.schedule && <code className={m.code}>{mon.schedule}</code>}</> : 'None (SDK check-ins only)'}</p>
-                              <p className={m.detailLine}><span>Status</span> {mon.healthReason}</p>
-                              {mon.pingUrls.length > 0 && (
-                                <div className={m.detailLine}><span>Ping URLs</span>
-                                  <ul className={m.urlList}>{mon.pingUrls.map((u) => <li key={u} className={m.mono}>{u}</li>)}</ul>
-                                </div>
-                              )}
-                              <div className={m.detailActions}>
-                                <Link href={`/monitors/${mon.id}`} className={m.editButton}>Open monitor</Link>
-                                <button type="button" className={m.editButton} onClick={() => openEdit(mon)}>Edit monitor</button>
-                                <button type="button" className={m.dangerLink} onClick={() => deleteMonitor(mon)}>
-                                  <Icon name="trash" size={13} /> Delete
-                                </button>
-                              </div>
-                            </div>
-                            <StatsPanel stats={mon.stats} now={now} range={range} />
-                            <CheckInHistory projectId={scopeOf(mon)} monitorId={mon.id} now={now} refreshKey={String(mon.lastRunAt)} />
-                          </div>
-                        </div>
+                      {!isPhone && open && (
+                        <ExpandedMonitorDetails
+                          mon={mon}
+                          range={range}
+                          onEdit={() => openEdit(mon)}
+                          onDelete={() => deleteMonitor(mon)}
+                        />
                       )}
                     </li>
                   );

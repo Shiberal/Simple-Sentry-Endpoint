@@ -1,22 +1,31 @@
-import { useEffect, useRef, useState } from 'react';
-import { CHART_MODES, bucketLabel, fmtDuration, pct, span } from './helpers';
+import { memo, useEffect, useRef, useState } from 'react';
+import useMediaQuery from '@/hooks/useMediaQuery';
+import { CHART_MODES, bucketLabel, fmtDuration, pct } from './helpers';
 import m from '@/styles/Monitors.module.css';
 
 /** Interactive chart over a bucketed series: hover for exact values. */
 export function Chart({ series, range, mode, height = 150 }) {
   const [hover, setHover] = useState(null);
+  const isPhone = useMediaQuery('(max-width: 768px)');
   // Draw at the real pixel width so axis text stays readable at any size
   const wrapRef = useRef(null);
   const [W, setW] = useState(640);
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return undefined;
-    const measure = () => setW(Math.max(280, Math.round(el.clientWidth)));
+    let raf = 0;
+    const measure = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setW(Math.max(280, Math.round(el.clientWidth))));
+    };
     measure();
     if (typeof ResizeObserver === 'undefined') return undefined;
     const ro = new ResizeObserver(measure);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
   const padL = 40;
   const padB = 18;
@@ -84,7 +93,7 @@ export function Chart({ series, range, mode, height = 150 }) {
           <>
             {series.map((d, i) => d.uptime != null && d.uptime < 90 && <rect key={d.date} x={x(i) - step / 2} y={padT} width={step} height={H - padT - padB} className={m.fillBadSoft} />)}
             <path d={line('uptime')} className={m.lineOk} fill="none" />
-            {series.map((d, i) => d.uptime != null && <circle key={d.date} cx={x(i)} cy={y(d.uptime)} r={n > 40 ? 1.5 : 2.5} className={d.error ? m.dotBad : m.dotOk} />)}
+            {!isPhone && series.map((d, i) => d.uptime != null && <circle key={d.date} cx={x(i)} cy={y(d.uptime)} r={n > 40 ? 1.5 : 2.5} className={d.error ? m.dotBad : m.dotOk} />)}
           </>
         )}
         {mode === 'latency' && (
@@ -240,11 +249,13 @@ export function Heatmap({ projectId, monitorId, selected, onSelect, refreshKey, 
 
 
 /** Last 24h as 5-minute slices: green = all ok, red = any failure (taller with more failures), gray = no runs. */
-export function ActivityStrip({ slices }) {
-  const peak = Math.max(1, ...slices.map((s) => s.error));
+export const ActivityStrip = memo(function ActivityStrip({ slices, maxBars = 288 }) {
+  const step = slices.length > maxBars ? Math.ceil(slices.length / maxBars) : 1;
+  const shown = step === 1 ? slices : slices.filter((_, i) => i % step === 0);
+  const peak = Math.max(1, ...shown.map((s) => s.error));
   return (
     <div className={m.activityStrip} role="img" aria-label="Runs over the last 24 hours">
-      {slices.map((s) => {
+      {shown.map((s) => {
         const total = s.ok + s.error;
         const tone = !total ? m.barEmpty : s.error ? m.barBad : m.barOk;
         const height = !total ? 12 : s.error ? 55 + Math.round((s.error / peak) * 45) : 30;
@@ -259,4 +270,4 @@ export function ActivityStrip({ slices }) {
       })}
     </div>
   );
-}
+});

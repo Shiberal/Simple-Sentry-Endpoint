@@ -19,6 +19,8 @@ export const PRESETS = [
 ];
 
 export const REFRESH_MS = 15000;
+/** Slower board poll on phones to cut network + reconcile cost. */
+export const PHONE_REFRESH_MS = 40000;
 
 export function fmtDuration(ms) {
   if (ms == null) return '-';

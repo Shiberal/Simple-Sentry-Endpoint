@@ -16,7 +16,8 @@ export default async function handler(req, res) {
       select: { id: true, name: true, key: true }
     });
     const now = new Date();
-    const { monitors, summary } = await loadMonitorViews(visibleMonitorsWhere(user.userId), { range: req.query.range, now });
+    const compact = req.query.compact === '1' || req.query.compact === 'true';
+    const { monitors, summary } = await loadMonitorViews(visibleMonitorsWhere(user.userId), { range: req.query.range, now, compact });
     const scheduler = await loadSchedulerInfo(monitors, now);
     return res.status(200).json({ success: true, projects, monitors, summary, scheduler });
   } catch (e) {

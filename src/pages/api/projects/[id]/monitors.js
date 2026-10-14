@@ -15,7 +15,8 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       const now = new Date();
-      const { monitors: enriched, summary } = await loadMonitorViews(scope.where, { range: req.query.range, now });
+      const compact = req.query.compact === '1' || req.query.compact === 'true';
+      const { monitors: enriched, summary } = await loadMonitorViews(scope.where, { range: req.query.range, now, compact });
       const scheduler = await loadSchedulerInfo(enriched, now);
       return res.status(200).json({ success: true, monitors: enriched, summary, scheduler });
     } catch (e) {

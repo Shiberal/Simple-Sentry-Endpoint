@@ -436,6 +436,28 @@
     height: 100dvh;
   }
 
+  /* Issue detail owns the viewport: hide chrome that steals height */
+  .detailMode .navSidebar,
+  .detailMode .header {
+    display: none;
+  }
+
+  .detailMode .main {
+    height: 100%;
+  }
+
+  .sidebarBackdrop {
+    position: fixed;
+    inset: 0;
+    top: 48px;
+    bottom: calc(56px + env(safe-area-inset-bottom));
+    background: rgba(0, 0, 0, 0.45);
+    border: none;
+    padding: 0;
+    z-index: calc(var(--z-modal) - 1);
+    cursor: pointer;
+  }
+
   /* Left icon rail becomes a scrollable bottom tab bar */
   .navSidebar {
     width: 100%;
