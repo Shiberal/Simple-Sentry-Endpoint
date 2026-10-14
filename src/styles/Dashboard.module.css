@@ -1585,6 +1585,18 @@
   text-transform: uppercase;
 }
 
+.activeIssueBadge {
+  flex-shrink: 0;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background-color: var(--error-bg);
+  color: var(--error);
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .eventTypeBadge {
   flex-shrink: 0;
   padding: 0 5px;

@@ -1,4 +1,5 @@
 import { TIME_RANGES } from '@/lib/ui';
+import { matchesLevel } from '@/lib/issue-levels';
 
 /** Issues plus standalone events (transactions etc.) as one sortable list. */
 export function combineItems(issues, standaloneEvents, sortBy) {
@@ -58,9 +59,8 @@ export function filterItems(items, { searchQuery, filterLevel, filterStatus, fil
     const matchesSearch = !searchQuery ||
       item.title.toLowerCase().includes(needle) ||
       (item.project?.name || '').toLowerCase().includes(needle);
-    const matchesLevel = filterLevel === 'all' || item.level === filterLevel;
     const matchesTime = !rangeMs || (now - new Date(item.lastSeen).getTime()) <= rangeMs;
-    return matchesSearch && matchesLevel && matchesStatus(item, filterStatus) &&
+    return matchesSearch && matchesLevel(item.level, filterLevel) && matchesStatus(item, filterStatus) &&
       matchesEventType(item, filterEventType) && matchesTime;
   });
 }

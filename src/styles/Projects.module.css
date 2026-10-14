@@ -183,6 +183,23 @@
   padding: var(--space-3);
 }
 
+.projectMetricLink {
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  cursor: pointer;
+}
+
+.projectMetricLink:hover {
+  border-color: var(--accent-primary);
+  background-color: var(--bg-hover);
+}
+
+.projectMetricLink:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
 .projectMetricLabel {
   color: var(--text-tertiary);
   display: block;

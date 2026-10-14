@@ -271,15 +271,19 @@ export default function ProjectsPage() {
                         </span>
                       </div>
 
-                      <div className={projStyles.projectMetric}>
-                        <span className={projStyles.projectMetricLabel}>Errors</span>
+                      <Link
+                        href={`/dashboard?projectId=${project.id}&status=active&level=all&timeRange=all`}
+                        className={`${projStyles.projectMetric} ${projStyles.projectMetricLink}`}
+                        title="Open active issues (not resolved or ignored), all levels"
+                      >
+                        <span className={projStyles.projectMetricLabel}>Active issues</span>
                         <strong className={projStyles.projectMetricValue}>
                           {project.errors.activeIssues}
                         </strong>
                         <span className={projStyles.projectMetricMeta}>
-                          {project.errors.recentErrorEvents} events | {project.errors.recentIssues} new issues
+                          {project.errors.recentErrorEvents} events | {project.errors.recentIssues} new · view all
                         </span>
-                      </div>
+                      </Link>
                     </div>
 
                     <div className={projStyles.projectAnalyticsDetails}>
@@ -292,7 +296,7 @@ export default function ProjectsPage() {
                     </div>
 
                     <div className={projStyles.projectAnalyticsLinks}>
-                      <Link href={`/dashboard?projectId=${project.id}`}>Issues</Link>
+                      <Link href={`/dashboard?projectId=${project.id}&status=active&level=all&timeRange=all`}>Issues</Link>
                       <Link href={`/performance?projectId=${project.id}`}>Performance</Link>
                       <Link href={`/monitors?projectId=${project.id}`}>Monitors</Link>
                       <Link href={`/project/${project.id}`}>Settings</Link>

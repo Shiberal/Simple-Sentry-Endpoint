@@ -35,6 +35,11 @@ export default function IssueCard({ issue, isSelected, isActive, isNew, isSelect
           <span className={styles.levelMark} style={{ backgroundColor: levelColors(type).fg }} />
           {String(type).toUpperCase()}
         </span>
+        {!issue._isStandaloneEvent && issue.status !== 'RESOLVED' && issue.status !== 'IGNORED' && (
+          <span className={styles.activeIssueBadge} title="Open issue — counted in Active issues on Projects">
+            Active
+          </span>
+        )}
         <span className={styles.eventProject}>{issue.project?.name || 'Unknown project'}</span>
         {isNew && <span className={styles.newBadge}>New</span>}
         {issue.regressedAt && issue.status === 'UNRESOLVED' && (

@@ -87,7 +87,7 @@ export default function FilterSidebar({ selectedProject, projects, filterStatus,
             className={`${styles.projectItem} ${filterLevel === 'error' ? styles.projectItemActive : ''}`}
           >
             <span className={styles.levelDot} style={{ backgroundColor: 'var(--error)' }}></span>
-            <span>Error</span>
+            <span>Error / Fatal</span>
           </button>
           <button
             onClick={() => setFilterLevel('warning')}

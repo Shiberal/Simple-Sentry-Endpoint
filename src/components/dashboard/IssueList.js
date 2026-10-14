@@ -34,16 +34,16 @@ export default function IssueList({
     <div className={shell.empty}>
       <div className={shell.emptyIcon}><Icon name="inbox" size={36} strokeWidth={1.25} /></div>
       <h3 className={shell.emptyTitle}>
-        {issues.length === 0 ? 'No issues yet' : 'No matching issues'}
+        {issues.length === 0 ? 'No issues for these filters' : 'No matching issues'}
       </h3>
       <p className={shell.emptyText}>
-        {issues.length === 0 
-          ? 'Send your first error to see it appear here.'
+        {issues.length === 0
+          ? 'Projects “Active issues” counts every open issue (any level). Switch Level to All Levels, or open Issues from the project card.'
           : 'Try adjusting your search or filter criteria.'
         }
       </p>
-      {issues.length > 0 && hasActiveFilters && (
-        <button onClick={onClearFilters} className={styles.createButton}>Clear filters</button>
+      {hasActiveFilters && (
+        <button onClick={onClearFilters} className={styles.createButton}>Show all levels &amp; statuses</button>
       )}
     </div>
     );

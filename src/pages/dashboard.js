@@ -45,7 +45,8 @@ export default function Dashboard() {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterLevel, setFilterLevel] = usePersistedState('sm.filterLevel', 'error');
+  // Default level=all so the list matches Projects "Active issues" (any severity, not resolved/ignored)
+  const [filterLevel, setFilterLevel] = usePersistedState('sm.filterLevel', 'all');
   const [filterStatus, setFilterStatus] = usePersistedState('sm.filterStatus', 'active'); // 'all', 'active' (not resolved/ignored), 'unresolved', 'resolved', 'ignored', 'in_progress'
   const [filterOrigin, setFilterOrigin] = useState('all'); // host events came from
   const [filterEventType, setFilterEventType] = usePersistedState('sm.filterType', 'all'); // 'all', 'ERROR', 'CSP', 'MINIDUMP', 'TRANSACTION', 'MESSAGE'
@@ -74,13 +75,30 @@ export default function Dashboard() {
   useMountEffect(checkAuth);
 
   useEffect(() => {
-    if (!router.isReady || !router.query.projectId) return;
+    if (!router.isReady) return;
 
-    const projectId = parseInt(router.query.projectId, 10);
-    if (!isNaN(projectId)) {
-      setSelectedProject(projectId);
+    if (router.query.projectId) {
+      const projectId = parseInt(router.query.projectId, 10);
+      if (!isNaN(projectId)) setSelectedProject(projectId);
     }
-  }, [router.isReady, router.query.projectId, setSelectedProject]);
+
+    // Deep links from Projects "Active issues" (and similar) override persisted filters
+    const status = typeof router.query.status === 'string' ? router.query.status : null;
+    const level = typeof router.query.level === 'string' ? router.query.level : null;
+    const range = typeof router.query.timeRange === 'string' ? router.query.timeRange : null;
+    if (status && ['all', 'active', 'unresolved', 'resolved', 'ignored', 'in_progress'].includes(status)) {
+      setFilterStatus(status);
+    }
+    if (level && ['all', 'error', 'warning', 'info', 'fatal', 'debug'].includes(level)) {
+      setFilterLevel(level === 'fatal' ? 'error' : level);
+    }
+    if (range && ['all', '1h', '24h', '7d', '30d'].includes(range)) {
+      setTimeRange(range);
+    }
+  }, [
+    router.isReady, router.query.projectId, router.query.status, router.query.level, router.query.timeRange,
+    setSelectedProject, setFilterStatus, setFilterLevel, setTimeRange,
+  ]);
 
   const {
     issues, setIssues, standaloneEvents, projects, issuesTotal, loading, loadingMore, refreshing,

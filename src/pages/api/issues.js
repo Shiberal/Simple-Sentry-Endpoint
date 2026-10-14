@@ -1,4 +1,5 @@
 import prisma from '@/lib/prisma';
+import { levelsForFilter } from '@/lib/issue-levels';
 
 export default async function handler(req, res) {
   const { method } = req;
@@ -46,7 +47,10 @@ export default async function handler(req, res) {
         }
 
         if (level && level !== 'all') {
-          where.level = level.toLowerCase();
+          // "error" includes fatal — same severity bucket the projects active count cares about
+          const levels = levelsForFilter(level);
+          if (levels?.length === 1) where.level = levels[0];
+          else if (levels?.length) where.level = { in: levels };
         }
 
         if (search) {
