@@ -11,7 +11,9 @@ EDT is a **folder move**, not a new product database.
 3. On deploy/start, the app runs `prisma migrate deploy` — applies pending migrations only; it does **not** wipe tables.
 4. Never run `prisma db push --accept-data-loss` on a database you care about.
 
-If `migrate deploy` complains that the DB was previously synced only with `db push`, baseline once (does not delete rows):
+If `migrate deploy` hits **P3005** (schema exists, no migration history — usual after `db push`), Coolify’s `docker-entrypoint.sh` baselines automatically: it marks all checked-in migrations as applied, then retries. No rows are deleted.
+
+Manual equivalent:
 
 ```bash
 cd tools/SimpleSentryEndpoint

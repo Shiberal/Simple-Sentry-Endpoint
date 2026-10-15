@@ -10,7 +10,30 @@ fi
 # Never use `db push --accept-data-loss` here — that can destroy production data.
 # migrate deploy only applies pending migration files and leaves existing rows alone.
 echo "Applying Prisma migrations (migrate deploy)..."
-npx prisma migrate deploy
+set +e
+migrate_out=$(npx prisma migrate deploy 2>&1)
+migrate_status=$?
+set -e
+printf '%s\n' "$migrate_out"
+
+if [ "$migrate_status" -ne 0 ]; then
+  # P3005: non-empty DB with no _prisma_migrations history (typical after db push).
+  # Mark checked-in migrations as already applied — does not run SQL or delete rows.
+  if printf '%s\n' "$migrate_out" | grep -q 'P3005'; then
+    echo "Database already has a schema but no migration history — baselining..."
+    for dir in prisma/migrations/*/; do
+      [ -d "$dir" ] || continue
+      name=$(basename "$dir")
+      echo "  prisma migrate resolve --applied $name"
+      npx prisma migrate resolve --applied "$name"
+    done
+    echo "Retrying migrate deploy..."
+    npx prisma migrate deploy
+  else
+    echo "ERROR: prisma migrate deploy failed (not a baseline case)."
+    exit "$migrate_status"
+  fi
+fi
 
 echo "Database is ready!"
 
