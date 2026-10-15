@@ -1,0 +1,24 @@
+# Keep Coolify / root docker build context lean
+.git
+.github
+.next
+**/node_modules
+**/.next
+**/out
+**/.env
+**/.env.*
+!**/.env.example
+**/*.md
+!tools/SimpleSentryEndpoint/README.md
+tools/Hub
+tools/Monitor
+tools/SentryPerformance
+mcp
+**/data/debug-files
+**/*.db
+**/*.db-journal
+.DS_Store
+coverage
+.vercel
+*.pem
+agent-transcripts

@@ -25,3 +25,7 @@ npm run dev
 | Ingest APIs | Unchanged |
 
 Same `DATABASE_URL` keeps your data. See [DATA.md](DATA.md).
+
+## Deploy (Coolify)
+
+Coolify builds the **repo-root** `Dockerfile`, which packages `tools/SimpleSentryEndpoint`. Keep `DATABASE_URL` pointed at your existing Postgres. Local tool builds still use `tools/SimpleSentryEndpoint/Dockerfile`.
