@@ -4,7 +4,7 @@
   "kind": "tool",
   "package": "@edt/simple-sentry-endpoint",
   "packageDir": "tools/SimpleSentryEndpoint",
-  "defaultPort": 3001,
+  "defaultPort": 3000,
   "entryPath": "/dashboard",
   "summary": "Sentry-compatible error sink, issues, and performance views."
 }

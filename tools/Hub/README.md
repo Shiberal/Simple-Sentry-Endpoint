@@ -1,17 +1,11 @@
-# EDT Hub (main page)
+# EDT Hub
 
-Primary entry for EDT — `http://localhost:3000`.
+The Hub UI ships **inside** [`SimpleSentryEndpoint`](../SimpleSentryEndpoint) as the main page (`/`).
 
 ```bash
-# from repo root
+# from repo root — one process
 npm run dev
-
-# or
-cd tools/Hub && npm run dev
+# → http://localhost:3000
 ```
 
-Start the Sentry runtime on **:3001** so tool embeds work:
-
-```bash
-npm run dev:sentry
-```
+This package keeps the Hub design reference / `edt-tool.json`. Do not run a second Hub server.

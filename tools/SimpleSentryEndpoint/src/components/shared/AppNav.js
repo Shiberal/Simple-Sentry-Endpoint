@@ -29,6 +29,9 @@ function NavLink({ href, icon, title, tooltip, label, active }) {
 export default function AppNav({ active, isAdmin, onLogout, children }) {
   return (
     <nav className={shell.navSidebar} aria-label="Primary">
+      <NavLink href="/" icon="inbox" title="EDT Hub" tooltip="EDT Hub" label="EDT Hub" active={active === 'hub'} />
+      <div className={shell.navDivider}></div>
+
       {LINKS.map(({ key, ...link }) => <NavLink key={key} {...link} active={active === key} />)}
 
       <div className={shell.navDivider}></div>

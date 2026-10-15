@@ -4,7 +4,7 @@ import Head from 'next/head';
 const TARGET =
   process.env.NEXT_PUBLIC_MONITOR_RUNTIME_URL ||
   process.env.MONITOR_RUNTIME_URL ||
-  'http://localhost:3001/monitors';
+  'http://localhost:3000/monitors';
 
 /** Thin EDT entry: send operators to the monitor UI in the shared runtime. */
 export default function MonitorEntry() {

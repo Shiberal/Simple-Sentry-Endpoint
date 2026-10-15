@@ -6,21 +6,6 @@ const nextConfig = {
   output: 'standalone',
   skipTrailingSlashRedirect: true,
   productionBrowserSourceMaps: true,
-  // Allow EDT Hub (and same-origin) to embed tools in an iframe workspace
-  async headers() {
-    const hub = process.env.EDT_HUB_ORIGIN || 'http://localhost:3000';
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: `frame-ancestors 'self' ${hub}`,
-          },
-        ],
-      },
-    ];
-  },
 };
 
 export default withSentryConfig(nextConfig, {

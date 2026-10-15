@@ -2,21 +2,10 @@
   "name": "@edt/hub",
   "version": "0.1.0",
   "private": true,
-  "description": "EDT Hub — open Monitor, Sentry+Performance, and future tools in one place",
+  "description": "EDT Hub catalog metadata — UI lives in @edt/simple-sentry-endpoint at /",
   "scripts": {
-    "dev": "next dev --turbopack -p 3000",
-    "build": "next build",
-    "start": "next start -p 3000",
-    "lint": "eslint"
-  },
-  "dependencies": {
-    "next": "^16.4.1",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "eslint": "^9",
-    "eslint-config-next": "^16.1.1"
+    "dev": "npm run dev -w @edt/simple-sentry-endpoint",
+    "start": "npm run start -w @edt/simple-sentry-endpoint",
+    "build": "npm run build -w @edt/simple-sentry-endpoint"
   }
 }

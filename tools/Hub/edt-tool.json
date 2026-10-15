@@ -2,7 +2,8 @@
   "id": "hub",
   "name": "EDT Hub",
   "kind": "shell",
-  "package": "@edt/hub",
+  "package": "@edt/simple-sentry-endpoint",
+  "entryPath": "/",
   "defaultPort": 3000,
-  "summary": "Launch and embed EDT tools from one place."
+  "summary": "Main page — catalog of EDT tools in the SimpleSentryEndpoint app."
 }

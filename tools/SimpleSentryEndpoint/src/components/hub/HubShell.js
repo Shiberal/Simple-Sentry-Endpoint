@@ -2,12 +2,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import ThemeToggle from '@/components/ThemeToggle';
-import { TOOLS } from '@/lib/tools';
+import { TOOLS } from '@/lib/edt-tools';
 import styles from '@/styles/Hub.module.css';
 
-export default function HubShell({ title, meta, children, wide }) {
+export default function HubShell({ title, meta, children }) {
   const router = useRouter();
-  const active = router.query.tool || (router.pathname === '/' ? 'home' : '');
+  const active = router.pathname === '/' ? 'home' : '';
 
   return (
     <div className={styles.shell}>
@@ -18,10 +18,9 @@ export default function HubShell({ title, meta, children, wide }) {
         {TOOLS.map((tool) => (
           <Link
             key={tool.id}
-            href={`/workspace/${tool.id}`}
-            className={`${styles.railItem} ${active === tool.id ? styles.railItemActive : ''}`}
+            href={tool.href}
+            className={styles.railItem}
             aria-label={tool.name}
-            aria-current={active === tool.id ? 'page' : undefined}
           >
             <Icon name={tool.icon} size={18} />
             <span className={styles.railTip}>{tool.shortName}</span>
@@ -32,6 +31,7 @@ export default function HubShell({ title, meta, children, wide }) {
           href="/"
           className={`${styles.railItem} ${active === 'home' ? styles.railItemActive : ''}`}
           aria-label="All tools"
+          aria-current={active === 'home' ? 'page' : undefined}
         >
           <Icon name="dashboard" size={18} />
           <span className={styles.railTip}>All tools</span>
@@ -48,7 +48,7 @@ export default function HubShell({ title, meta, children, wide }) {
             <ThemeToggle />
           </div>
         </header>
-        <div className={wide ? styles.workspace : styles.content}>{children}</div>
+        <div className={styles.content}>{children}</div>
       </div>
     </div>
   );
