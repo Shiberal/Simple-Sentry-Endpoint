@@ -1,0 +1,10 @@
+{
+  "id": "sentry-performance",
+  "name": "Sentry + Performance",
+  "kind": "tool",
+  "package": "@edt/simple-sentry-endpoint",
+  "packageDir": "tools/SimpleSentryEndpoint",
+  "defaultPort": 3000,
+  "entryPath": "/dashboard",
+  "summary": "Sentry-compatible error sink, issues, and performance views."
+}

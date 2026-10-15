@@ -1,56 +1,60 @@
 # EDT
 
-EDT is a toolbox of deployable tools. Each tool is a self-contained app under `tools/` — its own package, Docker image, and docs — so you can run one tool or many side by side.
+EDT is a toolbox of deployable tools. The **Hub** opens them in one place; each tool still has its own package under `tools/`.
 
 ## Tools
 
-| Tool | Path | What it is |
-|------|------|------------|
-| **SimpleSentryEndpoint** | [`tools/SimpleSentryEndpoint`](tools/SimpleSentryEndpoint) | Self-hosted Sentry-compatible error sink and monitor UI |
+| Tool | Path | Port | What it is |
+|------|------|------|------------|
+| **Hub** | [`tools/Hub`](tools/Hub) | 3100 | Web UI to launch / embed tools |
+| **Sentry + Performance** | [`tools/SimpleSentryEndpoint`](tools/SimpleSentryEndpoint) · catalog [`SentryPerformance`](tools/SentryPerformance) | 3000 | Error sink, issues, performance |
+| **Monitor** | [`tools/Monitor`](tools/Monitor) | 3002 → 3000/monitors | Cron / HTTP uptime monitors |
 
-More tools will land here over time.
+## Quick start
+
+```bash
+# Terminal 1 — Sentry + Performance runtime (also serves /monitors today)
+cd tools/SimpleSentryEndpoint && npm install && npm run dev
+
+# Terminal 2 — EDT Hub
+cd tools/Hub && npm install && npm run dev
+# → http://localhost:3100
+```
+
+From the repo root (after `npm install`):
+
+```bash
+npm run dev:sentry   # :3000
+npm run dev:hub      # :3100
+```
+
+Optional env for Hub:
+
+```bash
+NEXT_PUBLIC_TOOL_SENTRY_URL=http://localhost:3000
+NEXT_PUBLIC_TOOL_MONITOR_URL=http://localhost:3000/monitors
+```
+
+On the Sentry app, allow Hub to iframe it:
+
+```bash
+EDT_HUB_ORIGIN=http://localhost:3100
+```
 
 ## Layout
 
 ```
 EDT/
-  package.json          # npm workspaces root
+  PRODUCT.md / DESIGN.md
   tools/
-    SimpleSentryEndpoint/
-      …                 # Next.js app, Prisma, Docker
-    <NextTool>/
-```
-
-## Quick start (SimpleSentryEndpoint)
-
-```bash
-cd tools/SimpleSentryEndpoint
-cp .env.example .env   # if you have one; otherwise create .env with DATABASE_URL
-npm install
-npm run dev
-```
-
-From the EDT root (after `npm install` at the root):
-
-```bash
-npm run dev:simple-sentry
-```
-
-Docker from the tool directory:
-
-```bash
-cd tools/SimpleSentryEndpoint
-docker compose up --build
-```
-
-Or from the EDT root:
-
-```bash
-docker compose -f tools/SimpleSentryEndpoint/docker-compose.yml up --build
+    Hub/                  # @edt/hub
+    Monitor/              # @edt/monitor (EDT identity + launcher)
+    SentryPerformance/    # catalog pointer
+    SimpleSentryEndpoint/ # @edt/simple-sentry-endpoint (runtime)
 ```
 
 ## Adding a tool
 
-1. Create `tools/<ToolName>/` with its own `package.json` (`name` preferably `@edt/<kebab-name>`).
-2. Keep the tool runnable alone (`npm run dev` / Docker from that folder).
-3. Optionally add root scripts like `dev:<tool>` and a row in the table above.
+1. Add `tools/<Name>/` with `package.json` (`@edt/...`) and `edt-tool.json`.
+2. Register it in `tools/Hub/src/lib/tools.js`.
+3. Keep it runnable alone when possible.

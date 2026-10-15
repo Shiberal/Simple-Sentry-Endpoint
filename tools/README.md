@@ -1,11 +1,10 @@
 # EDT tools
 
-One folder per tool. Each tool should:
+| Folder | Package | Role |
+|--------|---------|------|
+| [Hub](./Hub) | `@edt/hub` | Shell UI |
+| [Monitor](./Monitor) | `@edt/monitor` | Monitor tool identity / launcher |
+| [SentryPerformance](./SentryPerformance) | catalog | Points at SimpleSentryEndpoint |
+| [SimpleSentryEndpoint](./SimpleSentryEndpoint) | `@edt/simple-sentry-endpoint` | Shared runtime |
 
-- Own its `package.json`, lockfile (if needed), and README
-- Build and run from its own directory
-- Prefer the package name `@edt/<kebab-case-tool-name>`
-
-Current tools:
-
-- [SimpleSentryEndpoint](./SimpleSentryEndpoint) — Sentry-compatible error sink
+Add a tool: folder + `edt-tool.json` + Hub registry entry in `Hub/src/lib/tools.js`.

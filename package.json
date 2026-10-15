@@ -4,11 +4,18 @@
   "private": true,
   "description": "EDT — a toolbox of deployable tools. Each tool lives under tools/ and can be built, run, and shipped on its own.",
   "workspaces": [
-    "tools/*"
+    "tools/Hub",
+    "tools/Monitor",
+    "tools/SimpleSentryEndpoint"
   ],
   "scripts": {
+    "dev:hub": "npm run dev -w @edt/hub",
+    "dev:sentry": "npm run dev -w @edt/simple-sentry-endpoint",
+    "dev:monitor": "npm run dev -w @edt/monitor",
     "dev:simple-sentry": "npm run dev -w @edt/simple-sentry-endpoint",
+    "build:hub": "npm run build -w @edt/hub",
     "build:simple-sentry": "npm run build -w @edt/simple-sentry-endpoint",
+    "start:hub": "npm run start -w @edt/hub",
     "start:simple-sentry": "npm run start -w @edt/simple-sentry-endpoint",
     "lint:simple-sentry": "npm run lint -w @edt/simple-sentry-endpoint",
     "test:simple-sentry": "npm run test -w @edt/simple-sentry-endpoint"

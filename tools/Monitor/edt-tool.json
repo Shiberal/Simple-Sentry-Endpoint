@@ -1,0 +1,10 @@
+{
+  "id": "monitor",
+  "name": "Monitor",
+  "kind": "tool",
+  "package": "@edt/monitor",
+  "defaultPort": 3002,
+  "runtime": "simple-sentry-endpoint",
+  "entryPath": "/monitors",
+  "summary": "Cron and HTTP uptime monitors, check-ins, and alerting."
+}

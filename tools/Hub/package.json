@@ -1,0 +1,22 @@
+{
+  "name": "@edt/hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "EDT Hub — open Monitor, Sentry+Performance, and future tools in one place",
+  "scripts": {
+    "dev": "next dev --turbopack -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "next": "^16.4.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "eslint": "^9",
+    "eslint-config-next": "^16.1.1"
+  }
+}

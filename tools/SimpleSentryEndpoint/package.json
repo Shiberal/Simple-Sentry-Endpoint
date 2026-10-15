@@ -2,7 +2,7 @@
   "name": "@edt/simple-sentry-endpoint",
   "version": "0.1.0",
   "private": true,
-  "description": "EDT tool: self-hosted Sentry-compatible error sink and monitor UI",
+  "description": "EDT tool runtime: Sentry + Performance (and shared Monitor APIs until Monitor is fully extracted)",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
