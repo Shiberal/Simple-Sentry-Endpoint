@@ -3,7 +3,7 @@
   "name": "EDT Hub",
   "kind": "shell",
   "package": "@edt/simple-sentry-endpoint",
-  "entryPath": "/",
+  "entryPath": "/hub",
   "defaultPort": 3000,
-  "summary": "Main page — catalog of EDT tools in the SimpleSentryEndpoint app."
+  "summary": "EDT tool catalog. Does not replace the Simple Sentry landing at /."
 }

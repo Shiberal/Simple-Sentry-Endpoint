@@ -1,6 +1,6 @@
 # EDT
 
-**Assumptions from brief (labeled):** EDT is a toolbox of deployable ops tools. First tools split from Simple Sentry: **Monitor** (cron/uptime) and **Sentry + Performance** (errors, issues, performance). **Hub is `/` of the single app** (one `npm run dev`, port 3000). Visual world inherits SimpleSentryEndpoint (warm paper / graphite, teal accent, IBM Plex + Newsreader).
+**Assumptions from brief (labeled):** EDT is a toolbox of deployable ops tools. First tools: **Monitor** and **Sentry + Performance**. **Simple Sentry Endpoint behavior is preserved** (`/` landing, auth redirect to dashboard, all existing routes). **EDT Hub lives at `/hub`**. One `npm run dev`, port 3000. Visual world inherits SimpleSentryEndpoint.
 
 ## Audience
 

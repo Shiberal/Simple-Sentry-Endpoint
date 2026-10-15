@@ -7,12 +7,12 @@ import styles from '@/styles/Hub.module.css';
 
 export default function HubShell({ title, meta, children }) {
   const router = useRouter();
-  const active = router.pathname === '/' ? 'home' : '';
+  const active = router.pathname === '/hub' ? 'home' : '';
 
   return (
     <div className={styles.shell}>
       <aside className={styles.rail} aria-label="EDT tools">
-        <Link href="/" className={styles.railBrand} title="EDT Hub" aria-label="EDT Hub">
+        <Link href="/hub" className={styles.railBrand} title="EDT Hub" aria-label="EDT Hub">
           E
         </Link>
         {TOOLS.map((tool) => (
@@ -28,13 +28,17 @@ export default function HubShell({ title, meta, children }) {
         ))}
         <div className={styles.railSpacer} />
         <Link
-          href="/"
+          href="/hub"
           className={`${styles.railItem} ${active === 'home' ? styles.railItemActive : ''}`}
           aria-label="All tools"
           aria-current={active === 'home' ? 'page' : undefined}
         >
           <Icon name="dashboard" size={18} />
           <span className={styles.railTip}>All tools</span>
+        </Link>
+        <Link href="/" className={styles.railItem} aria-label="Sentry Monitor home">
+          <Icon name="inbox" size={18} />
+          <span className={styles.railTip}>SSE home</span>
         </Link>
       </aside>
 

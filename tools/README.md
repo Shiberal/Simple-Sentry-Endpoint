@@ -2,7 +2,7 @@
 
 | Folder | Role |
 |--------|------|
-| [SimpleSentryEndpoint](./SimpleSentryEndpoint) | Runnable app — Hub at `/`, tools as routes |
-| [Hub](./Hub) | Catalog metadata (UI is in SimpleSentryEndpoint) |
+| [SimpleSentryEndpoint](./SimpleSentryEndpoint) | Full app — SSE as before; Hub at `/hub` |
+| [Hub](./Hub) | Catalog metadata |
 | [Monitor](./Monitor) | Monitor tool identity |
 | [SentryPerformance](./SentryPerformance) | Sentry + Performance catalog pointer |

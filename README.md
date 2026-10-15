@@ -1,34 +1,31 @@
 # EDT
 
-EDT is a toolbox of deployable tools. **One app, one port:** Hub is the main page at `/`.
+EDT wraps deployable tools. **Simple Sentry Endpoint keeps working as before** — same landing, login, dashboard, monitors, and ingest. EDT Hub is an extra catalog at `/hub`.
 
 ## Quick start
 
 ```bash
 npm install
 npm run dev
-# → http://localhost:3000   (EDT Hub)
-#    /dashboard · /performance  → Sentry + Performance
-#    /monitors                  → Monitor
+# → http://localhost:3000          Sentry Monitor landing (unchanged)
+#    /login · /dashboard · /monitors · /performance · …
+#    /hub                          EDT tool catalog
 ```
 
-## Tools
+## What stayed the same (SSE)
 
-| Tool | Where | What it is |
-|------|--------|------------|
-| **Hub** | `/` | Catalog / home |
-| **Sentry + Performance** | `/dashboard`, `/performance`, `/projects` | Error sink & performance |
-| **Monitor** | `/monitors` | Cron / HTTP uptime |
+| Path | Behavior |
+|------|----------|
+| `/` | Original Sentry Monitor landing; signed-in users → `/dashboard` |
+| `/login`, `/register`, `/dashboard`, `/projects`, `/performance`, `/monitors`, `/admin`, … | Same as before |
+| Ingest APIs (`/api/[id]/envelope`, …) | Unchanged |
+| Docker / Prisma | Still `tools/SimpleSentryEndpoint` |
 
-Runtime package: [`tools/SimpleSentryEndpoint`](tools/SimpleSentryEndpoint). Catalog stubs: [`tools/Monitor`](tools/Monitor), [`tools/SentryPerformance`](tools/SentryPerformance), [`tools/Hub`](tools/Hub).
+## EDT additions
 
-## Layout
+| Path | What |
+|------|------|
+| `/hub` | Tool catalog (Sentry + Performance, Monitor, …) |
+| App nav “EDT Hub” | Jump to `/hub` without leaving the app |
 
-```
-EDT/
-  tools/
-    SimpleSentryEndpoint/   # the runnable app (Hub + tools)
-    Hub/                    # design notes / future extract
-    Monitor/
-    SentryPerformance/
-```
+Runtime: [`tools/SimpleSentryEndpoint`](tools/SimpleSentryEndpoint).

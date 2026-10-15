@@ -1,11 +1,10 @@
 # EDT Hub
 
-The Hub UI ships **inside** [`SimpleSentryEndpoint`](../SimpleSentryEndpoint) as the main page (`/`).
+Catalog UI at **`/hub`** inside SimpleSentryEndpoint.
+
+- `/` — original Sentry Monitor landing (unchanged)
+- `/hub` — EDT tools catalog
 
 ```bash
-# from repo root — one process
-npm run dev
-# → http://localhost:3000
+npm run dev   # from repo root → http://localhost:3000/hub
 ```
-
-This package keeps the Hub design reference / `edt-tool.json`. Do not run a second Hub server.
