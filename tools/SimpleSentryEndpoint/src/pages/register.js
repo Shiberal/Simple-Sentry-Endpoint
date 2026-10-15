@@ -45,14 +45,14 @@ export default function Register() {
   return (
     <>
       <Head>
-        <title>Register - Sentry Monitor</title>
+        <title>Register · EDT</title>
       </Head>
       <div className={styles.container}>
         <div className={styles.card}>
           <div className={styles.header}>
             <Link href="/" className={styles.logo}>
               <BrandMark className={styles.logoMark} size={24} />
-              Sentry Monitor
+              EDT
             </Link>
             <h1 className={styles.title}>Create your account</h1>
             <p className={styles.subtitle}>Set up a workspace and start ingesting events in minutes.</p>

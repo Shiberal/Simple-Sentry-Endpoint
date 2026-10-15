@@ -37,7 +37,7 @@ export default function ProjectSettings() {
     return (
       <>
         <Head>
-          <title>Project settings - Sentry Monitor</title>
+          <title>Project settings · EDT</title>
         </Head>
         <ProjectSettingsSkeleton />
       </>
@@ -47,14 +47,14 @@ export default function ProjectSettings() {
   return (
     <>
       <Head>
-        <title>{project.name} - Settings</title>
+        <title>{project.name} · Settings · EDT</title>
       </Head>
 
       <div className={styles.container}>
         <header className={styles.header}>
           <div className={styles.headerContent}>
             <Link href="/hub/sentry" className={styles.backLink}>
-              ← Back to Dashboard
+              ← Back to Sentry
             </Link>
             <h1 className={styles.title}>{project.name}</h1>
           </div>

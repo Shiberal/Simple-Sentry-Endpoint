@@ -210,13 +210,13 @@ export async function sendTestAlert({ recipient, projectName }) {
   const transporter = createTransporter();
 
   const subject = `[${projectName}] Test Alert`;
-  const text = `This is a test alert from your Sentry Monitor.\n\nIf you received this email, your alert configuration is working correctly!`;
+  const text = `This is a test alert from EDT.\n\nIf you received this email, your alert configuration is working correctly!`;
   const html = `
     <!DOCTYPE html>
     <html>
     <body style="font-family: sans-serif; padding: 20px;">
       <h2>✅ Test Alert</h2>
-      <p>This is a test alert from your Sentry Monitor.</p>
+      <p>This is a test alert from EDT.</p>
       <p>If you received this email, your alert configuration is working correctly!</p>
       <p><strong>Project:</strong> ${projectName}</p>
     </body>
