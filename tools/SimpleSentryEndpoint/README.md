@@ -1,0 +1,208 @@
+# SimpleSentryEndpoint
+
+> EDT tool — part of the [EDT](../../README.md) toolbox (`tools/SimpleSentryEndpoint`).
+
+**Not affiliated with Sentry.** This project is independent software. It is not made by, endorsed by, or officially related to [Sentry](https://sentry.io) (Functional Software, Inc.) or the Sentry SaaS product. It only speaks the same client protocol so you can use the public Sentry SDKs with your own server.
+
+A self-hosted app that collects errors and monitoring data from [Sentry](https://sentry.io) SDKs (and similar clients). Events land on your server, get grouped into issues, and you manage everything in a web UI. You can optionally connect GitHub, Telegram, and email for alerts.
+
+## What it does
+
+- Accepts the same kind of traffic Sentry’s cloud would, but on your own machine or host.
+- Groups similar errors into issues you can open, resolve, or ignore.
+- Handles several event kinds: errors, content security policy (CSP) reports, minidumps, performance transactions, and messages.
+- Gives you a dashboard for projects, issues, single events, performance, and simple analytics.
+- Supports sign-up, login, who can access each project, and an admin area.
+
+## What it is built with
+
+- Next.js 16 (pages router) for the website and API.
+- Prisma with PostgreSQL for the database.
+- Optional Sentry for the monitor app itself (tunnel path `/monitoring` if you use it).
+
+## What you need
+
+- Node.js 20 or newer.
+- A PostgreSQL database.
+- Optional: SMTP for email alerts, or a Telegram bot for Telegram alerts.
+
+## Configuration
+
+Create a `.env` file in this tool directory (`tools/SimpleSentryEndpoint`):
+
+| Variable | Required | What it is for |
+|----------|----------|----------------|
+| `DATABASE_URL` | Yes | PostgreSQL URL, for example `postgresql://user:password@localhost:5432/sentry_monitor` |
+| `NEXT_PUBLIC_BASE_URL` | No | Public site URL (helps with DSNs and links), for example `https://errors.example.com` |
+| `NEXT_PUBLIC_SENTRY_DSN` / `SENTRY_DSN` | No | DSN for the monitor app to report its own errors (defaults to the Agoracloud error-sink project). Envelope form: `https://<host>/api/<project_id>/envelope` |
+| `SENTRY_ENVIRONMENT` | No | Tag for self-telemetry (defaults to `NODE_ENV`) |
+| `SENTRY_TRACES_SAMPLE_RATE` | No | Trace sample rate for self-telemetry (default `0.1`) |
+| `TELEGRAM_BOT_TOKEN` | No | Telegram bot token for notifications |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | Mail server settings for email alerts |
+| `EMAIL_FROM` | No | Sender address for mail (if omitted, `SMTP_USER` is used) |
+| `ENABLE_PING_WORKER` | No | Docker image only: the entrypoint starts the monitor ping worker beside the web server (default `true`). Set `false` if a separate worker container runs it, so pings are not doubled. Skipped automatically when `ENABLE_MONITOR_HTTP_PINGER=true` |
+| `ENABLE_MONITOR_HTTP_PINGER` | No | Set to `true` to run scheduled monitor HTTP pings inside the Next.js server process (off by default). Works with `next start`/`next dev` but **not in the Docker image** (Next's standalone output does not include the instrumentation hook), where the ping worker below is used instead |
+| `MONITOR_HTTP_PINGER_INTERVAL_MS` | No | How often the ping worker checks for due monitors; defaults to `60000` |
+| `MONITOR_HTTP_PING_FALLBACK_INTERVAL_MS` | No | Fallback interval for monitors without a valid cron schedule; defaults to 5 minutes |
+| `MONITOR_HTTP_RETRY_COUNT` | No | Failed monitor HTTP pings are retried this many times before recording an error; defaults to `2` |
+| `MONITOR_HTTP_RETRY_DELAY_MS` | No | Delay between monitor HTTP ping retries; defaults to `10000` |
+| `MONITOR_CRON_SECRET` | No | Secret for external calls to `/api/cron/monitors-ping` |
+
+## Local setup
+
+1. Install packages:
+
+   ```bash
+   npm install
+   ```
+
+2. Point `DATABASE_URL` at your database in `.env`, then prepare the schema:
+
+   ```bash
+   npm run prisma:generate
+   npm run prisma:migrate
+   ```
+
+3. Run in development:
+
+   ```bash
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000). Register, create a project, then copy that project’s DSN into your app’s Sentry setup.
+
+4. Production build and run:
+
+   ```bash
+   npm run build
+   npm run start
+   ```
+
+   To apply database migrations before starting (typical on a server):
+
+   ```bash
+   npm run start:migrate
+   ```
+
+## Pointing the Sentry SDK at this server
+
+Your DSN tells the SDK where to send data. Format:
+
+`https://<key>@<host>/<project_id>`
+
+- **host**: Your site’s base URL (for example `https://errors.example.com` or `http://localhost:3000`).
+- **project_id**: The number shown for the project in the UI.
+- **key**: The project key from the same project settings.
+
+Example:
+
+```js
+Sentry.init({
+  dsn: 'https://your-project-key@https://errors.example.com/1',
+});
+```
+
+Main ingestion paths (the SDK usually picks these for you):
+
+- `POST /api/[id]/envelope` — main path
+- `POST /api/[id]/store` — older store API
+- `POST /api/[id]/minidump` — native crash dumps
+- `POST /api/[id]/security` — CSP and security reports
+
+## Cron monitors
+
+Create monitor slugs in the Monitors page before sending SDK check-ins or adding HTTP ping URLs. The `schedule` field is a 5-field cron expression such as `*/5 * * * *`, evaluated in the server's timezone (UTC in Docker).
+
+The Monitors page shows each monitor's health at a glance:
+
+- **Healthy**: the last run succeeded and no scheduled run is overdue.
+- **Failing**: the last run reported an error.
+- **Missed**: a scheduled run came and went (plus a grace period of about 10% of the interval, at least 2 minutes) with no check-in. This needs a `schedule`.
+- **Running**: an SDK `in_progress` check-in is open.
+- **Paused**: no runs are expected; check-ins are still recorded but do not resume the monitor.
+
+Each monitor also has stats, computed from the last 30 days of check-ins (no extra tables): success rate, run count and average / p95 run time for 24h, 7d and 30d, the current success or failure streak, incidents (a streak of failed runs; count, average recovery time, longest, last) and interactive charts (uptime, response time with p95, runs) with a 24h / 7d / 30d / 90d range selector, hover tooltips, search, environment filter, sorting, and a per-monitor check-in history you can filter by result and time range and expand to see per-URL results. The page header rolls these up for the whole project. Rates count runs that reported, so missed runs show up as health, not as failures. The same data is available from `GET /api/projects/:id/monitors` (per-monitor `stats`, project `summary.stats`) and the lighter `GET /api/projects/:id/monitors/stats[?monitorId=N&range=24h|7d|30d|90d]`, and `GET /api/projects/:id/monitors/checkins?monitorId=N[&status=&days=&before=&limit=]` for paged history. MCP tools: `monitor_stats`, `monitor_checkins`.
+
+Monitors are a section of their own: `/monitors` lists every monitor across your projects (or one project), and each monitor has a detail page at `/monitors/<id>` with key numbers, charts, an incident timeline with per-incident detail, check-in history, configuration, alert settings, and a reserved spot for resource usage. Create, edit, pause and delete are all in the UI.
+
+**Alerts.** Each monitor can notify when it starts failing (after N failed runs in a row, default 1) and once when it recovers, by email (needs SMTP), Slack webhook, generic webhook (`monitor.failing` / `monitor.recovered` JSON), and the project's Telegram chat if set. One message per state change, not per run; paused monitors and monitors with alerts switched off stay quiet. Missed runs do not alert yet. Set `APP_BASE_URL` so alerts carry a link to the monitor page.
+
+**Nothing runs scheduled HTTP pings unless you start a scheduler** (see below). The default is off, so ping-URL monitors will show as Missed and the page will say so. SDK check-in monitors do not need a scheduler.
+
+The Docker image starts the ping worker for you (see `ENABLE_PING_WORKER`). The Monitors page shows whether a scheduler is alive and when it last checked. Outside Docker, run monitor HTTP pings in a dedicated worker process (recommended):
+
+```bash
+npm run worker:ping
+```
+
+The worker needs `DATABASE_URL` and polls every `MONITOR_HTTP_PINGER_INTERVAL_MS` (default 60s) for monitors that are due.
+
+To run pings inside the Next.js server instead (single-process deployments), set:
+
+```bash
+ENABLE_MONITOR_HTTP_PINGER=true
+MONITOR_HTTP_PINGER_INTERVAL_MS=60000
+```
+
+If you prefer an external scheduler, set `MONITOR_CRON_SECRET` and call:
+
+```text
+GET /api/cron/monitors-ping?secret=<MONITOR_CRON_SECRET>
+```
+
+Add `force=1` to that URL when you want to ping all configured URLs immediately instead of only monitors whose schedule is due.
+
+## Database helpers
+
+```bash
+npm run prisma:generate          # After schema changes
+npm run prisma:migrate           # Create and apply migrations (development)
+npm run prisma:migrate:deploy    # Apply migrations only (production)
+npm run prisma:studio            # Open a simple database browser
+```
+
+## Docker
+
+The Docker image runs `prisma db push` (with `--accept-data-loss`) on startup, then starts the app. You must set `DATABASE_URL`.
+
+```bash
+docker build -t sentry-monitor .
+docker run -p 3000:3000 -e DATABASE_URL="postgresql://..." sentry-monitor
+```
+
+Run the ping worker as a second container from the same image (web handles migrations; worker only pings):
+
+```bash
+docker run --rm \
+  -e DATABASE_URL="postgresql://..." \
+  --entrypoint node \
+  sentry-monitor scripts/monitor-ping-worker.mjs
+```
+
+Or use `docker compose up` with the included `docker-compose.yml` (`web` + `ping-worker`).
+
+`db push` syncs the schema to the database without using migration files. For production where you rely on migrations, prefer `npm run start:migrate` on a normal Node deployment instead of relying on `db push` in Docker unless you accept that tradeoff.
+
+## npm scripts
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Dev server with Turbopack |
+| `npm run build` | Generate Prisma client and build Next.js |
+| `npm run start` | Production server |
+| `npm run start:migrate` | Run migrations, then production server |
+| `npm run worker:ping` | Dedicated monitor HTTP ping worker |
+| `npm run lint` | ESLint |
+
+## Folder map
+
+- `src/pages/` — UI pages (dashboard, project, login, admin, and so on) plus API routes under `src/pages/api/`.
+- `src/pages/api/[id]/` — Ingestion: `envelope`, `store`, `minidump`, `security`.
+- `src/pages/api/auth/` — Register, login, logout, current user.
+- `src/pages/api/projects/`, `issues/`, `events/`, `analytics/` — App data and charts.
+- `src/lib/` — Database client, GitHub, Telegram, email, Sentry helpers.
+- `prisma/schema.prisma` — Models such as User, Project, Issue, Event, comments, alert rules, system settings.
+
+## License
+
+Licensed under the [MPL](LICENSE).

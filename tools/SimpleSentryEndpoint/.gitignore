@@ -1,0 +1,8 @@
+# Tool-local ignores (root .gitignore also covers node_modules / .next)
+
+/src/generated/prisma
+/data/debug-files
+.env*
+!.env.example
+.next/
+node_modules/

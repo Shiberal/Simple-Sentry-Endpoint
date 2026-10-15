@@ -1,42 +1,19 @@
 {
-  "name": "server",
+  "name": "edt",
   "version": "0.1.0",
   "private": true,
+  "description": "EDT — a toolbox of deployable tools. Each tool lives under tools/ and can be built, run, and shipped on its own.",
+  "workspaces": [
+    "tools/*"
+  ],
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "prisma generate && next build",
-    "build:docker": "prisma generate && next build",
-    "start": "next start",
-    "start:migrate": "prisma migrate deploy && next start",
-    "worker:ping": "node scripts/monitor-ping-worker.mjs",
-    "lint": "eslint",
-    "test": "node --test src/lib/*.test.mjs",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "dev:simple-sentry": "npm run dev -w @edt/simple-sentry-endpoint",
+    "build:simple-sentry": "npm run build -w @edt/simple-sentry-endpoint",
+    "start:simple-sentry": "npm run start -w @edt/simple-sentry-endpoint",
+    "lint:simple-sentry": "npm run lint -w @edt/simple-sentry-endpoint",
+    "test:simple-sentry": "npm run test -w @edt/simple-sentry-endpoint"
   },
-  "dependencies": {
-    "@prisma/client": "^6.19.2",
-    "@sentry/nextjs": "^10.76.2",
-    "bcryptjs": "^3.0.3",
-    "cookie": "^1.0.2",
-    "lodash": "^4.17.23",
-    "next": "^16.4.1",
-    "nodemailer": "^7.0.9",
-    "pg": "^8.16.3",
-    "prisma": "^6.19.2",
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
-    "recharts": "^3.6.0",
-    "source-map": "^0.7.6"
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "eslint": "^9",
-    "eslint-config-next": "^16.1.1"
-  },
-  "overrides": {
-    "effect": "^3.20.0"
+  "engines": {
+    "node": ">=20"
   }
 }
