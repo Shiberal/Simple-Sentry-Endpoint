@@ -3,7 +3,7 @@ import Router from 'next/router';
 
 /**
  * Signed-in user plus the project's settings, members and ignored issues.
- * Redirects to /login for anonymous visitors and to /hub/sentry when the project cannot be loaded.
+ * Redirects to /?next=… for anonymous visitors and to /hub/sentry when the project cannot be loaded.
  */
 export default function useProject(projectId) {
   const [user, setUser] = useState(null);
@@ -65,13 +65,13 @@ export default function useProject(projectId) {
         const response = await fetch('/api/auth/me');
         const data = await response.json();
         if (!data?.user) {
-          Router.push('/login');
+          Router.push(`/?next=/project/${projectId}`);
           return;
         }
         setUser(data.user);
         fetchProject();
       } catch (error) {
-        Router.push('/login');
+        Router.push(`/?next=/project/${projectId}`);
       }
     })();
   }, [projectId, fetchProject]);
