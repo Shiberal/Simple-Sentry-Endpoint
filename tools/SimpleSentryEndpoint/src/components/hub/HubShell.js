@@ -1,16 +1,26 @@
+import { useRouter } from 'next/router';
 import ThemeToggle from '@/components/ThemeToggle';
 import EdtToolRail from '@/components/shared/EdtToolRail';
 import styles from '@/styles/Hub.module.css';
 import shell from '@/styles/AppShell.module.css';
 
 /** Same left tool switcher as tool pages; status content on the right. */
-export default function HubShell({ title = 'Status', meta, children, user, railActive = 'hub' }) {
+export default function HubShell({ title = 'Status', meta, children, user, railActive = 'hub', onLogout }) {
+  const router = useRouter();
+  const logout =
+    onLogout ??
+    (async () => {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/');
+    });
+
   return (
     <div className={styles.shell}>
       <div className={shell.navStack}>
         <EdtToolRail
           active={railActive}
           isAdmin={user?.isAdmin}
+          onLogout={user ? logout : undefined}
           user={user}
           footer={
             <div className={shell.navTheme}>

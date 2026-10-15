@@ -45,10 +45,55 @@
   margin: 0 auto;
 }
 
-.statusGrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.attentionSummary {
+  margin: 0 0 var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  border-radius: 12px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-primary);
+  font-size: var(--font-base);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.attentionSummary strong {
+  color: var(--text-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.attentionSummaryWarn {
+  border-color: color-mix(in srgb, var(--error) 35%, var(--border-primary));
+  background: color-mix(in srgb, var(--error) 6%, var(--bg-primary));
+}
+
+.primaryStack {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
+}
+
+.primaryStack .statusCard {
+  padding: var(--space-6);
+}
+
+.statusCardAttention {
+  border-color: color-mix(in srgb, var(--error) 28%, var(--border-primary));
+}
+
+.shortcuts {
+  margin: var(--space-6) 0 0;
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+}
+
+.shortcuts a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.shortcuts a:hover {
+  color: var(--text-primary);
+  text-decoration: underline;
 }
 
 .statusCard {
@@ -69,6 +114,11 @@
 .statusCard:hover {
   border-color: color-mix(in srgb, var(--text-primary) 28%, var(--border-primary));
   background: color-mix(in srgb, var(--bg-hover) 70%, var(--bg-primary));
+}
+
+.statusCard:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 .statusHead {
@@ -120,11 +170,17 @@
 
 @media (max-width: 768px) {
   .shell {
-    flex-direction: column;
+    flex-direction: column-reverse;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .statusGrid {
-    grid-template-columns: 1fr;
+  .main {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
   }
 
   .content {

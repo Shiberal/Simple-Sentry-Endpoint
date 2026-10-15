@@ -208,7 +208,8 @@
   align-self: stretch;
 }
 
-.container > .navStack {
+.container > .navStack,
+.shell > .navStack {
   min-height: 0;
   height: 100%;
 }
@@ -274,6 +275,16 @@
 
 .navBrand:hover {
   background: color-mix(in srgb, #fff 8%, transparent);
+}
+
+.navBrand:focus-visible,
+.navAvatar:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.navSidebar a.navItem {
+  text-decoration: none;
 }
 
 .navSpacer {
@@ -539,9 +550,11 @@
   }
 
   /* Dual rail becomes a scrollable bottom bar: tools then projects */
-  .navStack {
+  .container > .navStack,
+  .shell > .navStack {
     width: 100%;
     height: 56px;
+    min-height: 0;
     flex-direction: row;
     order: 1;
     border-top: 1px solid var(--border-primary);

@@ -73,22 +73,41 @@ export default function HubPage() {
     };
   }, [user]);
 
-  if (checking || !user) {
+  if (checking) {
     return (
       <>
         <Head>
-          <title>EDT Hub</title>
+          <title>Status · EDT</title>
         </Head>
-        <p className={styles.muted} style={{ padding: '2rem' }}>
-          Loading…
-        </p>
+        <HubShell title="Status" railActive="hub">
+          <p className={styles.muted}>Loading…</p>
+        </HubShell>
       </>
     );
   }
 
+  if (!user) return null;
+
   const mon = monitor.summary;
   const monBad = mon ? (mon.failing || 0) + (mon.missed || 0) : null;
   const monOk = mon ? mon.ok || 0 : null;
+  const statsReady = !sentry.loading && !monitor.loading && !sentry.error && !monitor.error;
+  const issueCount = sentry.active ?? 0;
+  const needsAttention = statsReady && (issueCount > 0 || (monBad ?? 0) > 0);
+
+  let summaryText = 'Checking Sentry and Monitors…';
+  if (sentry.error || monitor.error) {
+    summaryText = 'Some status data could not be loaded. Open a tool below for details.';
+  } else if (!sentry.loading && !monitor.loading) {
+    if (needsAttention) {
+      const parts = [];
+      if (issueCount > 0) parts.push(`${issueCount} active issue${issueCount === 1 ? '' : 's'}`);
+      if ((monBad ?? 0) > 0) parts.push(`${monBad} monitor${monBad === 1 ? '' : 's'} failing or missed`);
+      summaryText = parts.join(' · ');
+    } else {
+      summaryText = 'Nothing urgent — no active issues and monitors look healthy (24h).';
+    }
+  }
 
   return (
     <>
@@ -96,8 +115,18 @@ export default function HubPage() {
         <title>Status · EDT</title>
       </Head>
       <HubShell title="Status" meta={user.email} user={user} railActive="hub">
-        <div className={styles.statusGrid}>
-          <Link href="/hub/sentry" className={styles.statusCard}>
+        <p
+          className={`${styles.attentionSummary} ${needsAttention ? styles.attentionSummaryWarn : ''}`}
+          role="status"
+        >
+          <strong>Today</strong> — {summaryText}
+        </p>
+
+        <div className={styles.primaryStack}>
+          <Link
+            href="/hub/sentry"
+            className={`${styles.statusCard} ${issueCount > 0 ? styles.statusCardAttention : ''}`}
+          >
             <div className={styles.statusHead}>
               <span className={styles.statusIcon} aria-hidden>
                 <Icon name="activity" size={18} />
@@ -113,17 +142,20 @@ export default function HubPage() {
                 : sentry.loading
                   ? 'Loading active issues'
                   : sentry.active === 0
-                    ? 'No active issues'
-                    : 'Active issues'}
+                    ? 'No active issues — open issues'
+                    : 'Active issues — triage now'}
             </p>
           </Link>
 
-          <Link href="/monitors" className={styles.statusCard}>
+          <Link
+            href="/monitors"
+            className={`${styles.statusCard} ${(monBad ?? 0) > 0 ? styles.statusCardAttention : ''}`}
+          >
             <div className={styles.statusHead}>
               <span className={styles.statusIcon} aria-hidden>
                 <Icon name="clock" size={18} />
               </span>
-              <span className={styles.statusLabel}>Monitor</span>
+              <span className={styles.statusLabel}>Monitors</span>
             </div>
             <p className={styles.statusValue}>
               {monitor.loading ? '…' : monitor.error ? '—' : monBad}
@@ -132,35 +164,19 @@ export default function HubPage() {
               {monitor.error
                 ? monitor.error
                 : monitor.loading
-                  ? 'Loading monitors'
+                  ? 'Loading monitors (24h)'
                   : monBad === 0
-                    ? `${monOk} healthy`
-                    : `${monBad} failing or missed · ${monOk} ok`}
+                    ? `${monOk} healthy in the last 24h`
+                    : `${monBad} failing or missed · ${monOk} ok — review monitors`}
             </p>
           </Link>
-
-          <Link href="/performance" className={styles.statusCard}>
-            <div className={styles.statusHead}>
-              <span className={styles.statusIcon} aria-hidden>
-                <Icon name="chart" size={18} />
-              </span>
-              <span className={styles.statusLabel}>Performance</span>
-            </div>
-            <p className={styles.statusValue}>→</p>
-            <p className={styles.statusHint}>Transaction overview</p>
-          </Link>
-
-          <Link href="/projects" className={styles.statusCard}>
-            <div className={styles.statusHead}>
-              <span className={styles.statusIcon} aria-hidden>
-                <Icon name="folder" size={18} />
-              </span>
-              <span className={styles.statusLabel}>Projects</span>
-            </div>
-            <p className={styles.statusValue}>→</p>
-            <p className={styles.statusHint}>Keys, DSN, membership</p>
-          </Link>
         </div>
+
+        <p className={styles.shortcuts}>
+          Also: <Link href="/performance">Performance</Link>
+          {' · '}
+          <Link href="/projects">Projects</Link>
+        </p>
       </HubShell>
     </>
   );
