@@ -122,7 +122,7 @@ export default function MonitorDetailPage() {
   useEffect(() => {
     (async () => {
       const me = await fetch('/api/auth/me').then((r) => r.json());
-      if (!me?.user) { Router.push('/login'); return; }
+      if (!me?.user) { Router.push('/?next=/monitors'); return; }
       setUser(me.user);
       const pr = await fetch('/api/projects').then((r) => r.json());
       setProjects(pr.projects || []);
@@ -160,9 +160,9 @@ export default function MonitorDetailPage() {
 
   return (
     <>
-      <Head><title>{monitor ? `${monitor.name || monitor.slug} - Monitors` : 'Monitor'} - Sentry Monitor</title></Head>
+      <Head><title>{monitor ? `${monitor.name || monitor.slug} · Monitors` : 'Monitor'} · EDT</title></Head>
       <div className={shell.container}>
-        <AppNav active="monitors" />
+        <AppNav active="monitors" isAdmin={user?.isAdmin} user={user} />
         <div className={shell.main}>
           <header className={shell.header}>
             <div className={shell.headerContent}>

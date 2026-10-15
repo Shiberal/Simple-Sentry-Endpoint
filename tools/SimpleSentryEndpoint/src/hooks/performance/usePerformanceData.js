@@ -47,9 +47,6 @@ export default function usePerformanceData({ router }) {
       const data = await response.json();
       const projectsList = data.projects || [];
       setProjects(projectsList);
-      if (projectsList.length > 0 && selectedProject === null) {
-        setSelectedProject(projectsList[0].id);
-      }
     } catch (error) {
       console.error('Error fetching projects:', error);
       setProjects([]);

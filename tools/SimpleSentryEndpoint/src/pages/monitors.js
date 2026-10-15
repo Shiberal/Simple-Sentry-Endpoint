@@ -112,7 +112,7 @@ export default function MonitorsPage() {
       try {
         const me = await fetch('/api/auth/me').then((r) => r.json());
         if (!me?.user) {
-          Router.push('/login');
+          Router.push('/?next=/monitors');
           return;
         }
         setUser(me.user);
@@ -241,7 +241,7 @@ export default function MonitorsPage() {
   return (
     <>
       <Head>
-        <title>Monitors - Sentry Monitor</title>
+        <title>Monitors · EDT</title>
       </Head>
       <div className={shell.container}>
         <AppNav active="monitors" isAdmin={user.isAdmin} user={user}>
@@ -284,18 +284,6 @@ export default function MonitorsPage() {
                 Monitors
               </h1>
               <div className={shell.headerActions}>
-                <select
-                  className={shell.filterSelect}
-                  value={pid || ''}
-                  onChange={(e) => setPid(e.target.value === 'all' || e.target.value === 'standalone' ? e.target.value : parseInt(e.target.value, 10))}
-                  aria-label="Project"
-                >
-                  <option value="all">All projects</option>
-                  <option value="standalone">Standalone (no project)</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>{project.name}</option>
-                  ))}
-                </select>
                 <button type="button" onClick={() => loadMonitors(pid)} className={shell.headerButton} aria-label="Refresh" title="Refresh">
                   <span className={loadingMonitors ? shell.spinning : shell.iconWrap}><Icon name="refresh" size={16} /></span>
                 </button>

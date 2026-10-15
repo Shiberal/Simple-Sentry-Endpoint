@@ -2,6 +2,7 @@ import Icon from '@/components/Icon';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { useState } from 'react';
+import useMountEffect from '@/hooks/useMountEffect';
 import AppNav from '@/components/shared/AppNav';
 import PerformancePageSkeleton from '@/components/performance/PerformancePageSkeleton';
 import PerformanceSidebar from '@/components/performance/PerformanceSidebar';
@@ -15,6 +16,21 @@ import shell from '@/styles/AppShell.module.css';
 
 export default function PerformancePage() {
   const router = useRouter();
+  const [user, setUser] = useState(null);
+
+  useMountEffect(async () => {
+    try {
+      const me = await fetch('/api/auth/me').then((r) => r.json());
+      if (!me?.user) {
+        router.push('/?next=/performance');
+        return;
+      }
+      setUser(me.user);
+    } catch {
+      router.push('/?next=/performance');
+    }
+  });
+
   const {
     transactions, monitorCheckIns, loading, analytics, selectedProject, setSelectedProject, projects,
     viewMode, setViewMode, timeRange, setTimeRange, interval, setAggregationInterval, timeSeriesData,
@@ -42,7 +58,7 @@ export default function PerformancePage() {
     return (
       <>
         <Head>
-          <title>Performance - Sentry Monitor</title>
+          <title>Performance · EDT</title>
         </Head>
         <PerformancePageSkeleton />
       </>
@@ -50,14 +66,45 @@ export default function PerformancePage() {
   }
 
   return (
+    <>
+      <Head>
+        <title>Performance · EDT</title>
+      </Head>
     <div className={shell.container}>
-      <AppNav active="performance">
-        {/* Project Selector (Discord-like) */}
+      <AppNav active="performance" isAdmin={user?.isAdmin} user={user}>
+        <div
+          className={`${shell.navProjectItem} ${selectedProject === null ? shell.navProjectItemActive : ''}`}
+          onClick={() => setSelectedProject(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setSelectedProject(null);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-pressed={selectedProject === null}
+          aria-label="All projects"
+          title="All Projects"
+        >
+          ALL
+          <div className={shell.navItemTooltip}>All Projects</div>
+        </div>
         {projects.map(project => (
           <div
             key={project.id}
             className={`${shell.navProjectItem} ${selectedProject === project.id ? shell.navProjectItemActive : ''}`}
             onClick={() => setSelectedProject(project.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setSelectedProject(project.id);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-pressed={selectedProject === project.id}
+            aria-label={`Project ${project.name}`}
             title={project.name}
           >
             {project.name.substring(0, 2).toUpperCase()}
@@ -71,7 +118,7 @@ export default function PerformancePage() {
           <div className={shell.headerContent}>
             <h1 className={shell.logo}>
               <span className={shell.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
-              Performance Analytics
+              Performance
             </h1>
             <div className={shell.headerActions}>
               <button
@@ -215,8 +262,8 @@ export default function PerformancePage() {
               {viewMode === 'detailed' && !analytics && !loading && !error && (
                 selectedProject === null || selectedProject === undefined ? (
                   <EmptyPanel
-                    title="Please select a project to view performance data."
-                    hint="Choose a project from the sidebar to get started."
+                    title="Select a project to view performance data."
+                    hint="Pick a project from the tool rail (or keep All projects)."
                   />
                 ) : (
                   <EmptyPanel
@@ -230,5 +277,6 @@ export default function PerformancePage() {
         </div>
       </div>
     </div>
+    </>
   );
 }
