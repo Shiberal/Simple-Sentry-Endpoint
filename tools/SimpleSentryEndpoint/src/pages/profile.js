@@ -5,6 +5,8 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import AuthCardSkeleton from '@/components/AuthCardSkeleton';
+import AppNav from '@/components/shared/AppNav';
+import shell from '@/styles/AppShell.module.css';
 import styles from '@/styles/Auth.module.css';
 
 export default function ProfilePage() {
@@ -24,13 +26,13 @@ export default function ProfilePage() {
       const response = await fetch('/api/auth/me');
       const data = await response.json();
       if (!data?.user) {
-        router.push('/login');
+        router.push('/?next=/profile');
         return;
       }
       setUser(data.user);
       fetchProfile();
     } catch (error) {
-      router.push('/login');
+      router.push('/?next=/profile');
     }
   };
 
@@ -94,9 +96,14 @@ export default function ProfilePage() {
     return (
       <>
         <Head>
-          <title>Profile Settings - Sentry Monitor</title>
+          <title>Profile · EDT</title>
         </Head>
-        <AuthCardSkeleton />
+        <div className={shell.container}>
+          <AppNav active="profile" isAdmin={user?.isAdmin} user={user} />
+          <div className={shell.main}>
+            <AuthCardSkeleton />
+          </div>
+        </div>
       </>
     );
   }
@@ -104,17 +111,32 @@ export default function ProfilePage() {
   return (
     <>
       <Head>
-        <title>Profile Settings - Sentry Monitor</title>
+        <title>Profile · EDT</title>
       </Head>
 
-      <div className={styles.container}>
-        <div className={styles.card}>
-          <div className={styles.header}>
-            <h1 className={styles.logo}>
-              <span className={styles.logoIcon}><Icon name="user" size={20} strokeWidth={2} /></span>
-              Profile Settings
-            </h1>
-          </div>
+      <div className={shell.container}>
+        <AppNav active="profile" isAdmin={user?.isAdmin} user={user} />
+
+        <div className={shell.main}>
+          <header className={shell.header}>
+            <div className={shell.headerContent}>
+              <h1 className={shell.logo}>
+                <span className={shell.logoIcon}><Icon name="user" size={16} strokeWidth={2} /></span>
+                Profile
+              </h1>
+            </div>
+          </header>
+
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              display: 'flex',
+              justifyContent: 'center',
+              padding: 'var(--space-6) var(--space-4)',
+            }}
+          >
+        <div className={styles.card} style={{ width: '100%', maxWidth: 480 }}>
 
           {error && (
             <div className={styles.error} style={{ marginBottom: 'var(--space-3)' }}>
@@ -188,22 +210,20 @@ export default function ProfilePage() {
             </button>
           </form>
 
-          <div style={{
-            marginTop: 'var(--space-4)',
-            paddingTop: 'var(--space-4)',
-            borderTop: '1px solid var(--border-primary)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-2)'
-          }}>
-            <Link href="/hub/sentry" className={styles.link}>
-              ← Back to Dashboard
-            </Link>
-            {user?.isAdmin && (
+          {user?.isAdmin && (
+            <div
+              style={{
+                marginTop: 'var(--space-4)',
+                paddingTop: 'var(--space-4)',
+                borderTop: '1px solid var(--border-primary)',
+              }}
+            >
               <Link href="/admin" className={styles.link}>
-                ⚙️ Admin Panel
+                Admin panel
               </Link>
-            )}
+            </div>
+          )}
+        </div>
           </div>
         </div>
       </div>

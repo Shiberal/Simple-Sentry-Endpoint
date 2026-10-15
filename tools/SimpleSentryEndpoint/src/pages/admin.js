@@ -3,8 +3,9 @@ import Icon from '@/components/Icon';
 import Head from 'next/head';
 import Router from 'next/router';
 import Link from 'next/link';
-import ThemeToggle from '@/components/ThemeToggle';
+import AppNav from '@/components/shared/AppNav';
 import AdminPageSkeleton from '@/components/AdminPageSkeleton';
+import shell from '@/styles/AppShell.module.css';
 import InsightsTab from '@/components/admin/InsightsTab';
 import UsersTab from '@/components/admin/UsersTab';
 import ProjectsTab from '@/components/admin/ProjectsTab';
@@ -19,19 +20,18 @@ export default function AdminPage() {
   const { notifications, showNotification } = useNotifications(5000);
   const { user, users, projects, insights, settings, loading, accessDenied, refresh } = useAdminData({ showNotification });
 
-  const handleLogout = async () => {
-    // The session cookie is HttpOnly, so only the server can clear it
-    await fetch('/api/auth/logout', { method: 'POST' });
-    Router.push('/login');
-  };
-
   if (loading) {
     return (
       <>
         <Head>
-          <title>Admin - Sentry Monitor</title>
+          <title>Admin · EDT</title>
         </Head>
-        <AdminPageSkeleton />
+        <div className={shell.container}>
+          <AppNav active="admin" isAdmin={user?.isAdmin} user={user} />
+          <div className={shell.main}>
+            <AdminPageSkeleton />
+          </div>
+        </div>
       </>
     );
   }
@@ -40,26 +40,37 @@ export default function AdminPage() {
     return (
       <>
         <Head>
-          <title>Admin - Sentry Monitor</title>
+          <title>Admin · EDT</title>
         </Head>
-        <div className={styles.container}>
-          <div className={styles.content} style={{ maxWidth: 520, margin: '4rem auto', padding: '0 1rem' }}>
-            <h1 className={styles.sectionTitle}>Admin access required</h1>
-            <p className={styles.sectionSubtitle}>
-              Signed in as {user?.email || 'unknown'}, but this account is not a site admin.
-              Project ownership is separate from site admin.
-            </p>
-            <p className={styles.mutedText} style={{ marginTop: '1rem' }}>
-              If nobody has site admin yet, reload this page once — the first signed-in user is promoted automatically.
-              Or set <code>ADMIN_EMAIL</code> to your email and restart the server.
-            </p>
-            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
-              <Link href="/hub/sentry">
-                <button type="button" className={styles.headerButton}>Back to dashboard</button>
-              </Link>
-              <button type="button" className={styles.headerButton} onClick={() => Router.reload()}>
-                Retry
-              </button>
+        <div className={shell.container}>
+          <AppNav active="admin" isAdmin={user?.isAdmin} user={user} />
+          <div className={shell.main}>
+            <header className={shell.header}>
+              <div className={shell.headerContent}>
+                <h1 className={shell.logo}>
+                  <span className={shell.logoIcon}><Icon name="settings" size={18} strokeWidth={2} /></span>
+                  Admin
+                </h1>
+              </div>
+            </header>
+            <div className={styles.content} style={{ maxWidth: 520, margin: '2rem auto', padding: '0 1rem' }}>
+              <h2 className={styles.sectionTitle}>Admin access required</h2>
+              <p className={styles.sectionSubtitle}>
+                Signed in as {user?.email || 'unknown'}, but this account is not a site admin.
+                Project ownership is separate from site admin.
+              </p>
+              <p className={styles.mutedText} style={{ marginTop: '1rem' }}>
+                If nobody has site admin yet, reload this page once — the first signed-in user is promoted automatically.
+                Or set <code>ADMIN_EMAIL</code> to your email and restart the server.
+              </p>
+              <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
+                <Link href="/hub/sentry">
+                  <button type="button" className={styles.headerButton}>Back to Sentry</button>
+                </Link>
+                <button type="button" className={styles.headerButton} onClick={() => Router.reload()}>
+                  Retry
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -70,44 +81,30 @@ export default function AdminPage() {
   return (
     <>
       <Head>
-        <title>Admin - Sentry Monitor</title>
+        <title>Admin · EDT</title>
       </Head>
 
-      <div className={styles.container}>
-        <header className={styles.header}>
-          <div className={styles.headerContent}>
-            <h1 className={styles.logo}>
-              <span className={styles.logoIcon}><Icon name="settings" size={18} strokeWidth={2} /></span>
-              Admin Panel
-            </h1>
-            <div className={styles.headerActions}>
-              <span className={styles.userEmail}>{user?.email}</span>
-              <Link href="/profile">
-                <button className={styles.headerButton}>
-                  👤 Profile
-                </button>
-              </Link>
-              <Link href="/hub/sentry">
-                <button className={styles.headerButton}>
-                  📊 Dashboard
-                </button>
-              </Link>
-              <ThemeToggle />
-              <button onClick={refresh} className={styles.headerButton}>
-                Refresh
-              </button>
-              <button 
-                onClick={handleLogout} 
-                className={styles.headerButton}
-                style={{ backgroundColor: 'var(--error)', color: 'white', borderColor: 'var(--error)' }}
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </header>
+      <div className={shell.container}>
+        <AppNav active="admin" isAdmin={user?.isAdmin} user={user} />
 
-        <aside className={styles.sidebar}>
+        <div className={shell.main}>
+          <header className={shell.header}>
+            <div className={shell.headerContent}>
+              <h1 className={shell.logo}>
+                <span className={shell.logoIcon}><Icon name="settings" size={18} strokeWidth={2} /></span>
+                Admin
+              </h1>
+              <div className={shell.headerActions}>
+                <span className={shell.userEmail}>{user?.email}</span>
+                <button type="button" onClick={refresh} className={shell.headerButton}>
+                  Refresh
+                </button>
+              </div>
+            </div>
+          </header>
+
+          <div className={styles.embedded}>
+            <aside className={styles.embeddedSidebar}>
           <nav className={styles.sidebarNav}>
             <button
               className={`${styles.sidebarItem} ${activeTab === 'insights' ? styles.sidebarItemActive : ''}`}
@@ -145,9 +142,9 @@ export default function AdminPage() {
               Maintenance
             </button>
           </nav>
-        </aside>
+            </aside>
 
-        <main className={styles.main}>
+            <main className={styles.embeddedMain}>
           <div className={styles.content}>
             {activeTab === 'insights' && (
               insights
@@ -161,14 +158,16 @@ export default function AdminPage() {
             {activeTab === 'system' && settings && <SystemTab settings={settings} notify={showNotification} />}
             {activeTab === 'maintenance' && <MaintenanceTab notify={showNotification} onChanged={refresh} />}
           </div>
-        </main>
+            </main>
+          </div>
 
-        <div className={styles.notifications}>
-          {notifications.map(notif => (
-            <div key={notif.id} className={`${styles.notification} ${styles[`notification${notif.type}`]}`}>
-              {notif.message}
-            </div>
-          ))}
+          <div className={styles.notifications}>
+            {notifications.map(notif => (
+              <div key={notif.id} className={`${styles.notification} ${styles[`notification${notif.type}`]}`}>
+                {notif.message}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>

@@ -66,7 +66,7 @@ export default function useAdminData({ showNotification }) {
       const response = await fetch('/api/auth/me');
       const data = await response.json();
       if (!data?.user) {
-        Router.push('/login');
+        Router.push('/?next=/admin');
         return;
       }
       if (!data.user.isAdmin) {
@@ -80,7 +80,7 @@ export default function useAdminData({ showNotification }) {
       setLoading(false);
       fetchData();
     } catch (error) {
-      Router.push('/login');
+      Router.push('/?next=/admin');
     }
   };
 

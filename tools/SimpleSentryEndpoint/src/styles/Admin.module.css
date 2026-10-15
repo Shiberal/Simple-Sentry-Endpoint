@@ -145,6 +145,29 @@
   min-height: calc(100vh - 64px);
 }
 
+/* Inside AppNav shell — no fixed chrome offsets */
+.embedded {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.embeddedSidebar {
+  width: 240px;
+  flex-shrink: 0;
+  background-color: var(--bg-primary);
+  border-right: 1px solid var(--border-primary);
+  overflow-y: auto;
+}
+
+.embeddedMain {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--space-6);
+}
+
 /* Content section */
 .content {
   max-width: 1400px;
