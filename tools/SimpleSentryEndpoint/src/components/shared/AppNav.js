@@ -5,7 +5,7 @@ import shell from '@/styles/AppShell.module.css';
 // Sentry + Performance nav; Monitors is its own EDT tool but still served here for now
 const LINKS = [
   { key: 'projects', href: '/projects', icon: 'folder', title: 'Projects', tooltip: 'Projects', label: 'Projects' },
-  { key: 'dashboard', href: '/dashboard', icon: 'dashboard', title: 'Issues', tooltip: 'Issues', label: 'Issues' },
+  { key: 'sentry', href: '/hub/sentry', icon: 'dashboard', title: 'Sentry issues', tooltip: 'Sentry', label: 'Sentry issues' },
   { key: 'performance', href: '/performance', icon: 'activity', title: 'Performance', tooltip: 'Performance', label: 'Performance' },
   { key: 'monitors', href: '/monitors', icon: 'clock', title: 'Monitor (EDT)', tooltip: 'Monitor', label: 'Monitor' },
 ];

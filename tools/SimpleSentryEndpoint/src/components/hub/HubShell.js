@@ -1,14 +1,10 @@
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import ThemeToggle from '@/components/ThemeToggle';
-import { TOOLS } from '@/lib/edt-tools';
+import { HUB_TABS, TOOLS } from '@/lib/edt-tools';
 import styles from '@/styles/Hub.module.css';
 
-export default function HubShell({ title, meta, children }) {
-  const router = useRouter();
-  const active = router.pathname === '/hub' ? 'home' : '';
-
+export default function HubShell({ title, meta, children, tabId = 'overview' }) {
   return (
     <div className={styles.shell}>
       <aside className={styles.rail} aria-label="EDT tools">
@@ -19,7 +15,12 @@ export default function HubShell({ title, meta, children }) {
           <Link
             key={tool.id}
             href={tool.href}
-            className={styles.railItem}
+            className={`${styles.railItem} ${
+              (tool.id === 'sentry-performance' && tabId === 'sentry') ||
+              (tool.id === 'monitor' && tabId === 'monitor')
+                ? styles.railItemActive
+                : ''
+            }`}
             aria-label={tool.name}
           >
             <Icon name={tool.icon} size={18} />
@@ -29,16 +30,12 @@ export default function HubShell({ title, meta, children }) {
         <div className={styles.railSpacer} />
         <Link
           href="/hub"
-          className={`${styles.railItem} ${active === 'home' ? styles.railItemActive : ''}`}
-          aria-label="All tools"
-          aria-current={active === 'home' ? 'page' : undefined}
+          className={`${styles.railItem} ${tabId === 'overview' ? styles.railItemActive : ''}`}
+          aria-label="Hub overview"
+          aria-current={tabId === 'overview' ? 'page' : undefined}
         >
           <Icon name="dashboard" size={18} />
-          <span className={styles.railTip}>All tools</span>
-        </Link>
-        <Link href="/" className={styles.railItem} aria-label="Sentry Monitor home">
-          <Icon name="inbox" size={18} />
-          <span className={styles.railTip}>SSE home</span>
+          <span className={styles.railTip}>Overview</span>
         </Link>
       </aside>
 
@@ -49,6 +46,18 @@ export default function HubShell({ title, meta, children }) {
             {meta ? <p className={styles.topMeta}>{meta}</p> : null}
           </div>
           <div className={styles.topActions}>
+            <nav className={styles.workspaceTabs} aria-label="Hub sections">
+              {HUB_TABS.map((tab) => (
+                <Link
+                  key={tab.id}
+                  href={tab.href}
+                  className={`${styles.tab} ${tabId === tab.id ? styles.tabActive : ''}`}
+                  aria-current={tabId === tab.id ? 'page' : undefined}
+                >
+                  {tab.label}
+                </Link>
+              ))}
+            </nav>
             <ThemeToggle />
           </div>
         </header>

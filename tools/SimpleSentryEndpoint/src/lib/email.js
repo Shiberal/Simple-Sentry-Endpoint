@@ -70,7 +70,7 @@ export async function sendNewIssueAlert({ recipients, issue, project, baseUrl })
           <div class="issue-title">${issue.title}</div>
           ${issue.culprit ? `<p><strong>Location:</strong> ${issue.culprit}</p>` : ''}
           <p><strong>First Seen:</strong> ${new Date(issue.firstSeen).toLocaleString()}</p>
-          <a href="${baseUrl}/dashboard?issue=${issue.id}" class="button">View Issue Details</a>
+          <a href="${baseUrl}/hub/sentry?issue=${issue.id}" class="button">View Issue Details</a>
           <div class="footer">
             <p>You're receiving this because you have alert rules configured for this project.</p>
           </div>
@@ -89,7 +89,7 @@ Title: ${issue.title}
 ${issue.culprit ? `Location: ${issue.culprit}` : ''}
 First Seen: ${new Date(issue.firstSeen).toLocaleString()}
 
-View details: ${baseUrl}/dashboard?issue=${issue.id}
+View details: ${baseUrl}/hub/sentry?issue=${issue.id}
   `;
 
   if (!transporter) {
@@ -157,7 +157,7 @@ export async function sendIssueSpikeAlert({ recipients, issue, project, recentCo
             <p><strong>Total Count:</strong> ${issue.count}</p>
             <p><strong>Last Seen:</strong> ${new Date(issue.lastSeen).toLocaleString()}</p>
           </div>
-          <a href="${baseUrl}/dashboard?issue=${issue.id}" class="button">Investigate Now</a>
+          <a href="${baseUrl}/hub/sentry?issue=${issue.id}" class="button">Investigate Now</a>
         </div>
       </div>
     </body>
@@ -173,7 +173,7 @@ Recent Occurrences: ${recentCount}
 Total Count: ${issue.count}
 Last Seen: ${new Date(issue.lastSeen).toLocaleString()}
 
-View details: ${baseUrl}/dashboard?issue=${issue.id}
+View details: ${baseUrl}/hub/sentry?issue=${issue.id}
   `;
 
   if (!transporter) {

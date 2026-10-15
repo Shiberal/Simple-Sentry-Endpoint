@@ -86,7 +86,7 @@ export async function persistAlertAndIntegrationsAfterError({
           `- Last: ${new Date(issue.lastSeen).toLocaleString()}\n` +
           `- Span: ${days}d ${hours}h\n` +
           (eventData.environment ? `- Env: ${eventData.environment}\n` : '') +
-          `\n🔗 [Dashboard](${baseUrl}/dashboard)`
+          `\n🔗 [Dashboard](${baseUrl}/hub/sentry)`
         : null;
       await updateGitHubIssue({
         issueNumber: issue.githubIssueNumber,
@@ -169,7 +169,7 @@ export async function persistAlertAndIntegrationsAfterError({
     }
     if (rule.slackWebhookUrl) {
       const text =
-        '[' + project.name + '] ' + issue.title + '\nLevel: ' + level + '\nOpen: ' + baseUrl + '/dashboard';
+        '[' + project.name + '] ' + issue.title + '\nLevel: ' + level + '\nOpen: ' + baseUrl + '/hub/sentry';
       try {
         await postSlackIncomingWebhook(rule.slackWebhookUrl, text);
         dispatched = true;

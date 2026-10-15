@@ -196,7 +196,7 @@ export default function ProfilePage() {
             flexDirection: 'column',
             gap: 'var(--space-2)'
           }}>
-            <Link href="/dashboard" className={styles.link}>
+            <Link href="/hub/sentry" className={styles.link}>
               ← Back to Dashboard
             </Link>
             {user?.isAdmin && (

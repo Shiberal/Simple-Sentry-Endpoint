@@ -272,7 +272,7 @@ export default function ProjectsPage() {
                       </div>
 
                       <Link
-                        href={`/dashboard?projectId=${project.id}&status=active&level=all&timeRange=all`}
+                        href={`/hub/sentry?projectId=${project.id}&status=active&level=all&timeRange=all`}
                         className={`${projStyles.projectMetric} ${projStyles.projectMetricLink}`}
                         title="Open active issues (not resolved or ignored), all levels"
                       >
@@ -296,7 +296,7 @@ export default function ProjectsPage() {
                     </div>
 
                     <div className={projStyles.projectAnalyticsLinks}>
-                      <Link href={`/dashboard?projectId=${project.id}&status=active&level=all&timeRange=all`}>Issues</Link>
+                      <Link href={`/hub/sentry?projectId=${project.id}&status=active&level=all&timeRange=all`}>Issues</Link>
                       <Link href={`/performance?projectId=${project.id}`}>Performance</Link>
                       <Link href={`/monitors?projectId=${project.id}`}>Monitors</Link>
                       <Link href={`/project/${project.id}`}>Settings</Link>

@@ -96,7 +96,7 @@ export async function createGitHubIssue({ issue, eventData, project, baseUrl }) 
     
     // Generate enhanced issue body
     let body = `## 🚨 Error Report\n\n`;
-    body += `This issue was automatically created from [${project.name}](${baseUrl}/dashboard).\n\n`;
+    body += `This issue was automatically created from [${project.name}](${baseUrl}/hub/sentry).\n\n`;
     body += `**Error Fingerprint:** \`${issue.fingerprint}\`\n`;
     body += `**Occurrences:** ${issue.count} time${issue.count !== 1 ? 's' : ''}\n\n`;
     
@@ -174,7 +174,7 @@ export async function createGitHubIssue({ issue, eventData, project, baseUrl }) 
     
     // Link back to dashboard
     body += `---\n\n`;
-    body += `[View in Error Dashboard](${baseUrl}/dashboard) · Issue ID: ${issue.id}\n`;
+    body += `[View in Error Dashboard](${baseUrl}/hub/sentry) · Issue ID: ${issue.id}\n`;
 
     // Create the GitHub issue via API
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/issues`;

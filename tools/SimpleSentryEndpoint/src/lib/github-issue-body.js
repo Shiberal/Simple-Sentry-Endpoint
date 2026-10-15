@@ -130,7 +130,7 @@ export function buildGitHubIssueBody({ event, issue, data }) {
   // Add link to dashboard if available
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
   if (issue) {
-    body += `🔗 **[View in Dashboard](${baseUrl}/dashboard?issue=${issue.id})**\n`;
+    body += `🔗 **[View in Dashboard](${baseUrl}/hub/sentry?issue=${issue.id})**\n`;
   }
   return body;
 }

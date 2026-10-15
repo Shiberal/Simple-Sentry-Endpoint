@@ -112,6 +112,17 @@
   border-bottom: 1px solid var(--border-primary);
   background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
   backdrop-filter: blur(8px);
+  flex-wrap: wrap;
+}
+
+.topActions .workspaceTabs {
+  margin-right: var(--space-2);
+}
+
+.topActions a.tab {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
 }
 
 .topTitle {

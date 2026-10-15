@@ -25,7 +25,7 @@ export default function ProjectSettings() {
     : null;
 
   useEffect(() => {
-    if (id && !projectId) Router.push('/dashboard');
+    if (id && !projectId) Router.push('/hub/sentry');
   }, [id, projectId]);
 
   const {
@@ -53,7 +53,7 @@ export default function ProjectSettings() {
       <div className={styles.container}>
         <header className={styles.header}>
           <div className={styles.headerContent}>
-            <Link href="/dashboard" className={styles.backLink}>
+            <Link href="/hub/sentry" className={styles.backLink}>
               ← Back to Dashboard
             </Link>
             <h1 className={styles.title}>{project.name}</h1>

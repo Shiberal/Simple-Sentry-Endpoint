@@ -12,7 +12,7 @@ export default function DeleteProjectSection({ project, projectId }) {
       });
 
       if (response.ok) {
-        Router.push('/dashboard');
+        Router.push('/hub/sentry');
       } else {
         const data = await response.json();
         alert(data.error || data.message || 'Failed to delete project');

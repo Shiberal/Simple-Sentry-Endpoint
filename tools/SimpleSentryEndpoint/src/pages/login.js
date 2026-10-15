@@ -29,7 +29,11 @@ export default function Login() {
         throw new Error(data.error || 'Login failed');
       }
 
-      router.push('/dashboard');
+      const next =
+        typeof router.query.next === 'string' && router.query.next.startsWith('/')
+          ? router.query.next
+          : '/hub';
+      router.push(next);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -40,14 +44,14 @@ export default function Login() {
   return (
     <>
       <Head>
-        <title>Login - Sentry Monitor</title>
+          <title>Login · EDT</title>
       </Head>
       <div className={styles.container}>
         <div className={styles.card}>
           <div className={styles.header}>
             <Link href="/" className={styles.logo}>
               <BrandMark className={styles.logoMark} size={24} />
-              Sentry Monitor
+              EDT
             </Link>
             <h1 className={styles.title}>Welcome back</h1>
             <p className={styles.subtitle}>Sign in to continue to your workspace.</p>

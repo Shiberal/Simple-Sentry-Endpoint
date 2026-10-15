@@ -54,7 +54,7 @@ export default function AdminPage() {
               Or set <code>ADMIN_EMAIL</code> to your email and restart the server.
             </p>
             <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
-              <Link href="/dashboard">
+              <Link href="/hub/sentry">
                 <button type="button" className={styles.headerButton}>Back to dashboard</button>
               </Link>
               <button type="button" className={styles.headerButton} onClick={() => Router.reload()}>
@@ -87,7 +87,7 @@ export default function AdminPage() {
                   👤 Profile
                 </button>
               </Link>
-              <Link href="/dashboard">
+              <Link href="/hub/sentry">
                 <button className={styles.headerButton}>
                   📊 Dashboard
                 </button>

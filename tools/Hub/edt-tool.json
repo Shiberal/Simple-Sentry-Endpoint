@@ -5,5 +5,5 @@
   "package": "@edt/simple-sentry-endpoint",
   "entryPath": "/hub",
   "defaultPort": 3000,
-  "summary": "EDT tool catalog. Does not replace the Simple Sentry landing at /."
+  "summary": "Logged-in home. Sentry tab → /hub/sentry."
 }

@@ -3,7 +3,7 @@ import Router from 'next/router';
 
 /**
  * Signed-in user plus the project's settings, members and ignored issues.
- * Redirects to /login for anonymous visitors and to /dashboard when the project cannot be loaded.
+ * Redirects to /login for anonymous visitors and to /hub/sentry when the project cannot be loaded.
  */
 export default function useProject(projectId) {
   const [user, setUser] = useState(null);
@@ -43,7 +43,7 @@ export default function useProject(projectId) {
     try {
       const response = await fetch(`/api/projects/${projectId}`);
       if (!response.ok) {
-        Router.push('/dashboard');
+        Router.push('/hub/sentry');
         return;
       }
       const data = await response.json();
@@ -52,7 +52,7 @@ export default function useProject(projectId) {
       fetchIgnoredIssues();
     } catch (error) {
       console.error('Error fetching project:', error);
-      Router.push('/dashboard');
+      Router.push('/hub/sentry');
     } finally {
       setLoading(false);
     }

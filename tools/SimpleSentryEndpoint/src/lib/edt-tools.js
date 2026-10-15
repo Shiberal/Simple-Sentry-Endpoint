@@ -1,5 +1,5 @@
 /**
- * EDT tool catalog — same app, same origin. Hub is `/`; tools are routes below.
+ * EDT tool catalog. Hub is `/hub`; Sentry issues live at `/hub/sentry`.
  */
 
 export const TOOLS = [
@@ -11,9 +11,9 @@ export const TOOLS = [
     packageDir: 'tools/SimpleSentryEndpoint',
     npmName: '@edt/simple-sentry-endpoint',
     summary: 'Ingest SDK events, triage issues, and inspect performance transactions.',
-    href: '/dashboard',
+    href: '/hub/sentry',
     actions: [
-      { id: 'issues', label: 'Issues', href: '/dashboard' },
+      { id: 'issues', label: 'Issues', href: '/hub/sentry' },
       { id: 'performance', label: 'Performance', href: '/performance' },
       { id: 'projects', label: 'Projects', href: '/projects' },
     ],
@@ -31,6 +31,12 @@ export const TOOLS = [
       { id: 'list', label: 'Monitors', href: '/monitors' },
     ],
   },
+];
+
+export const HUB_TABS = [
+  { id: 'overview', label: 'Overview', href: '/hub' },
+  { id: 'sentry', label: 'Sentry', href: '/hub/sentry' },
+  { id: 'monitor', label: 'Monitor', href: '/monitors' },
 ];
 
 export function getTool(id) {
