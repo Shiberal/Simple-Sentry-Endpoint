@@ -139,11 +139,6 @@ export default function Dashboard() {
   const { showGitHubModal, setShowGitHubModal, githubIssueData, setGithubIssueData, handleCreateGitHubIssue } =
     useGitHubIssue({ setIssues, showNotification });
 
-  const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/login');
-  };
-
   const handleCreateProject = async (e) => {
     e.preventDefault();
     try {
@@ -347,7 +342,7 @@ export default function Dashboard() {
       </Head>
 
       <div className={`${shell.container} ${selectedEvent && isPhone ? shell.detailMode : ''}`}>
-        <AppNav active="sentry" isAdmin={user.isAdmin} onLogout={handleLogout} user={user}>
+        <AppNav active="sentry" isAdmin={user.isAdmin} user={user}>
           {/* Project Selector (Discord-like) */}
           <div
             className={`${shell.navProjectItem} ${selectedProject === null ? shell.navProjectItemActive : ''}`}
@@ -400,7 +395,7 @@ export default function Dashboard() {
             <div className={shell.headerContent}>
               <h1 className={shell.logo}>
                 <span className={shell.logoIcon}><Icon name="bolt" size={16} strokeWidth={2} /></span>
-                Sentry Monitor
+                Sentry
               </h1>
               <div className={shell.headerActions}>
                 <button

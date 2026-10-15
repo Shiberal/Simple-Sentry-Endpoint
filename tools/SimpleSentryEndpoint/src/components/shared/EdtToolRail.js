@@ -7,17 +7,20 @@ export const RAIL_TOOLS = [
   { key: 'hub', href: '/hub', icon: 'apps', label: 'Status' },
   { key: 'sentry', href: '/hub/sentry', icon: 'activity', label: 'Sentry' },
   { key: 'performance', href: '/performance', icon: 'chart', label: 'Performance' },
-  { key: 'monitors', href: '/monitors', icon: 'clock', label: 'Monitor' },
+  { key: 'monitors', href: '/monitors', icon: 'clock', label: 'Monitors' },
   { key: 'projects', href: '/projects', icon: 'folder', label: 'Projects' },
 ];
 
 function RailLink({ href, icon, label, active }) {
   return (
-    <Link href={href} style={{ textDecoration: 'none' }} aria-label={label}>
-      <div className={`${shell.navItem} ${active ? shell.navItemActive : ''}`} title={label}>
-        <Icon name={icon} size={18} strokeWidth={1.6} />
-        <div className={shell.navItemTooltip}>{label}</div>
-      </div>
+    <Link
+      href={href}
+      className={`${shell.navItem} ${active ? shell.navItemActive : ''}`}
+      aria-label={label}
+      title={label}
+    >
+      <Icon name={icon} size={18} strokeWidth={1.6} />
+      <div className={shell.navItemTooltip}>{label}</div>
     </Link>
   );
 }

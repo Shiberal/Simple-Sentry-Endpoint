@@ -1,3 +1,4 @@
+import { useRouter } from 'next/router';
 import EdtToolRail from '@/components/shared/EdtToolRail';
 import shell from '@/styles/AppShell.module.css';
 
@@ -7,9 +8,22 @@ import shell from '@/styles/AppShell.module.css';
  * tool selector never jumps when you change tools.
  */
 export default function AppNav({ active, isAdmin, onLogout, children, user }) {
+  const router = useRouter();
+  const logout =
+    onLogout ??
+    (async () => {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      router.push('/');
+    });
+
   return (
     <div className={shell.navStack}>
-      <EdtToolRail active={active} isAdmin={isAdmin} onLogout={onLogout} user={user} />
+      <EdtToolRail
+        active={active}
+        isAdmin={isAdmin}
+        onLogout={user ? logout : undefined}
+        user={user}
+      />
 
       {children != null ? (
         <nav className={shell.toolRail} aria-label="Within tool">
