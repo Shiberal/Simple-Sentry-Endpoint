@@ -39,6 +39,11 @@ const PATHS = {
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
   folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
   inbox: <><path d="M3 13l3-8h12l3 8" /><path d="M3 13v6h18v-6h-5l-1 3H9l-1-3z" /></>,
+  // Coolify-style rail icons
+  home: <path d="M4 11.5L12 4l8 7.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-8.5z" />,
+  apps: <><rect x="4" y="4" width="6" height="6" rx="1.2" /><rect x="14" y="4" width="6" height="6" rx="1.2" /><rect x="4" y="14" width="6" height="6" rx="1.2" /><rect x="14" y="14" width="6" height="6" rx="1.2" /></>,
+  chart: <path d="M4 19V11M10 19V5M16 19v-7M22 19H2" />,
+  terminal: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 10l3 2-3 2M12 14h5" /></>,
 };
 
 export default function Icon({ name, size = 16, strokeWidth = 1.75, className, ...rest }) {

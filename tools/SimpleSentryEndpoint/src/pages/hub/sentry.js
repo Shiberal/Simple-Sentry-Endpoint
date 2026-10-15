@@ -347,7 +347,7 @@ export default function Dashboard() {
       </Head>
 
       <div className={`${shell.container} ${selectedEvent && isPhone ? shell.detailMode : ''}`}>
-        <AppNav active={selectedProject ? undefined : 'sentry'} isAdmin={user.isAdmin} onLogout={handleLogout}>
+        <AppNav active={selectedProject ? undefined : 'sentry'} isAdmin={user.isAdmin} onLogout={handleLogout} user={user}>
           {/* Project Selector (Discord-like) */}
           <div
             className={`${shell.navProjectItem} ${selectedProject === null ? shell.navProjectItemActive : ''}`}

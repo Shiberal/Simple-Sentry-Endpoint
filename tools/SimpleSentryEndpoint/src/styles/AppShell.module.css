@@ -199,30 +199,76 @@
 /* ===== Redesign: instrument-panel look =====
    Flat surfaces, hairline borders, mono for data, one accent. */
 
-/* Navigation rail */
+/* Navigation rail — Coolify-style icon strip */
 .navSidebar {
   width: 56px;
-  background-color: var(--bg-darkest);
+  background-color: #0f1115;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-3) 0;
-  gap: var(--space-1);
+  padding: 12px 0 10px;
+  gap: 2px;
   flex-shrink: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  border-right: 1px solid var(--border-primary);
+  border-right: 1px solid color-mix(in srgb, #fff 6%, transparent);
   scrollbar-width: none;
+}
+
+.navBrand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  color: #a78bfa;
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: 1.05rem;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.navBrand:hover {
+  background: color-mix(in srgb, #fff 8%, transparent);
+}
+
+.navSpacer {
+  flex: 1;
+  min-height: 8px;
+}
+
+.navAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-top: 4px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #fff 10%, transparent);
+  color: #f9fafb;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.navAvatar:hover {
+  background: color-mix(in srgb, #fff 16%, transparent);
 }
 
 .navItem,
 .navProjectItem {
   width: 36px;
   height: 36px;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background-color: transparent;
   border: 1px solid transparent;
-  color: var(--text-secondary);
+  color: #9ca3af;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -244,32 +290,25 @@
 
 .navItem:hover,
 .navProjectItem:hover {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
+  background-color: color-mix(in srgb, #fff 8%, transparent);
+  color: #e5e7eb;
 }
 
 .navItemActive,
 .navProjectItemActive {
-  background-color: var(--accent-bg);
-  color: var(--accent-primary);
+  background-color: color-mix(in srgb, #fff 12%, transparent);
+  color: #f3f4f6;
   border-color: transparent;
 }
 
 .navProjectItemActive {
-  border-color: var(--accent-primary);
+  border-color: color-mix(in srgb, #fff 18%, transparent);
 }
 
-/* Active marker on the rail edge */
+/* Coolify active = rounded tile only (no edge bar) */
 .navItemActive::before,
 .navProjectItemActive::before {
-  content: '';
-  position: absolute;
-  left: -10px;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  border-radius: 0 2px 2px 0;
-  background-color: var(--accent-primary);
+  display: none;
 }
 
 .projectBadge {
@@ -313,8 +352,9 @@
 .navDivider {
   width: 20px;
   height: 1px;
-  background-color: var(--border-primary);
-  margin: var(--space-2) 0;
+  background-color: color-mix(in srgb, #fff 10%, transparent);
+  margin: 8px 0;
+  flex-shrink: 0;
 }
 
 /* Header */
@@ -481,16 +521,12 @@
     border-right: none;
   }
 
-  /* Active marker sits under the icon in the bottom bar */
-  .navItemActive::before,
-  .navProjectItemActive::before {
-    left: 8px;
-    right: 8px;
-    top: auto;
-    bottom: -7px;
-    width: auto;
-    height: 2px;
-    border-radius: 2px 2px 0 0;
+  .navSpacer {
+    display: none;
+  }
+
+  .navBrand {
+    margin-bottom: 0;
   }
 
   .navSidebar > a {

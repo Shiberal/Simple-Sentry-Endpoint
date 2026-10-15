@@ -244,7 +244,7 @@ export default function MonitorsPage() {
         <title>Monitors - Sentry Monitor</title>
       </Head>
       <div className={shell.container}>
-        <AppNav active="monitors" isAdmin={user.isAdmin}>
+        <AppNav active="monitors" isAdmin={user.isAdmin} user={user}>
           <button
             type="button"
             className={`${shell.navProjectItem} ${pid === 'all' ? shell.navProjectItemActive : ''}`}

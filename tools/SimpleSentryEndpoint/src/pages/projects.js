@@ -135,7 +135,7 @@ export default function ProjectsPage() {
       </Head>
 
       <div className={shell.container}>
-        <AppNav active="projects" isAdmin={user.isAdmin}>
+        <AppNav active="projects" isAdmin={user.isAdmin} user={user}>
           {projects.map((project) => (
             <Link
               key={project.id}

@@ -1,17 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Icon from '@/components/Icon';
 import HubShell from '@/components/hub/HubShell';
-import { TOOLS } from '@/lib/edt-tools';
+import { normalizeHubTab, toolsForHubTab } from '@/lib/edt-tools';
 import styles from '@/styles/Hub.module.css';
 
-/** EDT Hub — logged-in home. Sentry issues live under the Sentry tab → /hub/sentry. */
+/** EDT Hub — Coolify-style rail; tabs show tools inside Hub. */
 export default function HubPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
+
+  const tabId = useMemo(
+    () => normalizeHubTab(typeof router.query.tab === 'string' ? router.query.tab : 'all'),
+    [router.query.tab]
+  );
+  const tools = useMemo(() => toolsForHubTab(tabId), [tabId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,27 +55,34 @@ export default function HubPage() {
     );
   }
 
+  const tabLabel =
+    tabId === 'sentry' ? 'Sentry' : tabId === 'monitor' ? 'Monitor' : 'All tools';
+
   return (
     <>
       <Head>
-        <title>EDT Hub</title>
+        <title>{`${tabLabel} · EDT Hub`}</title>
       </Head>
       <HubShell
         title="Hub"
         meta={`Signed in as ${user.email}`}
-        tabId="overview"
+        tabId={tabId}
+        user={user}
+        railActive="hub"
       >
         <section className={styles.hero}>
           <div className={styles.heroInner}>
             <p className={styles.brandMark}>EDT</p>
             <p className={styles.lede}>
-              Pick a tool. Sentry is the issues workspace (formerly Dashboard). Monitor stays under its own tab.
+              {tabId === 'all'
+                ? 'Your tools. Open one from a tab, or jump straight into a workspace.'
+                : `Working in ${tabLabel} — open the workspace or a shortcut below.`}
             </p>
           </div>
         </section>
 
         <div className={styles.toolList} role="list">
-          {TOOLS.map((tool) => (
+          {tools.map((tool) => (
             <article key={tool.id} className={styles.toolRow} role="listitem">
               <div className={styles.toolIcon} aria-hidden>
                 <Icon name={tool.icon} size={22} />

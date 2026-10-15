@@ -1,10 +1,11 @@
 /**
- * EDT tool catalog. Hub is `/hub`; Sentry issues live at `/hub/sentry`.
+ * EDT tool catalog. Hub is `/hub`; tools open under Hub tabs, then into their workspaces.
  */
 
 export const TOOLS = [
   {
     id: 'sentry-performance',
+    tabId: 'sentry',
     name: 'Sentry + Performance',
     shortName: 'Sentry',
     icon: 'activity',
@@ -20,6 +21,7 @@ export const TOOLS = [
   },
   {
     id: 'monitor',
+    tabId: 'monitor',
     name: 'Monitor',
     shortName: 'Monitor',
     icon: 'clock',
@@ -33,12 +35,23 @@ export const TOOLS = [
   },
 ];
 
+/** Hub content tabs — stay on /hub and switch which tools you see. */
 export const HUB_TABS = [
-  { id: 'overview', label: 'Overview', href: '/hub' },
-  { id: 'sentry', label: 'Sentry', href: '/hub/sentry' },
-  { id: 'monitor', label: 'Monitor', href: '/monitors' },
+  { id: 'all', label: 'All tools', href: '/hub' },
+  { id: 'sentry', label: 'Sentry', href: '/hub?tab=sentry' },
+  { id: 'monitor', label: 'Monitor', href: '/hub?tab=monitor' },
 ];
 
 export function getTool(id) {
   return TOOLS.find((t) => t.id === id) || null;
+}
+
+export function toolsForHubTab(tabId) {
+  if (!tabId || tabId === 'all' || tabId === 'overview') return TOOLS;
+  return TOOLS.filter((t) => t.tabId === tabId);
+}
+
+export function normalizeHubTab(tab) {
+  if (tab === 'sentry' || tab === 'monitor') return tab;
+  return 'all';
 }

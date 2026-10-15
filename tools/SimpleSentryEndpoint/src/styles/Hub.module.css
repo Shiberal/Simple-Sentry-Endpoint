@@ -1,11 +1,12 @@
 .shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 56px minmax(0, 1fr);
   background: var(--bg-secondary);
   color: var(--text-primary);
 }
 
+/* Coolify-like icon rail */
 .rail {
   position: sticky;
   top: 0;
@@ -13,10 +14,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-4) 0;
-  background: var(--bg-darkest);
-  border-right: 1px solid var(--border-primary);
+  gap: 2px;
+  padding: 12px 0 10px;
+  background: #0f1115;
+  border-right: 1px solid color-mix(in srgb, #fff 6%, transparent);
   z-index: var(--z-sticky);
 }
 
@@ -24,19 +25,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  margin-bottom: var(--space-2);
-  border-radius: var(--radius-md);
-  color: var(--accent-primary);
+  width: 36px;
+  height: 36px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  color: #a78bfa;
   font-family: var(--font-display);
   font-weight: var(--weight-bold);
-  font-size: var(--font-lg);
-  letter-spacing: -0.03em;
+  font-size: 1.05rem;
+  letter-spacing: -0.04em;
+  text-decoration: none;
 }
 
 .railBrand:hover {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, #fff 8%, transparent);
+}
+
+.railGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+}
+
+.railDivider {
+  width: 20px;
+  height: 1px;
+  margin: 8px 0;
+  background: color-mix(in srgb, #fff 10%, transparent);
+  flex-shrink: 0;
 }
 
 .railItem {
@@ -44,45 +62,46 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   background: transparent;
-  color: var(--text-secondary);
+  color: #9ca3af;
   cursor: pointer;
+  text-decoration: none;
   transition:
-    color var(--transition-fast),
-    background-color var(--transition-fast);
+    color 120ms ease,
+    background-color 120ms ease;
 }
 
 .railItem:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
+  color: #e5e7eb;
+  background: color-mix(in srgb, #fff 8%, transparent);
 }
 
 .railItemActive {
-  color: var(--accent-primary);
-  background: var(--accent-bg);
+  color: #f3f4f6;
+  background: color-mix(in srgb, #fff 12%, transparent);
 }
 
 .railTip {
   position: absolute;
   left: calc(100% + 10px);
   white-space: nowrap;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--bg-primary);
-  border: 1px solid var(--border-primary);
-  box-shadow: var(--shadow-md);
-  font-size: var(--font-xs);
-  color: var(--text-primary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #1c1f26;
+  border: 1px solid color-mix(in srgb, #fff 10%, transparent);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  color: #f3f4f6;
   pointer-events: none;
   opacity: 0;
   transform: translateX(-4px);
   transition:
-    opacity var(--transition-fast),
-    transform var(--transition-fast);
+    opacity 120ms ease,
+    transform 120ms ease;
   z-index: var(--z-tooltip);
 }
 
@@ -94,6 +113,36 @@
 
 .railSpacer {
   flex: 1;
+  min-height: 8px;
+}
+
+.railTheme {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: #9ca3af;
+}
+
+.railAvatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-top: 6px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #fff 10%, transparent);
+  color: #f9fafb;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.railAvatar:hover {
+  background: color-mix(in srgb, #fff 16%, transparent);
 }
 
 .main {
@@ -101,6 +150,7 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  background: var(--bg-secondary);
 }
 
 .topBar {
@@ -108,21 +158,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--border-primary);
-  background: color-mix(in srgb, var(--bg-primary) 88%, transparent);
-  backdrop-filter: blur(8px);
-  flex-wrap: wrap;
-}
-
-.topActions .workspaceTabs {
-  margin-right: var(--space-2);
-}
-
-.topActions a.tab {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
+  padding: var(--space-5) var(--space-6) var(--space-3);
 }
 
 .topTitle {
@@ -139,10 +175,42 @@
   color: var(--text-secondary);
 }
 
-.topActions {
+/* Primary Hub tabs — tools live here */
+.hubTabs {
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 var(--space-6) var(--space-4);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.hubTab {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.hubTab:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.hubTabActive {
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  border-color: var(--border-primary);
 }
 
 .content {
@@ -155,20 +223,9 @@
 
 .hero {
   position: relative;
-  margin-bottom: var(--space-10);
-  padding-bottom: var(--space-8);
+  margin-bottom: var(--space-8);
+  padding-bottom: var(--space-6);
   border-bottom: 1px solid var(--border-primary);
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: -24% -10% auto -10%;
-  height: 180px;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 70% 80% at 0% 0%, color-mix(in srgb, var(--accent-primary) 16%, transparent), transparent 60%);
-  z-index: 0;
 }
 
 .heroInner {
@@ -180,7 +237,7 @@
   display: block;
   margin: 0 0 var(--space-3);
   font-family: var(--font-display);
-  font-size: clamp(2.75rem, 6vw, 4rem);
+  font-size: clamp(2.25rem, 5vw, 3.25rem);
   font-weight: var(--weight-bold);
   letter-spacing: -0.035em;
   line-height: 1.05;
@@ -199,7 +256,6 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  border-top: 1px solid var(--border-primary);
 }
 
 .toolRow {
@@ -209,7 +265,7 @@
   align-items: center;
   padding: var(--space-5) 0;
   border-bottom: 1px solid var(--border-primary);
-  transition: background-color var(--transition-fast);
+  transition: background-color 120ms ease;
 }
 
 .toolRow:hover {
@@ -222,10 +278,10 @@
   justify-content: center;
   width: 48px;
   height: 48px;
-  border-radius: var(--radius-lg);
+  border-radius: 12px;
   background: var(--bg-primary);
   border: 1px solid var(--border-primary);
-  color: var(--accent-primary);
+  color: var(--text-primary);
 }
 
 .toolName {
@@ -255,17 +311,18 @@
   gap: var(--space-2);
   min-height: 40px;
   padding: 0 var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   border: 1px solid var(--border-primary);
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: var(--font-sm);
   font-weight: var(--weight-medium);
   cursor: pointer;
+  text-decoration: none;
   transition:
-    background-color var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast);
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
 }
 
 .btn:hover {
@@ -273,108 +330,14 @@
 }
 
 .btnPrimary {
-  background: var(--accent-primary);
-  border-color: var(--accent-primary);
-  color: #fff;
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--bg-primary);
 }
 
 .btnPrimary:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-  color: #fff;
-}
-
-.btnGhost {
-  background: transparent;
-}
-
-.workspace {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0;
-  max-width: none;
-  margin: 0;
-}
-
-.workspaceBar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 1px solid var(--border-primary);
-  background: var(--bg-primary);
-  flex-wrap: wrap;
-}
-
-.workspaceTabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-.tab {
-  min-height: 36px;
-  padding: 0 var(--space-3);
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--font-sm);
-  font-weight: var(--weight-medium);
-  cursor: pointer;
-}
-
-.tab:hover {
-  color: var(--text-primary);
-  background: var(--bg-hover);
-}
-
-.tabActive {
-  color: var(--accent-primary);
-  background: var(--accent-bg);
-}
-
-.frameWrap {
-  flex: 1;
-  min-height: 0;
-  position: relative;
-  background: var(--bg-primary);
-}
-
-.frame {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: var(--bg-primary);
-}
-
-.frameFallback {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: var(--space-4);
-  padding: var(--space-8);
-  max-width: 36rem;
-}
-
-.frameFallback h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-2xl);
-  letter-spacing: -0.02em;
-}
-
-.frameFallback p {
-  margin: 0;
-  color: var(--text-secondary);
+  opacity: 0.92;
+  color: var(--bg-primary);
 }
 
 .muted {
@@ -396,16 +359,26 @@
     height: auto;
     flex-direction: row;
     width: 100%;
-    padding: var(--space-2) var(--space-3);
+    padding: 8px 10px;
     overflow-x: auto;
+    gap: 4px;
     border-right: none;
-    border-bottom: 1px solid var(--border-primary);
+    border-bottom: 1px solid color-mix(in srgb, #fff 6%, transparent);
   }
 
   .railBrand {
     margin-bottom: 0;
-    width: 40px;
-    height: 40px;
+  }
+
+  .railGroup {
+    flex-direction: row;
+    width: auto;
+  }
+
+  .railDivider {
+    width: 1px;
+    height: 20px;
+    margin: 0 6px;
   }
 
   .railSpacer {
@@ -414,6 +387,14 @@
 
   .railTip {
     display: none;
+  }
+
+  .railTheme {
+    width: 36px;
+  }
+
+  .hubTabs {
+    padding: 0 var(--space-4) var(--space-3);
   }
 
   .toolRow {
@@ -432,5 +413,9 @@
 
   .content {
     padding: var(--space-6) var(--space-4);
+  }
+
+  .topBar {
+    padding: var(--space-4) var(--space-4) var(--space-2);
   }
 }

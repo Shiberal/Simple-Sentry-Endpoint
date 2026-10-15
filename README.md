@@ -19,7 +19,7 @@ npm run dev
 | Path | Behavior |
 |------|----------|
 | `/` | New EDT landing with login → Hub |
-| `/hub` | Logged-in Hub overview + Sentry / Monitor tabs |
+| `/hub` | Coolify-style rail; All / Sentry / Monitor tabs + tool list |
 | `/hub/sentry` | Issues UI (old dashboard) |
 | `/dashboard` | Nothing (404) |
 | Ingest APIs | Unchanged |
