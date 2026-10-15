@@ -6,7 +6,7 @@ import ThemeToggle from '@/components/ThemeToggle';
 import Icon from '@/components/Icon';
 import styles from '@/styles/EdtLanding.module.css';
 
-/** EDT landing — login here enters Hub; services open from Hub after sign-in. */
+/** EDT landing — login enters Sentry; left rail switches tools. */
 export default function Home() {
   const router = useRouter();
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -17,7 +17,7 @@ export default function Home() {
   const nextPath =
     typeof router.query.next === 'string' && router.query.next.startsWith('/')
       ? router.query.next
-      : '/hub';
+      : '/hub/sentry';
 
   useEffect(() => {
     let cancelled = false;
@@ -26,7 +26,7 @@ export default function Home() {
         const res = await fetch('/api/auth/me');
         const data = await res.json();
         if (!cancelled && data?.user) {
-          router.replace(nextPath === '/' ? '/hub' : nextPath);
+          router.replace(nextPath === '/' ? '/hub/sentry' : nextPath);
           return;
         }
       } catch {
@@ -52,7 +52,7 @@ export default function Home() {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Login failed');
-      router.push(nextPath === '/' ? '/hub' : nextPath);
+      router.push(nextPath === '/' ? '/hub/sentry' : nextPath);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -77,7 +77,7 @@ export default function Home() {
     <>
       <Head>
         <title>EDT — sign in</title>
-        <meta name="description" content="Sign in to EDT Hub and open Sentry, Monitor, and more." />
+        <meta name="description" content="Sign in to EDT — Sentry, Monitor, and more." />
       </Head>
 
       <div className={styles.page}>
@@ -98,8 +98,8 @@ export default function Home() {
           <section className={styles.hero}>
             <h1 className={styles.title}>Tools in one place</h1>
             <p className={styles.lede}>
-              Sign in to open the Hub. From there you run Sentry (issues &amp; performance) and Monitor —
-              same accounts, same data as Simple Sentry Endpoint.
+              Sign in to Sentry. Switch tools from the left rail — Monitor, Performance, Projects —
+              same accounts and data as Simple Sentry Endpoint.
             </p>
             <ul className={styles.serviceList}>
               <li>
@@ -142,7 +142,7 @@ export default function Home() {
                 />
               </label>
               <button type="submit" className={styles.submit} disabled={loading}>
-                {loading ? 'Signing in…' : 'Enter Hub'}
+                {loading ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
             <p className={styles.footerNote}>

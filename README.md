@@ -7,8 +7,8 @@ One app. **Landing + login at `/`**, **Hub at `/hub`**, **Sentry issues at `/hub
 ```bash
 npm install
 npm run dev
-# → http://localhost:3000     EDT landing (sign in → Hub)
-#    /hub                     Tool catalog (Sentry · Monitor tabs)
+# → http://localhost:3000     EDT landing (sign in → Sentry)
+#    /hub                     Status glance (active issues · monitors)
 #    /hub/sentry              Issues workspace (was /dashboard)
 #    /monitors                Monitor
 #    /dashboard               Gone (404)
@@ -18,8 +18,8 @@ npm run dev
 
 | Path | Behavior |
 |------|----------|
-| `/` | New EDT landing with login → Hub |
-| `/hub` | Coolify-style rail; All / Sentry / Monitor tabs + tool list |
+| `/` | EDT landing; login → `/hub/sentry` |
+| `/hub` | Status glance (not a second tool catalog) |
 | `/hub/sentry` | Issues UI (old dashboard) |
 | `/dashboard` | Nothing (404) |
 | Ingest APIs | Unchanged |

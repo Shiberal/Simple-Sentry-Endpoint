@@ -4,7 +4,7 @@ import shell from '@/styles/AppShell.module.css';
 
 /** Fixed left tool switcher — same place on Hub and every tool page. */
 export const RAIL_TOOLS = [
-  { key: 'hub', href: '/hub', icon: 'apps', label: 'Hub' },
+  { key: 'hub', href: '/hub', icon: 'apps', label: 'Status' },
   { key: 'sentry', href: '/hub/sentry', icon: 'activity', label: 'Sentry' },
   { key: 'performance', href: '/performance', icon: 'chart', label: 'Performance' },
   { key: 'monitors', href: '/monitors', icon: 'clock', label: 'Monitor' },

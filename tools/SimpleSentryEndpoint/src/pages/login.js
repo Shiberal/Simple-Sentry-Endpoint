@@ -32,7 +32,7 @@ export default function Login() {
       const next =
         typeof router.query.next === 'string' && router.query.next.startsWith('/')
           ? router.query.next
-          : '/hub';
+          : '/hub/sentry';
       router.push(next);
     } catch (err) {
       setError(err.message);

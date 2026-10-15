@@ -1,6 +1,6 @@
 # EDT
 
-**Assumptions from brief (labeled):** EDT toolbox. `/` = landing + login → Hub. `/hub` = Coolify-style rail + tabs listing tools (All / Sentry / Monitor). `/hub/sentry` = former dashboard. `/dashboard` = gone. Data via same DATABASE_URL. Visual world inherits SimpleSentryEndpoint + Coolify rail.
+**Assumptions from brief (labeled):** EDT toolbox. `/` = landing + login → `/hub/sentry`. Left rail switches tools. `/hub` = status glance (counts), not a catalog. `/hub/sentry` = former dashboard. `/dashboard` = gone. Data via same DATABASE_URL.
 
 ## Audience
 
