@@ -195,6 +195,195 @@
   margin-top: var(--space-1);
 }
 
+.sectionSubtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  font-weight: var(--weight-normal);
+  max-width: 42rem;
+}
+
+.alertStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.alertBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  font-size: var(--font-sm);
+  line-height: 1.4;
+}
+
+.alertCritical {
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  border-color: color-mix(in srgb, var(--error) 40%, var(--border-primary));
+  color: var(--text-primary);
+}
+
+.alertWarning {
+  background: color-mix(in srgb, var(--warning, #d97706) 12%, transparent);
+  border-color: color-mix(in srgb, var(--warning, #d97706) 40%, var(--border-primary));
+}
+
+.alertInfo {
+  background: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent-primary) 35%, var(--border-primary));
+}
+
+.alertOk {
+  background: color-mix(in srgb, var(--success, #16a34a) 10%, transparent);
+  border-color: color-mix(in srgb, var(--success, #16a34a) 35%, var(--border-primary));
+  margin-bottom: var(--space-4);
+}
+
+.insightPanels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.insightPanel {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.insightPanelTitle {
+  font-size: var(--font-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--text-primary);
+  margin: 0 0 var(--space-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sparkBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 120px;
+  padding-top: var(--space-2);
+}
+
+.sparkCol {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.sparkBar {
+  width: 100%;
+  max-width: 14px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent-primary);
+  min-height: 4px;
+}
+
+.sparkLabel {
+  font-size: 9px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: clip;
+}
+
+.barList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: minmax(72px, 28%) 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+}
+
+.barLabel {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-primary);
+  min-width: 2px;
+}
+
+.barFillStorage {
+  background: color-mix(in srgb, var(--accent-primary) 55%, var(--text-secondary));
+}
+
+.barValue {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-size: var(--font-xs);
+  text-align: right;
+  min-width: 4.5rem;
+}
+
+.mutedText {
+  font-size: var(--font-sm);
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.badgeOk,
+.badgeWarn {
+  display: inline-block;
+  font-size: var(--font-xs);
+  font-weight: var(--weight-medium);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.badgeOk {
+  background: color-mix(in srgb, var(--success, #16a34a) 15%, transparent);
+  color: var(--success, #16a34a);
+}
+
+.badgeWarn {
+  background: color-mix(in srgb, var(--warning, #d97706) 18%, transparent);
+  color: var(--warning, #d97706);
+}
+
+@media (max-width: 900px) {
+  .insightPanels {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Section header */
 .sectionHeader {
   display: flex;

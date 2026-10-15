@@ -8,6 +8,7 @@ export default function useAdminData({ showNotification }) {
   const [users, setUsers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [stats, setStats] = useState(null);
+  const [insights, setInsights] = useState(null);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -34,6 +35,15 @@ export default function useAdminData({ showNotification }) {
       }
       if (statsData.success) {
         setStats(statsData.stats);
+        setInsights({
+          stats: statsData.stats,
+          storage: statsData.storage,
+          ingest: statsData.ingest,
+          process: statsData.process,
+          workers: statsData.workers,
+          alerts: statsData.alerts,
+          generatedAt: statsData.generatedAt,
+        });
       }
       if (settingsData.success) {
         setSettings(settingsData.settings);
@@ -64,5 +74,5 @@ export default function useAdminData({ showNotification }) {
 
   useMountEffect(checkAuth);
 
-  return { user, users, projects, stats, settings, loading, refresh: fetchData };
+  return { user, users, projects, stats, insights, settings, loading, refresh: fetchData };
 }

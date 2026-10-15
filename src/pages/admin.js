@@ -5,7 +5,7 @@ import Router from 'next/router';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ThemeToggle';
 import AdminPageSkeleton from '@/components/AdminPageSkeleton';
-import OverviewTab from '@/components/admin/OverviewTab';
+import InsightsTab from '@/components/admin/InsightsTab';
 import UsersTab from '@/components/admin/UsersTab';
 import ProjectsTab from '@/components/admin/ProjectsTab';
 import SystemTab from '@/components/admin/SystemTab';
@@ -15,9 +15,9 @@ import useNotifications from '@/hooks/useNotifications';
 import styles from '@/styles/Admin.module.css';
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('insights');
   const { notifications, showNotification } = useNotifications(5000);
-  const { user, users, projects, stats, settings, loading, refresh } = useAdminData({ showNotification });
+  const { user, users, projects, insights, settings, loading, refresh } = useAdminData({ showNotification });
 
   const handleLogout = async () => {
     // The session cookie is HttpOnly, so only the server can clear it
@@ -79,11 +79,11 @@ export default function AdminPage() {
         <aside className={styles.sidebar}>
           <nav className={styles.sidebarNav}>
             <button
-              className={`${styles.sidebarItem} ${activeTab === 'overview' ? styles.sidebarItemActive : ''}`}
-              onClick={() => setActiveTab('overview')}
+              className={`${styles.sidebarItem} ${activeTab === 'insights' ? styles.sidebarItemActive : ''}`}
+              onClick={() => setActiveTab('insights')}
             >
-              <span className={styles.sidebarItemIcon}>📊</span>
-              Overview
+              <span className={styles.sidebarItemIcon}><Icon name="activity" size={16} /></span>
+              Insights
             </button>
             <button
               className={`${styles.sidebarItem} ${activeTab === 'users' ? styles.sidebarItemActive : ''}`}
@@ -118,7 +118,9 @@ export default function AdminPage() {
 
         <main className={styles.main}>
           <div className={styles.content}>
-            {activeTab === 'overview' && stats && <OverviewTab stats={stats} />}
+            {activeTab === 'insights' && insights && (
+              <InsightsTab insights={insights} onRefresh={refresh} />
+            )}
             {activeTab === 'users' && <UsersTab users={users} notify={showNotification} onChanged={refresh} />}
             {activeTab === 'projects' && (
               <ProjectsTab projects={projects} users={users} notify={showNotification} onChanged={refresh} />
