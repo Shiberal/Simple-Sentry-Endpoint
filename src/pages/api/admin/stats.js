@@ -113,6 +113,12 @@ export default async function handler(req, res) {
 
     const nonCheckIn = { eventType: { not: 'CHECK_IN' } };
 
+    const safe = (promise, fallback) =>
+      promise.catch((err) => {
+        console.error('Admin stats partial query failed:', err);
+        return fallback;
+      });
+
     const [
       users,
       projects,
@@ -135,8 +141,7 @@ export default async function handler(req, res) {
       hourlyRows,
       byTypeRows,
       topProjectRows,
-      oldestEvent,
-      newestEvent,
+      eventSpanRows,
     ] = await Promise.all([
       prisma.user.count(),
       prisma.project.count(),
@@ -172,56 +177,74 @@ export default async function handler(req, res) {
         orderBy: { lastTickAt: 'desc' },
         take: 20,
       }),
-      prisma.$queryRaw`SELECT pg_database_size(current_database())::bigint AS size`,
-      prisma.$queryRaw`
-        SELECT
-          c.relname AS name,
-          pg_total_relation_size(c.oid)::bigint AS total_bytes,
-          pg_relation_size(c.oid)::bigint AS table_bytes,
-          (pg_total_relation_size(c.oid) - pg_relation_size(c.oid))::bigint AS index_bytes
-        FROM pg_class c
-        JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public'
-          AND c.relkind = 'r'
-        ORDER BY pg_total_relation_size(c.oid) DESC
-      `,
-      prisma.$queryRaw`
-        SELECT date_trunc('hour', "createdAt") AS hour, COUNT(*)::int AS count
-        FROM "Event"
-        WHERE "createdAt" >= ${last24Hours}
-          AND "eventType"::text <> 'CHECK_IN'
-        GROUP BY 1
-        ORDER BY 1
-      `,
-      prisma.$queryRaw`
-        SELECT "eventType"::text AS type, COUNT(*)::int AS count
-        FROM "Event"
-        WHERE "createdAt" >= ${last24Hours}
-        GROUP BY 1
-        ORDER BY count DESC
-      `,
-      prisma.$queryRaw`
-        SELECT p.id, p.name, COUNT(e.id)::int AS events
-        FROM "Project" p
-        LEFT JOIN "Event" e ON e."projectId" = p.id
-          AND e."createdAt" >= ${last24Hours}
-          AND e."eventType"::text <> 'CHECK_IN'
-        GROUP BY p.id, p.name
-        HAVING COUNT(e.id) > 0
-        ORDER BY events DESC
-        LIMIT 8
-      `,
-      prisma.event.findFirst({
-        where: nonCheckIn,
-        orderBy: { createdAt: 'asc' },
-        select: { createdAt: true },
-      }),
-      prisma.event.findFirst({
-        where: nonCheckIn,
-        orderBy: { createdAt: 'desc' },
-        select: { createdAt: true },
-      }),
+      safe(prisma.$queryRaw`SELECT pg_database_size(current_database())::bigint AS size`, [{ size: 0 }]),
+      safe(
+        prisma.$queryRaw`
+          SELECT
+            c.relname AS name,
+            pg_total_relation_size(c.oid)::bigint AS total_bytes,
+            pg_relation_size(c.oid)::bigint AS table_bytes,
+            (pg_total_relation_size(c.oid) - pg_relation_size(c.oid))::bigint AS index_bytes
+          FROM pg_class c
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'public'
+            AND c.relkind = 'r'
+          ORDER BY pg_total_relation_size(c.oid) DESC
+        `,
+        []
+      ),
+      safe(
+        prisma.$queryRaw`
+          SELECT date_trunc('hour', "createdAt") AS hour, COUNT(*)::int AS count
+          FROM "Event"
+          WHERE "createdAt" >= ${last24Hours}
+            AND "eventType"::text <> 'CHECK_IN'
+          GROUP BY 1
+          ORDER BY 1
+        `,
+        []
+      ),
+      safe(
+        prisma.$queryRaw`
+          SELECT "eventType"::text AS type, COUNT(*)::int AS count
+          FROM "Event"
+          WHERE "createdAt" >= ${last24Hours}
+          GROUP BY 1
+          ORDER BY count DESC
+        `,
+        []
+      ),
+      safe(
+        prisma.$queryRaw`
+          SELECT p.id, p.name, COUNT(e.id)::int AS events
+          FROM "Project" p
+          LEFT JOIN "Event" e ON e."projectId" = p.id
+            AND e."createdAt" >= ${last24Hours}
+            AND e."eventType"::text <> 'CHECK_IN'
+          GROUP BY p.id, p.name
+          HAVING COUNT(e.id) > 0
+          ORDER BY events DESC
+          LIMIT 8
+        `,
+        []
+      ),
+      // Avoid ORDER BY createdAt ASC on the whole Event table (can be huge)
+      safe(
+        prisma.$queryRaw`
+          SELECT MIN("createdAt") AS oldest, MAX("createdAt") AS newest
+          FROM "Event"
+          WHERE "eventType"::text <> 'CHECK_IN'
+        `,
+        [{ oldest: null, newest: null }]
+      ),
     ]);
+
+    const oldestEvent = eventSpanRows?.[0]?.oldest
+      ? { createdAt: eventSpanRows[0].oldest }
+      : null;
+    const newestEvent = eventSpanRows?.[0]?.newest
+      ? { createdAt: eventSpanRows[0].newest }
+      : null;
 
     const databaseBytes = num(dbSizeRows?.[0]?.size);
     const tables = (tableSizeRows || []).map((row) => ({

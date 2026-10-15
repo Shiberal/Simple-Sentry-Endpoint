@@ -30,12 +30,16 @@ export default async function handler(req, res) {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // First account on an empty install becomes site admin
+    const existingUsers = await prisma.user.count();
+
     // Create user
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        name: name || null
+        name: name || null,
+        isAdmin: existingUsers === 0,
       }
     });
 

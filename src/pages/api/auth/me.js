@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { parse } from 'cookie';
+import { ensureSiteAdmin } from '@/lib/site-admin';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -18,7 +19,7 @@ export default async function handler(req, res) {
     const sessionData = JSON.parse(session);
 
     // Get user from database
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: sessionData.userId },
       select: {
         id: true,
@@ -33,6 +34,8 @@ export default async function handler(req, res) {
     if (!user) {
       return res.status(200).json({ success: true, user: null });
     }
+
+    user = await ensureSiteAdmin(user);
 
     res.status(200).json({
       success: true,

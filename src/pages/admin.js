@@ -17,7 +17,7 @@ import styles from '@/styles/Admin.module.css';
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('insights');
   const { notifications, showNotification } = useNotifications(5000);
-  const { user, users, projects, insights, settings, loading, refresh } = useAdminData({ showNotification });
+  const { user, users, projects, insights, settings, loading, accessDenied, refresh } = useAdminData({ showNotification });
 
   const handleLogout = async () => {
     // The session cookie is HttpOnly, so only the server can clear it
@@ -32,6 +32,37 @@ export default function AdminPage() {
           <title>Admin - Sentry Monitor</title>
         </Head>
         <AdminPageSkeleton />
+      </>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <>
+        <Head>
+          <title>Admin - Sentry Monitor</title>
+        </Head>
+        <div className={styles.container}>
+          <div className={styles.content} style={{ maxWidth: 520, margin: '4rem auto', padding: '0 1rem' }}>
+            <h1 className={styles.sectionTitle}>Admin access required</h1>
+            <p className={styles.sectionSubtitle}>
+              Signed in as {user?.email || 'unknown'}, but this account is not a site admin.
+              Project ownership is separate from site admin.
+            </p>
+            <p className={styles.mutedText} style={{ marginTop: '1rem' }}>
+              If nobody has site admin yet, reload this page once — the first signed-in user is promoted automatically.
+              Or set <code>ADMIN_EMAIL</code> to your email and restart the server.
+            </p>
+            <div style={{ marginTop: '1.5rem', display: 'flex', gap: '0.75rem' }}>
+              <Link href="/dashboard">
+                <button type="button" className={styles.headerButton}>Back to dashboard</button>
+              </Link>
+              <button type="button" className={styles.headerButton} onClick={() => Router.reload()}>
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
       </>
     );
   }
@@ -118,8 +149,10 @@ export default function AdminPage() {
 
         <main className={styles.main}>
           <div className={styles.content}>
-            {activeTab === 'insights' && insights && (
-              <InsightsTab insights={insights} onRefresh={refresh} />
+            {activeTab === 'insights' && (
+              insights
+                ? <InsightsTab insights={insights} onRefresh={refresh} />
+                : <p className={styles.mutedText}>Loading insights…</p>
             )}
             {activeTab === 'users' && <UsersTab users={users} notify={showNotification} onChanged={refresh} />}
             {activeTab === 'projects' && (

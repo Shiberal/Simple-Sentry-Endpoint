@@ -1,5 +1,6 @@
 import prisma from '@/lib/prisma';
 import { parse } from 'cookie';
+import { ensureSiteAdmin } from '@/lib/site-admin';
 
 /**
  * Check if the current user is authenticated and is an admin
@@ -22,7 +23,7 @@ export async function checkAdminAuth(req) {
     const sessionData = JSON.parse(session);
     
     // Get user from database
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: sessionData.userId },
       select: {
         id: true,
@@ -37,6 +38,8 @@ export async function checkAdminAuth(req) {
       error.statusCode = 401;
       throw error;
     }
+
+    user = await ensureSiteAdmin(user);
 
     if (!user.isAdmin) {
       const error = new Error('Admin access required');
