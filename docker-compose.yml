@@ -1,23 +1,40 @@
-# EDT — one app: Hub at / on :3000 (Sentry + Monitor routes included)
+# EDT — Simple Sentry Endpoint (Hub at /hub). Same DATABASE_URL = same data as before.
 services:
   web:
     build: ./tools/SimpleSentryEndpoint
     ports:
       - "3000:3000"
+    env_file:
+      - path: .env
+        required: false
+      - path: tools/SimpleSentryEndpoint/.env
+        required: false
     environment:
       DATABASE_URL: ${DATABASE_URL}
       ENABLE_MONITOR_HTTP_PINGER: "false"
       ENABLE_PING_WORKER: "false"
+      DEBUG_FILES_DIR: ${DEBUG_FILES_DIR:-/app/data/debug-files}
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-https://f6316a1d09d57448f7bc3da188b2868b@error-sink.dev.agoracloud.it/2}
       SENTRY_DSN: ${SENTRY_DSN:-https://f6316a1d09d57448f7bc3da188b2868b@error-sink.dev.agoracloud.it/2}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+    volumes:
+      # Persist uploaded debug files across container rebuilds
+      - edt_debug_files:/app/data/debug-files
 
   ping-worker:
     build: ./tools/SimpleSentryEndpoint
     entrypoint: ["node", "scripts/monitor-ping-worker.mjs"]
+    env_file:
+      - path: .env
+        required: false
+      - path: tools/SimpleSentryEndpoint/.env
+        required: false
     environment:
       DATABASE_URL: ${DATABASE_URL}
       MONITOR_HTTP_PINGER_INTERVAL_MS: ${MONITOR_HTTP_PINGER_INTERVAL_MS:-60000}
     restart: unless-stopped
     depends_on:
       - web
+
+volumes:
+  edt_debug_files:

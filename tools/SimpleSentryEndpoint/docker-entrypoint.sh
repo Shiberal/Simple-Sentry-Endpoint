@@ -7,8 +7,10 @@ if [ -z "$DATABASE_URL" ]; then
   exit 1
 fi
 
-echo "Running database migrations..."
-npx prisma db push --accept-data-loss 
+# Never use `db push --accept-data-loss` here — that can destroy production data.
+# migrate deploy only applies pending migration files and leaves existing rows alone.
+echo "Applying Prisma migrations (migrate deploy)..."
+npx prisma migrate deploy
 
 echo "Database is ready!"
 

@@ -163,7 +163,7 @@ npm run prisma:studio            # Open a simple database browser
 
 ## Docker
 
-The Docker image runs `prisma db push` (with `--accept-data-loss`) on startup, then starts the app. You must set `DATABASE_URL`.
+The Docker image runs **`prisma migrate deploy`** on startup (additive migrations only — no `--accept-data-loss`). You must set `DATABASE_URL` to your **existing** Postgres URL so all prior data stays in place.
 
 ```bash
 docker build -t sentry-monitor .
@@ -179,9 +179,14 @@ docker run --rm \
   sentry-monitor scripts/monitor-ping-worker.mjs
 ```
 
-Or use `docker compose up` with the included `docker-compose.yml` (`web` + `ping-worker`).
+Or use `docker compose up` with the included `docker-compose.yml` (`web` + `ping-worker`). Compose mounts a volume for `data/debug-files` so symbol uploads survive rebuilds.
 
-`db push` syncs the schema to the database without using migration files. For production where you rely on migrations, prefer `npm run start:migrate` on a normal Node deployment instead of relying on `db push` in Docker unless you accept that tradeoff.
+## Preserving data (EDT move)
+
+- Keep the **same `DATABASE_URL`** you used before the monorepo layout. The schema did not reset; only the app path moved to `tools/SimpleSentryEndpoint`.
+- Root `.env` is still loaded (Next config + compose). You can also use `tools/SimpleSentryEndpoint/.env`.
+- Do **not** run `prisma db push --accept-data-loss` against production.
+- Uploaded debug files: set `DEBUG_FILES_DIR` or use the compose volume `*_debug_files`.
 
 ## npm scripts
 
