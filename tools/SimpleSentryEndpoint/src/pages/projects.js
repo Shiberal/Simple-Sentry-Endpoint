@@ -91,7 +91,7 @@ export default function ProjectsPage() {
     (async () => {
       const me = await fetch('/api/auth/me').then((res) => res.json()).catch(() => ({}));
       if (!me?.user) {
-        router.push('/login');
+        router.push('/?next=/projects');
         return;
       }
 
@@ -131,7 +131,7 @@ export default function ProjectsPage() {
   return (
     <>
       <Head>
-        <title>Projects - Sentry Monitor</title>
+        <title>Projects · EDT</title>
       </Head>
 
       <div className={shell.container}>

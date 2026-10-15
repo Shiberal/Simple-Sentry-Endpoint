@@ -7,6 +7,10 @@ import styles from '@/styles/Auth.module.css';
 
 export default function Login() {
   const router = useRouter();
+  const nextHref =
+    typeof router.query.next === 'string' && router.query.next.startsWith('/')
+      ? router.query.next
+      : '/hub/sentry';
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,11 +33,7 @@ export default function Login() {
         throw new Error(data.error || 'Login failed');
       }
 
-      const next =
-        typeof router.query.next === 'string' && router.query.next.startsWith('/')
-          ? router.query.next
-          : '/hub/sentry';
-      router.push(next);
+      router.push(nextHref);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -98,7 +98,14 @@ export default function Login() {
           <div className={styles.footer}>
             <p className={styles.footerText}>
               Don&apos;t have an account?{' '}
-              <Link href="/register" className={styles.link}>
+              <Link
+                href={
+                  nextHref === '/hub/sentry'
+                    ? '/register'
+                    : `/register?next=${encodeURIComponent(nextHref)}`
+                }
+                className={styles.link}
+              >
                 Sign up
               </Link>
             </p>
