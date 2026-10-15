@@ -1,10 +1,17 @@
-# EDT Hub
+# EDT Hub (main page)
 
-Web UI to use EDT tools in one place. Visual language matches SimpleSentryEndpoint (paper/graphite, teal accent, IBM Plex / Newsreader), with a tighter tool rail and embed workspace.
+Primary entry for EDT — `http://localhost:3000`.
 
 ```bash
-npm install
-npm run dev   # http://localhost:3100
+# from repo root
+npm run dev
+
+# or
+cd tools/Hub && npm run dev
 ```
 
-Requires the Sentry runtime on `:3000` for **Sentry + Performance** and **Monitor** embeds.
+Start the Sentry runtime on **:3001** so tool embeds work:
+
+```bash
+npm run dev:sentry
+```

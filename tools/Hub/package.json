@@ -4,9 +4,9 @@
   "private": true,
   "description": "EDT Hub — open Monitor, Sentry+Performance, and future tools in one place",
   "scripts": {
-    "dev": "next dev --turbopack -p 3100",
+    "dev": "next dev --turbopack -p 3000",
     "build": "next build",
-    "start": "next start -p 3100",
+    "start": "next start -p 3000",
     "lint": "eslint"
   },
   "dependencies": {

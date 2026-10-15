@@ -3,6 +3,6 @@
   "name": "EDT Hub",
   "kind": "shell",
   "package": "@edt/hub",
-  "defaultPort": 3100,
+  "defaultPort": 3000,
   "summary": "Launch and embed EDT tools from one place."
 }

@@ -2,9 +2,10 @@
  * EDT tool catalog. Each tool can run as its own deployable; Hub opens them
  * via base URL (iframe workspace or new tab).
  *
+ * Hub is the main page (:3000). Tools default to the Sentry runtime on :3001.
  * Override with env:
- *   NEXT_PUBLIC_TOOL_SENTRY_URL   (default http://localhost:3000)
- *   NEXT_PUBLIC_TOOL_MONITOR_URL  (default http://localhost:3000/monitors)
+ *   NEXT_PUBLIC_TOOL_SENTRY_URL   (default http://localhost:3001)
+ *   NEXT_PUBLIC_TOOL_MONITOR_URL  (default http://localhost:3001/monitors)
  */
 
 function envUrl(key, fallback) {
@@ -29,7 +30,7 @@ export const TOOLS = [
       { id: 'performance', label: 'Performance', path: '/performance' },
       { id: 'projects', label: 'Projects', path: '/projects' },
     ],
-    getBaseUrl: () => envUrl('NEXT_PUBLIC_TOOL_SENTRY_URL', 'http://localhost:3000'),
+    getBaseUrl: () => envUrl('NEXT_PUBLIC_TOOL_SENTRY_URL', 'http://localhost:3001'),
   },
   {
     id: 'monitor',
@@ -44,7 +45,7 @@ export const TOOLS = [
     actions: [
       { id: 'list', label: 'Monitors', path: '' },
     ],
-    getBaseUrl: () => envUrl('NEXT_PUBLIC_TOOL_MONITOR_URL', 'http://localhost:3000/monitors'),
+    getBaseUrl: () => envUrl('NEXT_PUBLIC_TOOL_MONITOR_URL', 'http://localhost:3001/monitors'),
   },
 ];
 

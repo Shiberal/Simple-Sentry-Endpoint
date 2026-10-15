@@ -9,12 +9,12 @@ Cron and HTTP uptime monitors — schedules, check-ins, ping URLs, incidents.
 ## Open it
 
 - From Hub: **Open in Hub** → Monitor  
-- Direct: `http://localhost:3000/monitors` (when SimpleSentryEndpoint is running)  
+- Direct: `http://localhost:3001/monitors` (when SimpleSentryEndpoint is running)  
 - Optional local launcher: `npm run dev` here (port **3002**) redirects into the runtime URL
 
 ```bash
 # .env
-MONITOR_RUNTIME_URL=http://localhost:3000/monitors
+MONITOR_RUNTIME_URL=http://localhost:3001/monitors
 ```
 
 ## Future

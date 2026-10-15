@@ -1,0 +1,32 @@
+# EDT — Hub is the main entry on :3000; Sentry runtime on :3001
+services:
+  hub:
+    build: ./tools/Hub
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_TOOL_SENTRY_URL: ${NEXT_PUBLIC_TOOL_SENTRY_URL:-http://localhost:3001}
+      NEXT_PUBLIC_TOOL_MONITOR_URL: ${NEXT_PUBLIC_TOOL_MONITOR_URL:-http://localhost:3001/monitors}
+
+  sentry:
+    build: ./tools/SimpleSentryEndpoint
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      EDT_HUB_ORIGIN: ${EDT_HUB_ORIGIN:-http://localhost:3000}
+      ENABLE_MONITOR_HTTP_PINGER: "false"
+      ENABLE_PING_WORKER: "false"
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-https://f6316a1d09d57448f7bc3da188b2868b@error-sink.dev.agoracloud.it/2}
+      SENTRY_DSN: ${SENTRY_DSN:-https://f6316a1d09d57448f7bc3da188b2868b@error-sink.dev.agoracloud.it/2}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+
+  ping-worker:
+    build: ./tools/SimpleSentryEndpoint
+    entrypoint: ["node", "scripts/monitor-ping-worker.mjs"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      MONITOR_HTTP_PINGER_INTERVAL_MS: ${MONITOR_HTTP_PINGER_INTERVAL_MS:-60000}
+    restart: unless-stopped
+    depends_on:
+      - sentry

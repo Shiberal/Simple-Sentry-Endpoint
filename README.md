@@ -1,44 +1,40 @@
 # EDT
 
-EDT is a toolbox of deployable tools. The **Hub** opens them in one place; each tool still has its own package under `tools/`.
+EDT is a toolbox of deployable tools. **Hub is the main page** (`http://localhost:3000`). Other tools run beside it and open from Hub.
 
 ## Tools
 
 | Tool | Path | Port | What it is |
 |------|------|------|------------|
-| **Hub** | [`tools/Hub`](tools/Hub) | 3100 | Web UI to launch / embed tools |
-| **Sentry + Performance** | [`tools/SimpleSentryEndpoint`](tools/SimpleSentryEndpoint) · catalog [`SentryPerformance`](tools/SentryPerformance) | 3000 | Error sink, issues, performance |
-| **Monitor** | [`tools/Monitor`](tools/Monitor) | 3002 → 3000/monitors | Cron / HTTP uptime monitors |
+| **Hub** (main) | [`tools/Hub`](tools/Hub) | **3000** | Web UI to launch / embed tools |
+| **Sentry + Performance** | [`tools/SimpleSentryEndpoint`](tools/SimpleSentryEndpoint) · catalog [`SentryPerformance`](tools/SentryPerformance) | 3001 | Error sink, issues, performance |
+| **Monitor** | [`tools/Monitor`](tools/Monitor) | 3002 → 3001/monitors | Cron / HTTP uptime monitors |
 
 ## Quick start
 
 ```bash
-# Terminal 1 — Sentry + Performance runtime (also serves /monitors today)
-cd tools/SimpleSentryEndpoint && npm install && npm run dev
+npm install
 
-# Terminal 2 — EDT Hub
-cd tools/Hub && npm install && npm run dev
-# → http://localhost:3100
+# Terminal 1 — main page (Hub)
+npm run dev
+# → http://localhost:3000
+
+# Terminal 2 — Sentry + Performance runtime (also serves /monitors)
+npm run dev:sentry
+# → http://localhost:3001
 ```
 
-From the repo root (after `npm install`):
+Optional Hub env (`tools/Hub/.env`):
 
 ```bash
-npm run dev:sentry   # :3000
-npm run dev:hub      # :3100
+NEXT_PUBLIC_TOOL_SENTRY_URL=http://localhost:3001
+NEXT_PUBLIC_TOOL_MONITOR_URL=http://localhost:3001/monitors
 ```
 
-Optional env for Hub:
+Allow Hub to iframe tools (on the Sentry app):
 
 ```bash
-NEXT_PUBLIC_TOOL_SENTRY_URL=http://localhost:3000
-NEXT_PUBLIC_TOOL_MONITOR_URL=http://localhost:3000/monitors
-```
-
-On the Sentry app, allow Hub to iframe it:
-
-```bash
-EDT_HUB_ORIGIN=http://localhost:3100
+EDT_HUB_ORIGIN=http://localhost:3000
 ```
 
 ## Layout
@@ -47,10 +43,10 @@ EDT_HUB_ORIGIN=http://localhost:3100
 EDT/
   PRODUCT.md / DESIGN.md
   tools/
-    Hub/                  # @edt/hub
-    Monitor/              # @edt/monitor (EDT identity + launcher)
+    Hub/                  # @edt/hub  ← main page :3000
+    Monitor/              # @edt/monitor
     SentryPerformance/    # catalog pointer
-    SimpleSentryEndpoint/ # @edt/simple-sentry-endpoint (runtime)
+    SimpleSentryEndpoint/ # @edt/simple-sentry-endpoint :3001
 ```
 
 ## Adding a tool

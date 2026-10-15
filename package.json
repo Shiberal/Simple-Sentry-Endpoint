@@ -9,6 +9,9 @@
     "tools/SimpleSentryEndpoint"
   ],
   "scripts": {
+    "dev": "npm run dev -w @edt/hub",
+    "start": "npm run start -w @edt/hub",
+    "build": "npm run build -w @edt/hub",
     "dev:hub": "npm run dev -w @edt/hub",
     "dev:sentry": "npm run dev -w @edt/simple-sentry-endpoint",
     "dev:monitor": "npm run dev -w @edt/monitor",
