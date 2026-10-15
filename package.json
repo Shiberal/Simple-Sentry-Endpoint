@@ -21,7 +21,7 @@
     "@sentry/nextjs": "^10.76.2",
     "bcryptjs": "^3.0.3",
     "cookie": "^1.0.2",
-    "lodash": "^4.17.23",
+    "lodash": "^4.18.1",
     "next": "^16.4.1",
     "nodemailer": "^7.0.9",
     "pg": "^8.16.3",
@@ -37,6 +37,12 @@
     "eslint-config-next": "^16.1.1"
   },
   "overrides": {
-    "effect": "^3.20.0"
+    "effect": "^3.20.0",
+    "deepmerge-ts": "^8.0.2",
+    "defu": "^6.1.7",
+    "picomatch": "^4.0.7",
+    "micromatch": {
+      "picomatch": "2.3.2"
+    }
   }
 }
