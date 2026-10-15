@@ -32,6 +32,9 @@ Create a `.env` file in the project root:
 |----------|----------|----------------|
 | `DATABASE_URL` | Yes | PostgreSQL URL, for example `postgresql://user:password@localhost:5432/sentry_monitor` |
 | `NEXT_PUBLIC_BASE_URL` | No | Public site URL (helps with DSNs and links), for example `https://errors.example.com` |
+| `NEXT_PUBLIC_SENTRY_DSN` / `SENTRY_DSN` | No | DSN for the monitor app to report its own errors (defaults to the Agoracloud error-sink project). Envelope form: `https://<host>/api/<project_id>/envelope` |
+| `SENTRY_ENVIRONMENT` | No | Tag for self-telemetry (defaults to `NODE_ENV`) |
+| `SENTRY_TRACES_SAMPLE_RATE` | No | Trace sample rate for self-telemetry (default `0.1`) |
 | `TELEGRAM_BOT_TOKEN` | No | Telegram bot token for notifications |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | No | Mail server settings for email alerts |
 | `EMAIL_FROM` | No | Sender address for mail (if omitted, `SMTP_USER` is used) |

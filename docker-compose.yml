@@ -8,6 +8,9 @@ services:
       ENABLE_MONITOR_HTTP_PINGER: "false"
       # The dedicated ping-worker service below runs the pings, so the web image must not start its own
       ENABLE_PING_WORKER: "false"
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-https://f6316a1d09d57448f7bc3da188b2868b@error-sink.dev.agoracloud.it/2}
+      SENTRY_DSN: ${SENTRY_DSN:-https://f6316a1d09d57448f7bc3da188b2868b@error-sink.dev.agoracloud.it/2}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
 
   ping-worker:
     build: .

@@ -1,52 +1,29 @@
-// Injected content via Sentry wizard below
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
   skipTrailingSlashRedirect: true,
-  productionBrowserSourceMaps: true
+  productionBrowserSourceMaps: true,
 };
 
 export default withSentryConfig(nextConfig, {
-  // For all available options, see:
-  // https://github.com/getsentry/sentry-webpack-plugin#options
-
-  org: "errline5",
-  project: "sentry-lstnr",
-
-  // Only print logs for uploading source maps in CI
+  // Source-map upload needs SENTRY_AUTH_TOKEN + org/project; without them the build still succeeds
+  org: process.env.SENTRY_ORG || undefined,
+  project: process.env.SENTRY_PROJECT || undefined,
   silent: !process.env.CI,
 
-  // For all available options, see:
-  // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+  // Browser events via same-origin tunnel (avoids ad-blockers), then forwarded to the DSN host
+  tunnelRoute: '/monitoring',
 
-  // Upload a larger set of source maps for prettier stack traces (increases build time)
   widenClientFileUpload: true,
-
-  // Route browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers.
-  // This can increase your server load as well as your hosting bill.
-  // Note: Check that the configured route will not match with your Next.js proxy, otherwise reporting of client-
-  // side errors will fail.
-  tunnelRoute: "/monitoring",
-
-  // Hides source maps from generated client bundles
   hideSourceMaps: false,
 
-  // Webpack configuration options
   webpack: {
-    // Automatically tree-shake Sentry logger statements to reduce bundle size
-    // Note: Not supported with Turbopack
     treeshake: {
-      removeDebugLogging: false,
+      removeDebugLogging: true,
     },
-    
-    // Enables automatic instrumentation of Vercel Cron Monitors. (Does not yet work with App Router route handlers.)
-    // See the following for more information:
-    // https://docs.sentry.io/product/crons/
-    // https://vercel.com/docs/cron-jobs
-    // Note: Not supported with Turbopack
     automaticVercelMonitors: false,
   },
 });
