@@ -10,7 +10,7 @@
     "test": "node --test --test-force-exit test/*.test.mjs"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.31.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "zod": "^3.25.0"
   }
 }
