@@ -4,8 +4,10 @@ import {
   persistTransactionEvent,
   persistCheckInEvent
 } from '@/lib/sentry-ingest-persist';
+import { isLogContainer, logContainerToEvents } from '@/lib/sentry-log';
 
 export function ingestKind(eventData) {
+  if (isLogContainer(eventData)) return 'log';
   if (eventData?.type === 'transaction') return 'transaction';
   if (eventData?.message && !eventData?.exception) return 'message';
   return 'error';
@@ -13,6 +15,16 @@ export function ingestKind(eventData) {
 
 export async function ingestPreparedEnvelopePayload(prisma, project, payload, tracker, req) {
   const kind = ingestKind(payload);
+  if (kind === 'log') {
+    // Callers should use ingestLogPayload; refuse to store the raw batch as one event
+    return {
+      skipped: true,
+      reason: 'use_log_ingest',
+      eventType: 'log',
+      event: null,
+      issue: null
+    };
+  }
   const prep = prepareEventForIngest(
     project,
     payload,
@@ -43,6 +55,50 @@ export async function ingestPreparedEnvelopePayload(prisma, project, payload, tr
     isNewIssue: r.isNewIssue,
     wasRegression: r.wasRegression
   };
+}
+
+/**
+ * Ingest a Sentry `log` envelope item (batch of structured log entries).
+ * Each entry becomes a MESSAGE event with contexts from typed attributes.
+ */
+export async function ingestLogPayload(prisma, project, payload, tracker, req, envelopeHeader = {}) {
+  const events = logContainerToEvents(payload, envelopeHeader);
+  if (events.length === 0) {
+    return [
+      {
+        skipped: true,
+        reason: 'empty_or_invalid_log_container',
+        eventType: 'log',
+        event: null,
+        issue: null
+      }
+    ];
+  }
+
+  const results = [];
+  for (const eventData of events) {
+    const prep = prepareEventForIngest(project, eventData, 'error');
+    if (prep.skipped) {
+      results.push({
+        skipped: true,
+        reason: prep.reason,
+        eventType: 'MESSAGE',
+        event: null,
+        issue: null
+      });
+      continue;
+    }
+    const r = await persistErrorLikeEvent(prisma, project, prep.data, tracker, req);
+    results.push({
+      skipped: false,
+      eventType: 'MESSAGE',
+      event: r.event,
+      issue: r.issue,
+      isNewIssue: r.isNewIssue,
+      wasRegression: r.wasRegression
+    });
+  }
+  return results;
 }
 
 export async function ingestCheckInPayload(prisma, project, payload, tracker) {
