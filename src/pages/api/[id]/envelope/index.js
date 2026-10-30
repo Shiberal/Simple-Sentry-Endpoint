@@ -6,9 +6,11 @@ import { parseSentryEnvelope } from '@/lib/envelope-parse';
 import {
   ingestPreparedEnvelopePayload,
   ingestCheckInPayload,
+  ingestLogPayload,
   ingestKind
 } from '@/lib/sentry-ingest';
 import { extractSentryKey } from '@/lib/sentry-ingest-auth';
+import { isLogContainer } from '@/lib/sentry-log';
 
 const gunzipAsync = promisify(gunzip);
 
@@ -135,6 +137,23 @@ export default async function handler(req, res) {
             Array.isArray(payload)
           )
             continue;
+
+          // Flutter / mobile SDKs: structured logs (type "log" or log-shaped container)
+          if (itemType === 'log' || isLogContainer(payload)) {
+            const logResults = await ingestLogPayload(
+              prisma,
+              project,
+              payload,
+              tracker,
+              req,
+              envelopeHeader
+            );
+            for (const r of logResults) {
+              if (!r.skipped) lastPayload = { message: true, _fromLog: true };
+              results.push({ ...r, itemType: 'log' });
+            }
+            continue;
+          }
 
           lastPayload = payload;
 
