@@ -12,6 +12,8 @@
   justify-content: center;
   z-index: var(--z-modal);
   padding: var(--space-4);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal {
@@ -21,7 +23,9 @@
   width: 100%;
   max-width: 480px;
   max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: var(--shadow-md);
 }
 

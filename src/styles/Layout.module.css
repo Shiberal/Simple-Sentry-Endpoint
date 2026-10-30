@@ -48,6 +48,7 @@
   max-width: 1600px;
   margin: 0 auto;
   flex: 1;
+  min-height: 0;
   width: 100%;
   overflow: hidden;
 }
@@ -85,6 +86,7 @@
 /* Content area */
 .content {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -92,17 +94,21 @@
 
 .contentWrapper {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 /* Centered content (for auth pages, etc) */
 .centeredContent {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
   background-color: var(--bg-secondary);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .centeredCard {
@@ -119,17 +125,22 @@
   display: grid;
   grid-template-columns: minmax(360px, 480px) 1fr;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 .listPanel {
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   border-right: 1px solid var(--border-primary);
   background-color: var(--bg-primary);
 }
 
 .detailPanel {
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background-color: var(--bg-primary);
 }
 

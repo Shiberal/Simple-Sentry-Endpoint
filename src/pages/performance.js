@@ -92,7 +92,7 @@ export default function PerformancePage() {
           </div>
         </header>
 
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <div className={shell.body}>
           {!sidebarCollapsed && (
             <PerformanceSidebar
               projects={projects}
@@ -120,12 +120,7 @@ export default function PerformancePage() {
               <Icon name={sidebarCollapsed ? 'chevronRight' : 'chevronLeft'} size={14} strokeWidth={2} />
             </button>
 
-            <div style={{
-              flex: 1,
-              overflowY: 'auto',
-              padding: 'var(--space-4)',
-              height: 'calc(100vh - 36px)'
-            }}>
+            <div className={shell.scrollMain} style={{ padding: 'var(--space-4)' }}>
               <PerformanceToolbar
                 viewMode={viewMode}
                 setViewMode={setViewMode}

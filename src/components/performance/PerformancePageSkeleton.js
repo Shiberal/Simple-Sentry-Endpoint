@@ -56,7 +56,7 @@ export default function PerformancePageSkeleton() {
           </div>
         </header>
 
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
+        <div className={shell.body}>
           <aside className={shell.sidebar} style={{ minWidth: 200 }}>
             <div className={shell.sidebarSection} style={{ padding: 'var(--space-3)' }}>
               <span className={`${sk.bone} ${sk.boneLine}`} style={{ width: '80%', marginBottom: 16 }} />

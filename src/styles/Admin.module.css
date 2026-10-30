@@ -145,6 +145,33 @@
   min-height: calc(100vh - 64px);
 }
 
+/* Inside AppNav shell — no fixed chrome offsets */
+.embedded {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.embeddedSidebar {
+  width: 240px;
+  flex-shrink: 0;
+  min-height: 0;
+  background-color: var(--bg-primary);
+  border-right: 1px solid var(--border-primary);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.embeddedMain {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--space-6);
+}
+
 /* Content section */
 .content {
   max-width: 1400px;
@@ -429,6 +456,7 @@
 /* Table */
 .tableContainer {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--border-primary);
   border-radius: var(--radius-lg);
   background-color: var(--bg-primary);
@@ -915,6 +943,31 @@
 
   .sidebar::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Embedded admin (inside AppNav): same tab-strip treatment */
+  .embedded {
+    flex-direction: column;
+  }
+
+  .embeddedSidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-primary);
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-shrink: 0;
+    scrollbar-width: none;
+  }
+
+  .embeddedSidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .embeddedMain {
+    flex: 1;
+    min-height: 0;
+    padding: var(--space-3);
   }
 
   .sidebarNav {
