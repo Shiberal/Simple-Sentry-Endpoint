@@ -21,6 +21,7 @@
   gap: var(--space-4);
   padding: var(--space-5) var(--space-6) var(--space-3);
   border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
 }
 
 .topTitle {
@@ -39,6 +40,7 @@
 
 .content {
   flex: 1;
+  min-height: 0;
   padding: var(--space-6);
   max-width: 960px;
   width: 100%;
@@ -181,6 +183,8 @@
     min-height: 0;
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .content {

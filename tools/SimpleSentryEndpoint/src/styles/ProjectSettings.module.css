@@ -36,7 +36,10 @@
 
 .main {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   padding: var(--space-3);
 }
 
@@ -127,6 +130,8 @@
   padding: var(--space-6);
   font-size: var(--font-xs);
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
   color: var(--text-primary);
   line-height: var(--leading-relaxed);
   font-family: monospace;

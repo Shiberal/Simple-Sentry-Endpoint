@@ -128,9 +128,8 @@ export default function ProfilePage() {
           </header>
 
           <div
+            className={shell.scrollMain}
             style={{
-              flex: 1,
-              overflowY: 'auto',
               display: 'flex',
               justifyContent: 'center',
               padding: 'var(--space-6) var(--space-4)',

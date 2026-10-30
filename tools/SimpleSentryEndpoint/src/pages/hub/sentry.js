@@ -429,7 +429,7 @@ export default function Dashboard() {
             </div>
           </header>
 
-          <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+          <div className={shell.body}>
             {!sidebarCollapsed && (
               <>
                 {isPhone && (
